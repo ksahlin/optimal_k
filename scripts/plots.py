@@ -25,6 +25,7 @@ class ResultContainer(object):
 
 
 def scatterplot(x_axis,y_axis,methods,outfolder):
+    
     for method in methods:
         print type(method.results)
         print x_axis, y_axis
