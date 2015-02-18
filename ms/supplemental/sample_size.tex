@@ -1,0 +1,64 @@
+\documentclass[a4paper,6pt]{article}
+
+
+\usepackage{url}
+\usepackage{color}
+\usepackage{subfig}
+\usepackage{url}
+\usepackage{graphicx}
+
+%%% BEGIN DOCUMENT
+\begin{document}
+
+\title{Sample size} 
+\author{Kristoffer Sahlin}
+\date{} % delete this line to display the current date
+\maketitle
+
+\section{Notes /thoughts}
+There is no way to be able to predict the actual E-size or N50 of an assembly unless you can examine and traverse the graph. This is because you need to know where the repeats that breaks the graph are occurring. Given the exact same repeat sizes and copy numbers, two different genomes can have two different E sizes for identical data just because the repeats are located in different locations with different distances between them. Given this, it suggests that it might also be difficult to predict the optimal e-size/ N50?? 
+
+\section{Adaptive sample size}
+Our objective function is average number of nodes in a unitig $\xi$. We want to bound the error of $\xi$ to at most $\delta_{\xi}$, \emph{i.e.} $\hat{\xi} = (1 + \delta_{\xi})\xi$, $\delta_{\xi}\in [-1,1]$. First we note that $\xi$ is obtained as 
+
+\begin{equation}
+\xi = \frac{p_e}{p_i/2}
+\end{equation}
+Where $p_e$ is the number of extremity nodes in the graph and $p_i$ is the number of internal (unary) nodes (each unitig has two extremity nodes, hence the division by two). The number of extremities and internal nodes follows binomial distribution, with true proportions $p_e$ and $p_i= 1-p_e$ respectively. In our sample, we only have either extremity or internal nodes, thus $p_e = n - p_i$ if n is our sample size and the absolute error of the sample $\delta_p$ will be the same for the two proportions. Let $\epsilon$ be the sampling error bound for these two proportions (note that if one of the quantities is underestimated, the other one is overestimated or vice versa), then
+
+\begin{equation}
+\epsilon = \pm z_{\alpha/2}\sqrt{\frac{\hat{p_e}(1 - \hat{p_e})}{n}}
+\end{equation}  
+which gives
+\begin{equation}
+n = (\frac{z_{\alpha/2}}{\epsilon})^2\hat{p_e}(1 - \hat{p_e}).
+\end{equation}  
+
+We have
+\begin{equation}
+\hat{\xi} = \frac{\hat{p_i}}{\hat{p_e}/2} = \frac{2(1 -\hat{ p_e})}{\hat{p_e}} = \frac{2(1 - p_e)(1-\delta{p})}{(1+\delta{p})p_e}
+\end{equation} 
+but we have $\hat{\xi} = (1 + \delta_{\xi})\xi$ so we can write (4) as 
+
+\begin{equation}
+(1 + \delta_{\xi})\xi = \frac{2(1 - p_e)(1-\delta{p})}{(1+\delta{p})p_e} \Rightarrow \\
+(1 + \delta_{\xi}) = \frac{(1-\delta{p})}{(1+\delta_{p})} 
+\end{equation} 
+This gives
+\begin{equation}
+\delta_{p} = \frac{\delta_{\xi}}{2+\delta_{\xi}} 
+\end{equation} 
+Given a fixed value of $\delta_{\xi}$, that is a fixed maximum procent of $\xi$ with a 95\% confidence, we have $\delta_{p}$ as the maximum procent of error we can tolerate for $p_e$. The procent is fixed.
+ 
+We now use (3) and let $\epsilon =\delta_{p}\hat{p_e}$. $\epsilon$ is then interpreted as the size of the maximum error we can tolerate given that we want to bound the error of $\hat{\xi}$ to $\delta_{\xi}$. Notice that the smaller $p_e$ is, the smaller $\epsilon$ gets, and thus, the larger the sample size needed according to (3).
+
+\paragraph{Adaptive sample size}
+To adapt our sample size across k, we initialize $p_{e}$ and and get a corresponding sample size. As we switch from $k$ to $k+1$, we let 
+ 
+\begin{equation}
+n_{k+1} = (\frac{z_{\alpha/2}}{\epsilon_{k+1}})^2\hat{p_e{_k}}(1 - \hat{p_e{_k}}).
+\end{equation} 
+Where $\epsilon_{k+1} = \delta_k\hat{p_{ek}} $. This means that the relative error of $p_e$ for $k+1$ is predicted by the previous 
+\section{Esitmate $p_e$ and $p_i$ by weighted sampling}
+
+\end{document}
