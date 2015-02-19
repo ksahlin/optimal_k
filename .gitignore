@@ -1,3 +1,4 @@
 src/bin/
 src/rlcsa/*.o
 src/rlcsa/*.a
+Unitiger/bin/
