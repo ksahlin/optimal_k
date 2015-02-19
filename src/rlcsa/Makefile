@@ -16,7 +16,7 @@ VECTOR_FLAGS = $(PSI_FLAGS) $(LCP_FLAGS) $(SA_FLAGS)
 # LCP_FLAGS = -DSUCCINCT_LCP_VECTOR
 # SA_FLAGS = -DSUCCINCT_SA_VECTOR
 
-CXXFLAGS = -Wall -O3 -std=c++11 $(SIZE_FLAGS) $(PARALLEL_FLAGS) $(VECTOR_FLAGS)
+CXXFLAGS = -Wall -O3 -std=c++0x $(SIZE_FLAGS) $(PARALLEL_FLAGS) $(VECTOR_FLAGS)
 OBJS = rlcsa.o rlcsa_builder.o sasamples.o alphabet.o \
 lcpsamples.o sampler.o suffixarray.o adaptive_samples.o docarray.o \
 bits/array.o bits/bitbuffer.o bits/multiarray.o bits/bitvector.o bits/deltavector.o \
