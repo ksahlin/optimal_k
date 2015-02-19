@@ -6,6 +6,7 @@
 \usepackage{subfig}
 \usepackage{url}
 \usepackage{graphicx}
+\usepackage{amsmath}
 
 %%% BEGIN DOCUMENT
 \begin{document}
@@ -16,7 +17,125 @@
 \maketitle
 
 \section{Abstract}
-We present a tool for fast and accurate estimations of graph metrics such as average unitig length, N50 and E-size for all combinations of minimum abundance and $k$. 
+Motivation: There is no clear way on how to chose parameters k-mer size and abundance for a De Bruijn based de novo assembler. As \emph{de novo} genome assembly is time consuming for large genomes, it is of importance to chose these parameters well in order to prevent multiple runs. Current software for estimating $k$ only optimize certain features such as maximizing the number of genomic k-mers. There is a need for more clear objectives such as E-size or N50.
+
+Results:
+We provide a method (optimal\_k) to estimate average unitig length, N50 and E-size for all combinations of minimum abundance and $k$ in one run. As unitigs are a foundation of the de Bruijn graph, estimating these quantities provides an understanding of the quality of a DBG based genome assembly as well as a good base for chosing the best combination of $k$ and abundance. The estimations obtained by optimal\_k are extremely accurate. [We also note that these estimations also accurately predict the best quality for DBG based assemblers that perform more steps such as tip removals, bubble popping and usage of paried end read information. ]
+
+\section{Introduction} % (fold)
+\label{sec:introduction}
+
+{ \color{red} Mention that there are not many tools for computing optimal parameters at all. And make sure to mention that memry is not the issue. Mention the positives about our methods like speed and clear objective function but make sure to mention that it's memory requiring but thats not a problem if you are going to do the assembly anyway!!}
+% section introduction (end)
+
+\section{Methods} % (fold)
+\label{sec:methods}
+
+The general idea is to provide the user with metrics such as unitigs N50 and E-Size and average number of genomic vertices in a DBG  for all possible k-mer sizes and abundances. {\color{red} We implement a FM-index data structure described in cite XX. This allows us to query a k-mer, its in and out neighbors in O() time. }  We furthermore derive formulas for how much we need to sample in order to reach a given accuracy on all our estimates. 
+
+We let $\mathcal{K}_k$ be the multiset of all k-mers in the reads, that is $\mathcal{K}_k = n(r-k+1)$ if $n$ is the number of reads and $r$ is the read length. Let $\mathcal{G}_{k,a}$ be the DBG with vertices of length $k$ that has an abundance $\geq a$.
+
+\subsection{Algorithm} % (fold)
+\label{sub:algorithm}
+
+% subsection algorithm (end)
+
+\subsection{Sampling accuracy}
+
+In this section we will derive the sample sizes required to get accurate estimations of the quantities that we want to estimate. We will introduce the theory in \ref{ssub:theory} and show how it applies to our quantities in \ref{sub:application}. 
 
 
+\subsubsection{Theory} % (fold)
+\label{ssub:theory}
+
+
+\subparagraph{Sample proportion - absolute error} % (fold)
+\label{subp:sample_proportion}
+The $100(1-\alpha)\%$ confidence interval of a proportion estimate $\hat{p}$ is 
+\begin{equation*}
+	[\hat{p} - z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}}, \hat{p} + z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} ].
+\end{equation*}
+The margin of error $\epsilon$ is then
+\begin{equation*}
+	\epsilon = z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}},
+\end{equation*}
+That is, we can obtain the sample size required for this margin or error as 
+\begin{equation}
+	n = (\frac{z_{\frac{\alpha}{2}}}{\epsilon})^2\hat{p}(1-\hat{p}).
+\end{equation}
+
+% subparagraph sample_proportion (end)
+
+\subparagraph{Sample proportion - relative error} % (fold)
+\label{subp:sample_proportion_relative_error}
+If we want the relative error of $\hat{p}$ to be bounded by $\epsilon_r$, \emph{i.e.} $\frac{|\hat{p} -p|}{p} \leq \epsilon_r$, we can write 
+\begin{equation}
+\label{eqn:relative_error}
+	\frac{|\hat{p} -p|}{p} = \frac{|(1\pm\epsilon)p-p|}{p} = \frac{\epsilon}{p} \leq \epsilon_r
+\end{equation}
+
+% subparagraph sample_proportion_relative_error (end)
+
+\subparagraph{Fraction of sample proportions} % (fold)
+\label{subp:fraction_of_proportions}
+Say we want to have a $100(1-\alpha)\%$ confidence interval of the fraction of two proportions $f =\frac{p}{1-p}$ that makes up the entire set (\emph{i.e.} $p + 1-p = 1$). We get the estimate of $f$ as
+
+\begin{equation*}
+ 	\hat{f} = \frac{\hat{p}}{(1-\hat{p})}.
+\end{equation*} 
+Let the sample error of $f$ be denoted by $\epsilon_f$. Since we can write $\hat{p} = (1 \pm \epsilon)p$ and $\hat{f} = (1 \pm \epsilon)f$, we have
+\begin{equation*}
+ 	(1\pm \epsilon_f) = \frac{(1\pm \epsilon)(1-p)}{(1\pm \epsilon)p}. 
+ \end{equation*} 
+Notice that the margin of error increases as $p$ decreases. Fixing $p$, the error of $f$ is maximized by  
+\begin{equation*}
+ 	(1\pm \epsilon_f) = \frac{(1 + \epsilon)(1-p)}{(1- \epsilon)p}. 
+ \end{equation*} 
+ Finally, since we sample $p$, we solve this equation for $\epsilon$ and get
+\begin{equation}
+ 	\epsilon = \frac{\epsilon_f}{2 + \epsilon_f}. 
+ \end{equation}
+With the above equation, we now have a way to see what margin of error $\epsilon$ we require to arrive at a fixed margin of error of $f$. That is, if we want to have at most 10\% error of our estimate $\hat{f}$, we need to have a sample size that calculated from letting $\epsilon = \frac{0.1}{2 + 0.1}$.
+% subparagraph fraction_of_proportions (end)
+
+% subsubsection theory (end)
+
+
+\subsubsection{Application to sampling DBGs} % (fold)
+\label{sub:application_to_sampling_db_graphs}
+We will use the theory in~\ref{ssub:theory} to get accurate sample estimates of the desired quantities. 
+\subparagraph{Estimating the number of nodes in a DBG} % (fold)
+\label{subp:estimating_the_number_of_nodes_in_a_db_graph}
+Let $X$ be the set of k-mers included in $\mathcal{G}_{k,a}$. That is, $X = \sum_{k\in \mathcal{K}_k} \frac{1}{a_k}I_{k\geq a}$ where $I$ is the indicator function. The (multi)set of k-mers that are members of $X$ and it's complement partitions $\mathcal{K}$. The true proportion $p_k$ of $X$ in $\mathcal{K}_k$ is given by
+\begin{equation}
+	p_k = \frac{\sum_{k\in \mathcal{K}_k} \frac{1}{a_k}I_{k\geq a} }{ \sum_{k\in \mathcal{K}_k} }
+\end{equation}
+ We can estimate $p_k$ with sampling k-mers $k_i, i\in[1,m]$ as
+\begin{equation}
+	\hat{p_k} = \frac{\sum_{i = 1}^m \frac{1}{a_{k_i}}I_{{k_i}\geq a} } { m}
+\end{equation}
+
+ Thus, we get an estimate of $X$ as $\hat{X} = \hat{p_k}*\mathcal{K}$.  By the theory in~\ref{subp:sample_proportion}, we immediately get how many samples we need to bound the relative error. 
+
+% subparagraph estimating_the_number_of_nodes_in_a_db_graph (end)
+
+\subparagraph{Estimating the average number of nodes in a DBG} % (fold)
+\label{subp:estimating_the_average_number_of_nodes_in_a_dbg}
+ Note that we get the number of unitigs in a graph by counting all the start vertices and their outdegree. Let $X_s$ be the number of start nodes in $\mathcal{G}$. We also label all ot in the DBG is given We now divide the set $X$ into $Y$ be the number of internal vertices in the DBG. An internal vertex in a vertex that... 
+
+% subparagraph estimating_the_average_number_of_nodes_in_a_dbg (end)
+
+% subsection application_to_sampling_db_graphs (end)
+
+% section methods (end)
+
+\section{Results and discussion} % (fold)
+\label{sec:results_and_discussion}
+
+% section results_and_discussion (end)
+
+\section{Conclusions} % (fold)
+\label{sec:conclusions}
+
+% section conclusions (end)
 \end{document}
