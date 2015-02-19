@@ -293,6 +293,8 @@ int main(int argc, char** argv)
 	int opt_index = 0;
 	N_THREADS;
     int opt;
+    int mink;
+    int maxk;
     uint64_t char_count;
     uchar *data = NULL;
     string readFileName, outputFileName;
@@ -327,6 +329,8 @@ int main(int argc, char** argv)
 	// parser.add_option("-k", "--kmersize") .type("int") .dest("k") .action("store") .set_default(31) .help("kmer size (default: %default)");
 	parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");
 	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(8) .help("number of threads, in [1..16] (default: %default)");
+	parser.add_option("-k", "--mink") .type("int") .dest("k") .action("store") .set_default(5) .help("minimum kmer size to try (default: %default)");
+	parser.add_option("-K", "--maxk") .type("int") .dest("K") .action("store") .set_default(85) .help("maximum kmer sizeto try (default: %default)");
 
 	
 	optparse::Values& options = parser.parse_args(argc, argv);
@@ -335,6 +339,8 @@ int main(int argc, char** argv)
 	outputFileName = (string) options.get("o");
 	// kmersize = (size_t) options.get("k");
 	abundance = (int) options.get("a");
+	mink = (int) options.get("k");
+	maxk = (int) options.get("K");
 	N_THREADS = (int) options.get("t");
 
 	if (outputFileName == "")
@@ -398,7 +404,7 @@ int main(int argc, char** argv)
     outputFile.open(outputFileName);
     outputFile << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
 
- 	for (int kk = 15; kk <= 85; kk++)
+ 	for (int kk = mink; kk <= maxk; kk++)
  	{
  		double n_internal, n_starts;
  		uint64_t n_nodes;
