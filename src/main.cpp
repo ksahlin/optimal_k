@@ -167,6 +167,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	uint64_t sampled_so_far = 0;
 
 	double kmers_above_abundance = 0;
+	double kmers_below_abundance = 0;
 	uint64_t kmers_tried = 0;
 	uint64_t total_kmers = reads.size() * (reads[0].length() - k + 1);
 	double n_internal_local = 0;
@@ -190,9 +191,6 @@ void sample_nodes(const RLCSA* rlcsa,
 	#pragma omp parallel for shared(n_internal_local,n_starts_local,sampled_enough,sampled_so_far) num_threads(N_THREADS)
 	for (int i = 0; i < n_reads; i++)
 	{
-		// this code is kind of a hack, maybe it can be improved
-		// also, it is not guaranteed that reads are selected randomly
-		
 		#pragma omp flush (sampled_enough)
 		if (!sampled_enough)
 		{
@@ -221,48 +219,49 @@ void sample_nodes(const RLCSA* rlcsa,
 	        #pragma omp atomic
 	        kmers_tried++;
 
-	        size_t foundN = sample.find('N');
-	        if (foundN == std::string::npos) // if sample contains no N
-	        {
-	        	int sample_abundance = calc_abundance(rlcsa, sample);
-	        	assert(sample_abundance > 0);
+        	int sample_abundance = calc_abundance(rlcsa, sample);
+        	assert(sample_abundance > 0);
 
-	        	if (sample_abundance >= abundance)
-	        	{
-	        		double sample_weight = 1 / (double)sample_abundance;
-	        		int in_degree, out_degree;
-	        		get_in_out_degrees(sample,rlcsa,abundance,in_degree,out_degree);
+        	if ((sample_abundance >= abundance) and (sample.find('N') == string::npos))
+        	// the sample (the current kmer) has enough abundance and 
+        	// does not contain N
+        	{
+        		double sample_weight = 1 / (double)sample_abundance;
+        		int in_degree, out_degree;
+        		get_in_out_degrees(sample,rlcsa,abundance,in_degree,out_degree);
 
-	        		//#pragma omp critical
-	        		// above line not needed anymore thanks to #pragma omp atomic
-	        		{
-	        			#pragma omp atomic
-	        			kmers_above_abundance += 1 * sample_weight;
+    			#pragma omp atomic
+    			kmers_above_abundance += 1 * sample_weight;
 
-	        			if ((out_degree == 1) and (in_degree == 1)) // is internal
-		            	{
-		            		#pragma omp atomic
-		            		n_internal_local += 1 * sample_weight;
-		            	}
+    			if ((out_degree == 1) and (in_degree == 1)) // is internal
+            	{
+            		#pragma omp atomic
+            		n_internal_local += 1 * sample_weight;
+            		#pragma omp atomic
+            	   	sampled_so_far++;
+            	}
 
-		            	if ((out_degree > 1) or ((out_degree == 1) and (in_degree != 1))) // is start of some unitigs
-		            	{
-		            		#pragma omp atomic
-		            		n_starts_local += 1 * sample_weight * out_degree;
-		            	}
+            	if ((out_degree > 1) or ((out_degree == 1) and (in_degree != 1))) // is start of some unitigs
+            	{
+            		#pragma omp atomic
+            		n_starts_local += 1 * sample_weight * out_degree;
+            		#pragma omp atomic
+            		sampled_so_far++;	
+            	}
 
-		            	if ((out_degree == 0) and (in_degree == 0)) // is isolated node
-		            	{
-		            		#pragma omp atomic
-		            		n_starts_local += 1 * sample_weight;
-		            	}
-
-		            	// update this only when you sample an internal or start node
-		            	#pragma omp atomic
-		            	sampled_so_far++;
-	        		}
-	        	}
-	        }
+            	if ((out_degree == 0) and (in_degree == 0)) // is isolated node
+            	{
+            		#pragma omp atomic
+            		n_starts_local += 1 * sample_weight;	
+            		#pragma omp atomic
+            		sampled_so_far++;
+            	}
+        	}
+        	else
+        	{
+        		#pragma omp atomic
+        		kmers_below_abundance += 1 / (double)sample_abundance;
+        	}
     	}
 	}
 	
@@ -275,8 +274,9 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	n_internal = n_internal_local;
 	n_starts = n_starts_local;
-	n_nodes = (total_kmers / (double)kmers_tried) * (double)kmers_above_abundance;
-
+	// this should be correct, but it doesn't give the right estimates
+	// n_nodes = total_kmers * kmers_above_abundance / (double)(kmers_above_abundance + kmers_below_abundance);
+	n_nodes = total_kmers / kmers_tried * kmers_above_abundance;
 }
 
 uint64_t get_sample_size(const double &prop_external_k, 
