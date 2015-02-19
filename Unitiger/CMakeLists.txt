@@ -11,13 +11,13 @@ IF (CMAKE_COMPILER_IS_GNUXX)
   SET(CMAKE_REQUIRED_FLAGS "-std=c++0x")
 ENDIF(CMAKE_COMPILER_IS_GNUXX)
 
-CHECK_CXX_SOURCE_COMPILES(
-"int main(int argc, char *args[])
-{
-int ret=0;
-return ([&ret]() -> int { return ret; })();
-}
-" CXX_HAS_LAMBDA)
+#CHECK_CXX_SOURCE_COMPILES(
+#"int main(int argc, char *args[])
+#{
+#int ret=0;
+#return ([&ret]() -> int { return ret; })();
+#}
+#" CXX_HAS_LAMBDA)
 
 #IF (NOT CXX_HAS_LAMBDA)
 #  MESSAGE (FATAL_ERROR "Lambda expressions not available. Use a newer C++ compiler (e.g. GCC Version 4.5 or greater)")
