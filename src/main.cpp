@@ -1,5 +1,3 @@
-// g++ -Wall -O3 -std=c++0x -DMASSIVE_DATA_RLCSA -o main main.cpp rlcsa/rlcsa.a
-
 #include <fstream>
 #include <iostream>
 #include <vector>
@@ -10,7 +8,7 @@
 #include <omp.h>
 #include <algorithm>
 
-#include "rlcsa/rlcsa.h"
+#include "../bin/rlcsa/rlcsa.h"
 #include "OptionParser.h"
 
 using namespace CSA;
