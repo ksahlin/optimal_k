@@ -25,34 +25,33 @@ class ResultContainer(object):
 
 
 def scatterplot(x_axis,y_axis,methods,outfolder):
-    
     for method in methods:
-        print type(method.results)
-        print x_axis, y_axis
-        try:
-            ax = method.results.plot( x=x_axis, y=y_axis)
-        except AttributeError:
-            print 'Skipping to plot x_axis:{0} to y_axis:{1} due to ValueError. \
-            probably because csv column contains ".". This is expected for e.g. "estiamator". '.format(x_axis,y_axis)
-            return
+        # print type(method.results)
+        # print x_axis, y_axis
         # try:
-        #     plt.plot(method.results[x_axis], method.results[y_axis], '-', label=method.name )
-        # except ValueError:
+        #     ax = method.results.plot( x=x_axis, y=y_axis)
+        # except AttributeError:
         #     print 'Skipping to plot x_axis:{0} to y_axis:{1} due to ValueError. \
         #     probably because csv column contains ".". This is expected for e.g. "estiamator". '.format(x_axis,y_axis)
+        #     return
+        try:
+            plt.plot(method.results[x_axis], method.results[y_axis], '-', label=method.name )
+        except ValueError:
+            print 'Skipping to plot x_axis:{0} to y_axis:{1} due to ValueError. \
+            probably because csv column contains ".". This is expected for e.g. "estiamator". '.format(x_axis,y_axis)
 
-    fig = ax.get_figure()
-    fig.savefig(os.path.join(outfolder,'x_axis='+x_axis+',y_axis='+y_axis))
+    # fig = ax.get_figure()
+    # fig.savefig(os.path.join(outfolder,'x_axis='+x_axis+',y_axis='+y_axis))
 
-    # plt.ylabel(y_axis)
-    # plt.xlabel(x_axis)
-    # title = ""
-    # plt.title(title)
-    # plt.legend( )
-    # plt.grid()
-    # plt.savefig(os.path.join(outfolder,'x_axis='+x_axis+',y_axis='+y_axis))
-    # plt.close()
-    # plt.clf()
+    plt.ylabel(y_axis)
+    plt.xlabel(x_axis)
+    title = ""
+    plt.title(title)
+    plt.legend( )
+    plt.grid()
+    plt.savefig(os.path.join(outfolder,'x_axis='+x_axis+',y_axis='+y_axis))
+    plt.close()
+    plt.clf()
 
 def histogram():
     pass
