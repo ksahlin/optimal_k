@@ -7,24 +7,18 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unordered_set>
+#include <omp.h>
+#include <algorithm>
 
 #include "rlcsa/rlcsa.h"
+#include "OptionParser.h"
 
 using namespace CSA;
 using namespace std;
 
 #define twosided95p_quantile 1.96
-#define N_THREADS
 
-const char *short_options = "r:b:l:";
-
-static struct option long_options[] = {
-// general options
-{"readfile",				required_argument,		 0,			 'r'},
-{"buildindex",				optional_argument,		 0,			 'b'},
-{"loadindex",				optional_argument,		 0,			 'l'},
-{0, 0, 0, 0}
-};
+int N_THREADS;
 
 char reverse_complement_char(char c)
 {
@@ -47,6 +41,14 @@ string reverse_complement(string& s)
     return reverse;
 }
 
+inline int calc_abundance(const RLCSA* rlcsa, 
+	const string& sample
+	)
+{
+	pair_type result = rlcsa->count(sample);
+	return length(result);
+}
+
 void get_in_out_degrees(const string& node, 
 	const RLCSA* rlcsa, 
 	const int abundance,
@@ -62,8 +64,7 @@ void get_in_out_degrees(const string& node,
 	for (auto nucl : {'A','C','G','T'})
 	{
 		neighbor = nucl + node.substr(0,node.length()-1);
-		result = rlcsa->count(neighbor);
-	 	if (length(result) >= abundance)
+	 	if (calc_abundance(rlcsa,neighbor) >= abundance)
 	 	{
 	 		in_degree++;
 	 	}
@@ -72,22 +73,12 @@ void get_in_out_degrees(const string& node,
 	for (auto nucl : {'A','C','G','T'})
 	{
 		neighbor = node.substr(1,node.length()-1) + nucl;
-		result = rlcsa->count(neighbor);
-		if (length(result) >= abundance)
+		if (calc_abundance(rlcsa,neighbor) >= abundance)
 		{
 			out_degree++;
 		}
 	}
   
-}
-
-int calc_abundance(const RLCSA* rlcsa, 
-	const string& sample, 
-	const int abundance
-	)
-{
-	pair_type result = rlcsa->count(sample);
-	return length(result);
 }
 
 int get_reads(const string readFileName, 
@@ -104,6 +95,7 @@ int get_reads(const string readFileName,
 	   	{
 	    	getline(readFile , line); // the actual read
 	    	reads.push_back(line);
+	    	//reads.push_back(reverse_complement(line));
 	    	assert(getline(readFile , line)); // the +/- sign
 	    	assert(getline(readFile , line)); // the quality values
 	   	}
@@ -164,80 +156,128 @@ int get_data_for_rlcsa(const string& readFileName,
    	return EXIT_SUCCESS;
 }
 
-void sample_internal_nodes(const RLCSA* rlcsa, 
+void sample_nodes(const RLCSA* rlcsa, 
 	const int k,
 	const int abundance,
 	vector<string>& reads,
 	const int sample_size,
 	double &n_internal,
-	double &n_starts
+	double &n_starts,
+	uint64_t &n_nodes
 	)
 {
-	double sample_proportion = 0.9;
-
 	uint64_t sampled_so_far = 0;
-	uint64_t i = 0;
-	string read;
-	string sample;
 
-	n_internal = 0;
-	n_starts = 0;
+	double kmers_above_abundance = 0;
+	uint64_t kmers_tried = 0;
+	uint64_t total_kmers = reads.size() * (reads[0].length() - k + 1);
+	double n_internal_local = 0;
+	double n_starts_local = 0;
 
-	while (sampled_so_far < sample_size)
+	int n_reads = reads.size();
+	vector<int> shuffle_vector;
+	bool sampled_enough = false;
+
+	int n_rejected_N = 0;
+
+	// create a random permutation of [0..n_reads-1]
+	for (int i = 0; i < n_reads; i++)
 	{
-		//cout << i << endl;
-		if (rand() / (double)RAND_MAX < sample_proportion)
+		shuffle_vector.push_back(i);
+	}
+	std::random_shuffle(shuffle_vector.begin(), shuffle_vector.end());
+
+	
+	// omp_set_dynamic(0);
+	#pragma omp parallel for shared(n_internal_local,n_starts_local,sampled_enough,sampled_so_far) num_threads(N_THREADS)
+	for (int i = 0; i < n_reads; i++)
+	{
+		// this code is kind of a hack, maybe it can be improved
+		// also, it is not guaranteed that reads are selected randomly
+		
+		#pragma omp flush (sampled_enough)
+		if (!sampled_enough)
 		{
+			//#pragma omp critical
+			{
+				if (sampled_so_far >= sample_size)
+				{
+					sampled_enough = true;	
+				}
+			}
+			
+			string read;
+			string sample;
+
+			read = reads[shuffle_vector[i]];
+
+			// MAKE SURE THIS IS OK!
 			if (rand() / (double)RAND_MAX < 0.5)
 			{
-				read = reads[i];
+				read = reverse_complement(read);
 			}
-			else
-			{
-				read = reverse_complement(reads[i]);
-			}
+
 			int pos = rand() % (read.length() - k + 1);
-            sample = read.substr(pos,k);
+	        sample = read.substr(pos,k);
 
-            size_t foundN = sample.find('N');
-            if (foundN == std::string::npos)
-            {
-            	int sample_abundance = calc_abundance(rlcsa, sample, abundance);
-            	assert(sample_abundance > 0);
+	        #pragma omp atomic
+	        kmers_tried++;
 
-            	if (sample_abundance >= abundance)
-            	{
-            		double sample_weight = 1 / (double)sample_abundance;
-            		int in_degree, out_degree;
-            		get_in_out_degrees(sample,rlcsa,abundance,in_degree,out_degree);
+	        size_t foundN = sample.find('N');
+	        if (foundN == std::string::npos) // if sample contains no N
+	        {
+	        	int sample_abundance = calc_abundance(rlcsa, sample);
+	        	assert(sample_abundance > 0);
 
-            		if ((in_degree == 1) and (out_degree == 1)) // is internal
-	            	{
-	            		n_internal += 1 * sample_weight;
-	            	}
-	            	
+	        	if (sample_abundance >= abundance)
+	        	{
+	        		double sample_weight = 1 / (double)sample_abundance;
+	        		int in_degree, out_degree;
+	        		get_in_out_degrees(sample,rlcsa,abundance,in_degree,out_degree);
 
-	            	if (out_degree > 1) // is start of some unitigs
-	            	{
-	            		n_starts += 1 * sample_weight * out_degree;
-	            	}
-	            	sampled_so_far++;
-            	}
-            }
-		}
-		i++;
-		if (i >= reads.size())
-		{
-			cout << "Reached end of reads" << endl;
-			return;
-		}
+	        		//#pragma omp critical
+	        		// above line not needed anymore thanks to #pragma omp atomic
+	        		{
+	        			#pragma omp atomic
+	        			kmers_above_abundance += 1 * sample_weight;
+
+	        			if ((out_degree == 1) and (in_degree == 1)) // is internal
+		            	{
+		            		#pragma omp atomic
+		            		n_internal_local += 1 * sample_weight;
+		            	}
+
+		            	if ((out_degree > 1) or ((out_degree == 1) and (in_degree != 1))) // is start of some unitigs
+		            	{
+		            		#pragma omp atomic
+		            		n_starts_local += 1 * sample_weight * out_degree;
+		            	}
+
+		            	if ((out_degree == 0) and (in_degree == 0)) // is isolated node
+		            	{
+		            		#pragma omp atomic
+		            		n_starts_local += 1 * sample_weight;
+		            	}
+
+		            	// update this only when you sample an internal or start node
+		            	#pragma omp atomic
+		            	sampled_so_far++;
+	        		}
+	        	}
+	        }
+    	}
 	}
 	
-	// cout << "Collected " << sampled_so_far << " samples" << endl;
-	// cout << "Found " << n_internal << " internal nodes" << endl;
-	// cout << "Found " << n_non_internal << " non internal nodes" << endl;
+	if (not sampled_enough)
+	{
+		cout << "I sampled only " << sampled_so_far << " out of the " << sample_size << " needed."<< endl;
+	}
 
-	//return n_internal / (double)(n_non_internal / 2);
+	//cout << "sampled_so_far" << sampled_so_far << endl;
+
+	n_internal = n_internal_local;
+	n_starts = n_starts_local;
+	n_nodes = (total_kmers / (double)kmers_tried) * (double)kmers_above_abundance;
 
 }
 
@@ -253,46 +293,55 @@ uint64_t get_sample_size(const double &prop_external_k,
 int main(int argc, char** argv)
 {
 	int opt_index = 0;
+	N_THREADS;
     int opt;
     uint64_t char_count;
     uchar *data = NULL;
-    string readFileName;
+    string readFileName, outputFileName;
     bool buildindex = false;
-    bool loadindex = false;
 	vector<string> reads;
+	int abundance = 3;
 
  	double startTime = readTimer();
 
 	// initializing random number generator
 	srand(time(NULL));
 
-	if (argc<3) 
-	{
-		cerr << "Usage: ./main [--loadindex|--buildindex] --readfile <.fastq file>" << endl;
-	 	return 0;
-	}
+	// command line argument parser
+	string usage = "\n  %prog OPTIONS";
+	const string version = "%prog 0.1\nCopyright (C) 2014-2015\n"
+		"License GPLv3+: GNU GPL version 3 or later "
+		"<http://gnu.org/licenses/gpl.html>.\n"
+		"This is free software: you are free to change and redistribute it.\n"
+		"There is NO WARRANTY, to the extent permitted by law.";
+	const string desc = "";
+	const string epilog = "";
+	
+	optparse::OptionParser parser = optparse::OptionParser()
+    	.usage(usage)
+    	.version(version)
+    	.description(desc)
+    	.epilog(epilog);
 
-    do 
-    {
-        opt = getopt_long(argc, argv, short_options, long_options, &opt_index);
-        switch (opt) {
-			case -1:     /* Done with options. */
-				break;
-			case 'r':
-				readFileName = optarg;
-				break;
-			case 'b':
-				buildindex = true;
-				break;
-			case 'l':
-				loadindex = true;				
-				break;
-		}
-	} while(opt != -1);
+	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("input fastq file");
+	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
+	parser.add_option("-b", "--buildindex") .action("store_true") .dest("buildindex") .help("if the index on the fastq file is not built");
+	// parser.add_option("-k", "--kmersize") .type("int") .dest("k") .action("store") .set_default(31) .help("kmer size (default: %default)");
+	parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");
+	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(8) .help("number of threads, in [1..16] (default: %default)");
 
-	if (((buildindex == false) and (loadindex == false)) or ((buildindex == true) and (loadindex == true)))
+	
+	optparse::Values& options = parser.parse_args(argc, argv);
+	buildindex = (options.get("buildindex") ? true : false);
+	readFileName = (string) options.get("r");
+	outputFileName = (string) options.get("o");
+	// kmersize = (size_t) options.get("k");
+	abundance = (int) options.get("a");
+	N_THREADS = (int) options.get("t");
+
+	if (outputFileName == "")
 	{
-		cerr << "You must specify either --buildindex or --loadindex, and not both" << endl;
+		cerr << "Parameter -o|--outputfile is needed" << endl;
 		return EXIT_FAILURE;
 	}
 
@@ -315,6 +364,7 @@ int main(int argc, char** argv)
  		rlcsa.printInfo();
  		rlcsa.reportSize(true);
  		rlcsa.writeTo(readFileName);
+ 		cout << "Constructed the index successfully. Now run again the program without -b|--buildindex option.";
  		return EXIT_SUCCESS;
 	}
 
@@ -335,7 +385,6 @@ int main(int argc, char** argv)
  	// we sample internal nodes and check their abundances
  	startTime = readTimer();
  	
- 	int abundance = 2;
  	uint64_t sample_size;
     double prop_external_k = 0.5; // initial for proportion of external nodes in sample
     double delta_avg_unitig_length = 0.1; // maximum error 10% of our estimator of average nr of nodes in unitig
@@ -347,19 +396,39 @@ int main(int argc, char** argv)
  		average_unitig_length[i] = 0;
  	}
 
- 	for (int k = 15; k <= 80; k = k + 1)
+    ofstream outputFile;
+    outputFile.open(outputFileName);
+    outputFile << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
+
+ 	for (int kk = 15; kk <= 85; kk++)
  	{
  		double n_internal, n_starts;
+ 		uint64_t n_nodes;
  		sample_size = get_sample_size(prop_external_k, delta_avg_unitig_length);
- 		sample_internal_nodes(rlcsa, k, abundance, reads, sample_size, n_internal, n_starts);	
- 		average_unitig_length[k] = n_internal / (double)n_starts;
+ 		sample_nodes(rlcsa, kk, abundance, reads, sample_size, n_internal, n_starts, n_nodes);	
+ 		average_unitig_length[kk] = n_internal / (double)n_starts;
 
- 		cout << k << " " << average_unitig_length[k] << " " << average_unitig_length[k] + k << " ess=" << sample_size << endl;
+ 		//cout << "********* k = " << kk << "****************";
+
+ 		outputFile << kk << ",";
+ 		outputFile << abundance << ",";
+ 		outputFile << n_nodes << ","; // number of nodes
+ 		outputFile << ".,"; // number of edges
+ 		outputFile << (int)average_unitig_length[kk] << ","; // average number of internal nodes in unitigs
+		outputFile << (int)average_unitig_length[kk] + kk + 1 << ","; // average length of unitigs
+		outputFile << sample_size << ","; // estimated sample size
+		outputFile << (int)n_starts << ","; // number of unitigs
+		outputFile << "."; // e-size
+		outputFile << endl; 
+		outputFile.flush();	
+
+ 		cout << kk << " avg internal nodes=" << (int)average_unitig_length[kk] << " avg length=" << (int)average_unitig_length[kk] + kk + 1 << " n_nodes=" << n_nodes << " ess=" << sample_size << endl;
 
  		// update estimator
  		prop_external_k = (2 * n_starts) / (n_internal + 2 * n_starts);
  	}
  	
+ 	outputFile.close();
  	
  	cout << "Time for sampling: " << readTimer() - startTime << "sec" << endl;
 
