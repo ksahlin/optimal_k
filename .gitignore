@@ -1,5 +1,7 @@
+*.o
 src/bin/
 src/rlcsa/*.o
+src/rlcsa/*/*.o
 src/rlcsa/*.a
 Unitiger/bin/
 data/
