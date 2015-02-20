@@ -1,52 +1,9 @@
-#include <fstream>
-#include <iostream>
-#include <vector>
-#include <getopt.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <unordered_set>
-#include <omp.h>
-#include <algorithm>
 
-#include "../bin/rlcsa/rlcsa.h"
-#include "OptionParser.h"
-
-using namespace CSA;
-using namespace std;
+#include "utils.h"
 
 #define twosided95p_quantile 1.96
 
-#define MIN(a,b) (a <= b) ? a : b
-
 int N_THREADS;
-
-char reverse_complement_char(char c)
-{
-    if (c == 'A') return 'T';
-    if (c == 'T') return 'A';
-    if (c == 'C') return 'G';
-    if (c == 'G') return 'C';
-    return c;
-}
-
-string reverse_complement(string& s)
-{
-    string reverse;
-
-    for (int i = s.length()-1; i >= 0; i--)
-    {
-        reverse += reverse_complement_char(s[i]);
-    }
-
-    return reverse;
-}
-
-string int_to_string(size_t x)
-{
-    stringstream ss;
-    ss << x;
-    return ss.str();
-}
 
 inline int calc_abundance(const RLCSA* rlcsa, 
 	const string& sample
@@ -95,80 +52,6 @@ void get_in_out_degrees(const string& node,
 	}
 }
 
-int get_reads(const string readFileName, 
-	vector<string>& reads
-	)
-{
-	try 
-	{
-		ifstream readFile;
-		readFile.open(readFileName);
-	   	string line;
-
-	   	while (getline(readFile , line)) // this is the comment line
-	   	{
-	    	getline(readFile , line); // the actual read
-	    	reads.push_back(line);
-	    	//reads.push_back(reverse_complement(line));
-	    	assert(getline(readFile , line)); // the +/- sign
-	    	assert(getline(readFile , line)); // the quality values
-	   	}
-	   	readFile.close();
-	} catch (exception& error) 
-	{ // check if there was any error
-		std::cerr << "Error: " << error.what() << std::endl;
-		return EXIT_FAILURE;
-	}
-
-	cout << "Input file contains " << reads.size() << " reads." << endl;
-
-   	return EXIT_SUCCESS;
-}
-
-int get_data_for_rlcsa(const string& readFileName, 
-	uchar*& data, 
-	uint64_t& char_count
-	)
-{
-	ifstream readFile;
-	readFile.open(readFileName);
-   	char_count = 0;
-   	string line;
-   	vector<string> reads;
-
-   	// counting total number of reads and their length
-   	while (getline(readFile , line)) // this is the comment line
-   	{
-    	getline(readFile , line); // the actual read
-    	reads.push_back(line);
-    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'
- 		reads.push_back(reverse_complement(line));
-    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'   	
-    	assert(getline(readFile , line)); // the +/- sign
-    	assert(getline(readFile , line)); // the quality values
-   	}
-   	readFile.close();
-
-   	cout << "Input file " << readFileName << " contains " << reads.size() << " reads." << endl;
-   	cout << "The temporary data array will have size " << (double)char_count/1000000000 << "GB." << endl;
-
-   	uint64_t i = 0;
-	data = new uchar[char_count];
-	for (auto read : reads)
-	{
-    	for (uint64_t j = 0; j < read.length(); j++)
-    	{
-    		data[i] = (uchar)read[j];
-    		i++;
-    		
-    	}
-    	data[i] = '\0';
-    	i++;		
-	}
-   	cout << "Created the data array" << endl;
-
-   	return EXIT_SUCCESS;
-}
 
 void sample_nodes(const RLCSA* rlcsa, 
 	const int k,
@@ -178,7 +61,8 @@ void sample_nodes(const RLCSA* rlcsa,
 	const vector<uint64_t>& sample_size,
 	vector<double> &n_internal,
 	vector<double> &n_starts,
-	vector<uint64_t> &n_nodes
+	vector<uint64_t> &n_nodes,
+	vector<uint64_t> &n_unitigs
 	)
 {
 	uint64_t total_kmers = reads.size() * (reads[0].length() - k + 1);
@@ -259,11 +143,6 @@ void sample_nodes(const RLCSA* rlcsa,
         	get_in_out_degrees(sample,rlcsa,min_abundance,max_abundance,in_degree,out_degree);
 
 			int for_limit = MIN(max_abundance,sample_abundance);	
-
-        	for (int a = min_abundance; a <= for_limit; a++)
-        	{
-        		// cout << k << "," << a << " in_degree: " << in_degree[a] << " out_degree: " << out_degree[a] << endl;
-        	}
         	
         	for (int a = min_abundance; a <= for_limit; a++)
         	{
@@ -302,13 +181,6 @@ void sample_nodes(const RLCSA* rlcsa,
             		}
             	}
         	}
-
-        	// FIX THIS
-        	// else
-        	// {
-        	// 	#pragma omp atomic
-        	// 	kmers_below_abundance += 1 / (double)sample_abundance;
-        	// }
     	}
 	}
 	
@@ -329,6 +201,7 @@ void sample_nodes(const RLCSA* rlcsa,
 		// fix kmers_tried
 		assert(kmers_tried > 0);
 		n_nodes[a] = total_kmers / kmers_tried * kmers_above_abundance[a];
+		n_unitigs[a] = total_kmers / kmers_tried * n_starts[a];
 	}
 }
 
@@ -437,7 +310,10 @@ int main(int argc, char** argv)
  	rlcsa->reportSize(true);
 
  	// we load the reads
- 	get_reads(readFileName, reads);
+ 	if (EXIT_FAILURE == get_reads(readFileName, reads))
+	{
+		return EXIT_FAILURE;
+	}
 	
 	cout << "Time for loading the index and the reads: " << readTimer() - startTime << "sec" << endl;
  	
@@ -462,14 +338,14 @@ int main(int argc, char** argv)
  	for (int k = mink; k <= maxk; k++)
  	{
  		vector<double> n_internal(max_abundance + 1,0), n_starts(max_abundance + 1,0);
- 		vector<uint64_t> n_nodes(max_abundance + 1,0);
+ 		vector<uint64_t> n_nodes(max_abundance + 1,0), n_unitigs(max_abundance + 1,0);
 
  		for (int a = min_abundance; a <= max_abundance; a++)
  		{
- 			sample_size[a] = get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
+ 			sample_size[a] = 100000; //get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
  		}
 
- 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size, n_internal, n_starts, n_nodes);	
+ 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size, n_internal, n_starts, n_nodes, n_unitigs);	
 
  		for (int a = min_abundance; a <= max_abundance; a++)
  		{
@@ -483,11 +359,11 @@ int main(int argc, char** argv)
 	 		outputFile[a] << (int)average_unitig_length[k] << ","; // average number of internal nodes in unitigs
 			outputFile[a] << (int)average_unitig_length[k] + k + 1 << ","; // average length of unitigs
 			outputFile[a] << sample_size[a] << ","; // estimated sample size
-			outputFile[a] << (int)n_starts[a] << ","; // number of unitigs
+			outputFile[a] << n_unitigs[a] << ","; // number of unitigs
 			outputFile[a] << "."; // e-size
 			outputFile[a] << endl; 
 
-	 		cout << k << " " << a << " avg internal nodes=" << (int)average_unitig_length[k] << " avg length=" << (int)average_unitig_length[k] + k + 1 << " n_nodes=" << n_nodes[a] << " ess=" << sample_size[a] << endl;
+	 		cout << k << " " << a << " avg internal nodes=" << (int)average_unitig_length[k] << " avg length=" << (int)average_unitig_length[k] + k + 1 << " n_nodes=" << n_nodes[a] << "n_unitigs=" << n_unitigs[a] << " ess=" << sample_size[a] << endl;
 	 		cout.flush();
 	 		// update estimator
 	 		prop_external_k[a] = (2 * n_starts[a]) / (n_internal[a] + 2 * n_starts[a]);

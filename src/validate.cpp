@@ -1,16 +1,5 @@
-// g++ -Wall -O3 -std=c++0x -DMASSIVE_DATA_RLCSA -o main main.cpp rlcsa/rlcsa.a
 
-#include <fstream>
-#include <iostream>
-#include <vector>
-#include <getopt.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <unordered_set>
-#include <omp.h>
-
-#include "rlcsa/rlcsa.h"
-#include "OptionParser.h"
+#include "utils.h"
 
 using namespace CSA;
 using namespace std;
@@ -26,18 +15,6 @@ char reverse_complement_char(char c)
     if (c == 'C') return 'G';
     if (c == 'G') return 'C';
     return c;
-}
-
-string reverse_complement(string& s)
-{
-    string reverse;
-
-    for (int i = s.length()-1; i >= 0; i--)
-    {
-        reverse += reverse_complement_char(s[i]);
-    }
-
-    return reverse;
 }
 
 inline int calc_abundance(const RLCSA* rlcsa, 
@@ -80,80 +57,6 @@ void get_in_out_degrees(const string& node,
   
 }
 
-int get_reads(const string readFileName, 
-	vector<string>& reads
-	)
-{
-	try 
-	{
-		ifstream readFile;
-		readFile.open(readFileName);
-	   	string line;
-
-	   	while (getline(readFile , line)) // this is the comment line
-	   	{
-	    	getline(readFile , line); // the actual read
-	    	reads.push_back(line);
-	    	//reads.push_back(reverse_complement(line));
-	    	assert(getline(readFile , line)); // the +/- sign
-	    	assert(getline(readFile , line)); // the quality values
-	   	}
-	   	readFile.close();
-	} catch (exception& error) 
-	{ // check if there was any error
-		std::cerr << "Error: " << error.what() << std::endl;
-		return EXIT_FAILURE;
-	}
-
-	cout << "Input file contains " << reads.size() << " reads." << endl;
-
-   	return EXIT_SUCCESS;
-}
-
-int get_data_for_rlcsa(const string& readFileName, 
-	uchar*& data, 
-	uint64_t& char_count
-	)
-{
-	ifstream readFile;
-	readFile.open(readFileName);
-   	char_count = 0;
-   	string line;
-   	vector<string> reads;
-
-   	// counting total number of reads and their length
-   	while (getline(readFile , line)) // this is the comment line
-   	{
-    	getline(readFile , line); // the actual read
-    	reads.push_back(line);
-    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'
- 		reads.push_back(reverse_complement(line));
-    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'   	
-    	assert(getline(readFile , line)); // the +/- sign
-    	assert(getline(readFile , line)); // the quality values
-   	}
-   	readFile.close();
-
-   	cout << "Input file " << readFileName << " contains " << reads.size() << " reads." << endl;
-   	cout << "The temporary data array will have size " << (double)char_count/1000000000 << "GB." << endl;
-
-   	uint64_t i = 0;
-	data = new uchar[char_count];
-	for (auto read : reads)
-	{
-    	for (uint64_t j = 0; j < read.length(); j++)
-    	{
-    		data[i] = (uchar)read[j];
-    		i++;
-    		
-    	}
-    	data[i] = '\0';
-    	i++;		
-	}
-   	cout << "Created the data array" << endl;
-
-   	return EXIT_SUCCESS;
-}
 
 void sample_all_nodes(const RLCSA* rlcsa, 
 	const int k,
@@ -341,7 +244,10 @@ int main(int argc, char** argv)
  	rlcsa->reportSize(true);
 
  	// we load the reads
- 	get_reads(readFileName, reads);
+ 	if (EXIT_FAILURE == get_reads(readFileName, reads))
+ 	{
+		return EXIT_FAILURE;
+	}
 	
 	cout << "Time for loading the index and the reads: " << readTimer() - startTime << "sec" << endl;
  	

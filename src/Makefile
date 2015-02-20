@@ -1,8 +1,8 @@
 CC = g++
-FILES = main.cpp OptionParser.cpp
+FILES = main.cpp OptionParser.cpp utils.cpp
 OUT_EXE = optimal-k
 
-FILES_VALIDATE = validate.cpp OptionParser.cpp
+FILES_VALIDATE = validate.cpp OptionParser.cpp utils.cpp
 OUT_EXE_VALIDATE = validate
 
 CPPFLAGS = -std=c++0x -O3 -fopenmp -DMASSIVE_DATA_RLCSA
