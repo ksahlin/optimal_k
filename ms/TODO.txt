@@ -1,0 +1,14 @@
+
+- Implement an estimate for number of unitigs 
+- Implement a sample size estimate for the number of nodes. 
+- Derive sample size estimate for number of nodes
+
+(-E-size estimate)
+
+Kristoffer:
+- Write sample size theory of avg_internal_nodes, nr_nodes and nr_contigs
+
+
+Alex:
+- try with rhodobacter frag_1.fastq
+- Make optimal-k support several read files.
