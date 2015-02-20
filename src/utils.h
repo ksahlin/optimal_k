@@ -47,6 +47,16 @@ inline string int_to_string(size_t x)
     return ss.str();
 }
 
+inline string get_first_token(string s)
+{
+    istringstream ss(s);
+    string token;
+
+    getline(ss, token, ',');
+
+    return token;
+}
+
 int get_reads(const string readFileName, 
 	vector<string>& reads
 	);

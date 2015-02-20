@@ -271,13 +271,6 @@ int main(int argc, char** argv)
 	maxk = (int) options.get("K");
 	N_THREADS = (int) options.get("t");
 
-	if (outputFileName == "")
-	{
-		cerr << "Parameter -o|--outputfile is needed" << endl;
-		return EXIT_FAILURE;
-	}
-
-
 	// we need to build the index and exit
 	if (buildindex) 
 	{
@@ -295,13 +288,19 @@ int main(int argc, char** argv)
  		}
  		rlcsa.printInfo();
  		rlcsa.reportSize(true);
- 		rlcsa.writeTo(readFileName);
+ 		rlcsa.writeTo(get_first_token(readFileName) + "+");
  		cout << "Constructed the index successfully. Now run again the program without -b|--buildindex option." << endl;
  		return EXIT_SUCCESS;
 	}
 
+	if ((outputFileName == "") and (not buildindex))
+	{
+		cerr << "Parameter -o|--outputfile is needed" << endl;
+		return EXIT_FAILURE;
+	}
+
 	// we need to load the index
- 	const RLCSA* rlcsa = new RLCSA(readFileName, false);
+ 	const RLCSA* rlcsa = new RLCSA(get_first_token(readFileName) + "+", false);
  	if (!(rlcsa->isOk())) 
  	{
  		return EXIT_FAILURE;
@@ -342,7 +341,7 @@ int main(int argc, char** argv)
 
  		for (int a = min_abundance; a <= max_abundance; a++)
  		{
- 			sample_size[a] = 100000; //get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
+ 			sample_size[a] = get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
  		}
 
  		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size, n_internal, n_starts, n_nodes, n_unitigs);	
