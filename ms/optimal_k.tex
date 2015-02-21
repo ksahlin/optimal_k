@@ -1,5 +1,7 @@
-\documentclass[a4paper,6pt]{article}
+\documentclass[a4paper,11pt]{article}
 
+\usepackage{geometry}
+\geometry{a4paper}
 
 \usepackage{url}
 \usepackage{color}
@@ -7,6 +9,11 @@
 \usepackage{url}
 \usepackage{graphicx}
 \usepackage{amsmath}
+\usepackage{amssymb}
+
+\newcommand{\Lemma}[1]{Lemma~\ref{#1}}
+\newcommand{\kristoffer}[1]{{\color{red}{#1}}}
+\newcommand{\alex}[1]{{\color{blue}{#1}}}
 
 %%% BEGIN DOCUMENT
 \begin{document}
@@ -25,15 +32,17 @@ We provide a method (optimal\_k) to estimate average unitig length, N50 and E-si
 \section{Introduction} % (fold)
 \label{sec:introduction}
 
-{ \color{red} Mention that there are not many tools for computing optimal parameters at all. And make sure to mention that memry is not the issue. Mention the positives about our methods like speed and clear objective function but make sure to mention that it's memory requiring but thats not a problem if you are going to do the assembly anyway!!}
+\kristoffer{ Mention that there are not many tools for computing optimal parameters at all. And make sure to mention that memry is not the issue. Mention the positives about our methods like speed and clear objective function but make sure to mention that it's memory requiring but thats not a problem if you are going to do the assembly anyway!!}
 % section introduction (end)
+
+Given an assembly graph $G$, a path $P = (v_0,v_1,\dots,v_t)$ in $G$, where $t \geq 0$, is called a \emph{unitig} if for all $i \in \{1,\dots,t-1\}$, $v_i$ is a \emph{unary} node, that is, $v_i$ has exactly one in-neighbor and one out-neighbor in $G$, and $v_0$ and $v_{t}$ are not unary. In the contig assembly phase, popular genome assemblers report a unitig decomposition of the assembly graph, after some artifacts have been been dealt with, like tip removal and bubble popping.
 
 \section{Methods} % (fold)
 \label{sec:methods}
 
-The general idea is to provide the user with metrics such as unitigs N50 and E-Size and average number of genomic vertices in a DBG  for all possible k-mer sizes and abundances. {\color{red} We implement a FM-index data structure described in cite XX. This allows us to query a k-mer, its in and out neighbors in O() time. }  We furthermore derive formulas for how much we need to sample in order to reach a given accuracy on all our estimates. 
+The general idea is to provide the user with metrics such as unitigs N50 and E-Size and average number of genomic vertices in a DBG  for all possible k-mer sizes and abundances. \kristoffer{ We implement a FM-index data structure described in cite XX. This allows us to query a k-mer, its in and out neighbors in O() time. }  We furthermore derive formulas for how much we need to sample in order to reach a given accuracy on all our estimates. 
 
-We let $\mathcal{K}_k$ be the multiset of all k-mers in the reads, that is $\mathcal{K}_k = n(r-k+1)$ if $n$ is the number of reads and $r$ is the read length. Let $\mathcal{G}_{k,a}$ be the DBG with vertices of length $k$ that has an abundance $\geq a$.
+We let $\mathcal{K}_k$ be the multiset of all $k$-mers in the reads, that is $|\mathcal{K}_k| = n(r-k+1)$, where $n$ denotes the number of reads and $r$ is the read length. Let $\mathcal{G}_{k,a}$ be the DBG with vertices of length $k$ that has an abundance $\geq a$.
 
 \subsection{Algorithm} % (fold)
 \label{sub:algorithm}
@@ -42,60 +51,54 @@ We let $\mathcal{K}_k$ be the multiset of all k-mers in the reads, that is $\mat
 
 \subsection{Sampling accuracy}
 
-In this section we will derive the sample sizes required to get accurate estimations of the quantities that we want to estimate. We will introduce the theory in \ref{ssub:theory} and show how it applies to our quantities in \ref{sub:application}. 
+In this section we will derive the sample sizes required to get accurate estimations of the quantities that we want to estimate. We recall some basic statistical notions in Sec.~\ref{ssub:theory} and show how they applies to our quantities in Sec.~\ref{sub:application_to_sampling_db_graphs}. 
+
 
 
 \subsubsection{Theory} % (fold)
 \label{ssub:theory}
 
 
-\subparagraph{Sample proportion - absolute error} % (fold)
-\label{subp:sample_proportion}
-The $100(1-\alpha)\%$ confidence interval of a proportion estimate $\hat{p}$ is 
-\begin{equation*}
-	[\hat{p} - z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}}, \hat{p} + z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} ].
-\end{equation*}
-The margin of error $\epsilon$ is then
-\begin{equation*}
-	\epsilon = z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}},
-\end{equation*}
-That is, we can obtain the sample size required for this margin or error as 
+%\subparagraph{Sample proportion} % (fold)
+%\label{subp:sample_proportion}
+
+\textbf{Sample proportion.} Suppose that we have a set partitioned as $A \cup B$, and we need to estimate the proportion $p = |A| / (|A| + |B|)$. Suppose that we sample $n$ elements of $A \cup B$ and for each of them record whether they belong to $A$ or to $B$, obtaining in this way an estimate $\hat{p}$ of $p$. Let us denote the relative error of $\hat{p}$ as $\epsilon \in \mathbb{R}$, that is, $\hat{p} = (1 + \epsilon)p$.
+
+It is a standard result \cite{??} that if we obtain $\hat{p}$ from $n$ samples, then with $100(1-\alpha)\%$ confidence, we have 
+\[- z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} \leq \epsilon \leq z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} \]
+where $z_{\frac{\alpha}{2}}$ is the $\alpha/2$ quantile from the normal distribution. We want to bound $|\epsilon|$ by an error $\epsilon_p$ given in input. That is, we want to choose the sample size $n$ such that $z_{\frac{\alpha}{2}}\sqrt{\hat{p}(1-\hat{p})/n} \leq \epsilon_p$. Therefore, for a given $\epsilon$ and $\alpha$, we need to select $n$ such that
 \begin{equation}
-	n = (\frac{z_{\frac{\alpha}{2}}}{\epsilon})^2\hat{p}(1-\hat{p}).
+	n \geq \left(\frac{z_{\frac{\alpha}{2}}}{\epsilon_p}\right)^2\hat{p}(1-\hat{p}).
 \end{equation}
 
 % subparagraph sample_proportion (end)
 
-\subparagraph{Sample proportion - relative error} % (fold)
-\label{subp:sample_proportion_relative_error}
-If we want the relative error of $\hat{p}$ to be bounded by $\epsilon_r$, \emph{i.e.} $\frac{|\hat{p} -p|}{p} \leq \epsilon_r$, we can write 
-\begin{equation}
-\label{eqn:relative_error}
-	\frac{|\hat{p} -p|}{p} = \frac{|(1\pm\epsilon)p-p|}{p} = \frac{\epsilon}{p} \leq \epsilon_r
-\end{equation}
-
 % subparagraph sample_proportion_relative_error (end)
 
-\subparagraph{Fraction of sample proportions} % (fold)
-\label{subp:fraction_of_proportions}
-Say we want to have a $100(1-\alpha)\%$ confidence interval of the fraction of two proportions $f =\frac{p}{1-p}$ that makes up the entire set (\emph{i.e.} $p + 1-p = 1$). We get the estimate of $f$ as
+%\subparagraph{Fraction of sample proportions} % (fold)
+%\label{subp:fraction_of_proportions} 
 
+\noindent \textbf{Fraction of sample proportions.} Instead of estimating the proportion $p = |A| / (|A| + |B|)$, we now want to have a $100(1-\alpha)\%$ confidence interval of the fraction of proportions $f =\frac{p}{1-p}$.
+%that makes up the entire set (\emph{i.e.} $p + 1-p = 1$). 
+Suppose that we already have an estimate $\hat{p}$ of $p$ with an absolute error $\epsilon_p$, that is $\hat{p} = (1 \pm \epsilon_p)p$. 
+
+We will estimate $f$ as
 \begin{equation*}
- 	\hat{f} = \frac{\hat{p}}{(1-\hat{p})}.
+ 	\hat{f} = \frac{\hat{p}}{1-\hat{p}},
 \end{equation*} 
-Let the sample error of $f$ be denoted by $\epsilon_f$. Since we can write $\hat{p} = (1 \pm \epsilon)p$ and $\hat{f} = (1 \pm \epsilon)f$, we have
+and will denote the absolute error of $\hat{f}$ as $\epsilon_f$, that is, $f = (1 \pm \epsilon_f) \hat{f}$. We have
 \begin{equation*}
- 	(1\pm \epsilon_f) = \frac{(1\pm \epsilon)(1-p)}{(1\pm \epsilon)p}. 
+ 	(1\pm \epsilon_f) = \frac{(1\pm \epsilon_p)(1-p)}{(1\pm \epsilon_p)p}. 
  \end{equation*} 
 Notice that the margin of error increases as $p$ decreases. Fixing $p$, the error of $f$ is maximized by  
 \begin{equation*}
- 	(1\pm \epsilon_f) = \frac{(1 + \epsilon)(1-p)}{(1- \epsilon)p}. 
+ 	(1\pm \epsilon_f) = \frac{(1 + \epsilon_p)(1-p)}{(1- \epsilon_p)p}. 
  \end{equation*} 
- Finally, since we sample $p$, we solve this equation for $\epsilon$ and get
+ Finally, since we sample $p$, we solve this equation for $\epsilon_p$ and get
 \begin{equation}
- 	\epsilon = \frac{\epsilon_f}{2 + \epsilon_f}. 
+ 	\epsilon_p = \frac{\epsilon_f}{2 + \epsilon_f}. 
  \end{equation}
-With the above equation, we now have a way to see what margin of error $\epsilon$ we require to arrive at a fixed margin of error of $f$. That is, if we want to have at most 10\% error of our estimate $\hat{f}$, we need to have a sample size that calculated from letting $\epsilon = \frac{0.1}{2 + 0.1}$.
+With the above equation, we now have a way to see what margin of error $\epsilon_p$ we require to arrive at a fixed margin of error of $f$. That is, if we want to have at most 10\% error of our estimate $\hat{f}$, we need to have a sample size that calculated from letting $\epsilon = \frac{0.1}{2 + 0.1}$.
 % subparagraph fraction_of_proportions (end)
 
 % subsubsection theory (end)
