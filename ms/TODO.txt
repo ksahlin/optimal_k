@@ -1,14 +1,35 @@
+- Derive and implement sample size estimate for number of nodes
 
-- Implement an estimate for number of unitigs 
-- Implement a sample size estimate for the number of nodes. 
-- Derive sample size estimate for number of nodes
-
-(-E-size estimate)
+BOTH:
+- Are there any other published method to compare with except kmergenie?
+- Write introduction
 
 Kristoffer:
-- Write sample size theory of avg_internal_nodes, nr_nodes and nr_contigs
+- Results:
+	- Methods:
+		- optimal_k
+		- KmerGenie
+	- Data sets:
+		- staph
+		- rhodo
+		- human (chr14)
+		- plasmid
+
+	- Assemblers:
+		- Unitiger
+		- Velvet
+		- Minia
+
+	- Evaluation
+		- Similarity to unitiger (our tool only)
+		- Runtime
+		- Memory
+		- NG50, E-size, Size, Errors
+
 
 
 Alex:
-- try with rhodobacter frag_1.fastq
-- Make optimal-k support several read files.
+- Make optimal-k support several read files - i.e. fix bug.
+- Implement E-size estimate in cpp (for single abundance suffices)
+- Write aboute sample size for average number of nodes.
+- Make unitiger has an option not to print to file
