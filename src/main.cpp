@@ -208,12 +208,14 @@ void sample_nodes(const RLCSA* rlcsa,
 uint64_t get_sample_size(const double &prop_external_k, 
 	const double &delta_avg_unitig_length)
 {
-	double delta_max = delta_avg_unitig_length*( 1 - prop_external_k ) / (double)( 1 + prop_external_k * delta_avg_unitig_length );
+	double p = MIN(prop_external_k,0.5);
+	//double delta_max = delta_avg_unitig_length*( p ) / (double)( 1 + (1 - p) * delta_avg_unitig_length );
     //double delta_max = delta_avg_unitig_length / (double)(2 + delta_avg_unitig_length);
-    double delta_p_external_k_plus_one = (double)(prop_external_k * delta_max);
+    double delta_max = delta_avg_unitig_length;
+    double delta_p_external_k_plus_one = (double)(p * delta_max);
 
     assert(delta_p_external_k_plus_one > 0);
-    return pow(twosided95p_quantile / delta_p_external_k_plus_one, 2) * (1 - prop_external_k) * prop_external_k;
+    return pow(twosided95p_quantile / delta_p_external_k_plus_one, 2) * (1 - p) * p;
 }
 
 int main(int argc, char** argv)
@@ -342,7 +344,7 @@ int main(int argc, char** argv)
 
  		for (int a = min_abundance; a <= max_abundance; a++)
  		{
- 			sample_size[a] = 100000; //get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
+ 			sample_size[a] = get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
  		}
 
  		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size, n_internal, n_starts, n_nodes, n_unitigs);	
@@ -366,7 +368,7 @@ int main(int argc, char** argv)
 	 		cout << k << " " << a << " avg internal nodes=" << (int)average_unitig_length[k] << " avg length=" << (int)average_unitig_length[k] + k + 1 << " n_nodes=" << n_nodes[a] << "n_unitigs=" << n_unitigs[a] << " ess=" << sample_size[a] << endl;
 	 		cout.flush();
 	 		// update estimator
-	 		prop_external_k[a] = (2 * n_starts[a]) / (n_internal[a] + 2 * n_starts[a]);
+	 		prop_external_k[a] = (n_starts[a]) / (n_internal[a] + n_starts[a]);
 	 		// prop_external_k[a] = (2 * n_starts[a]) / (n_internal[a] + 2 * n_starts[a]);
  		}
 
