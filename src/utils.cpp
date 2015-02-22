@@ -60,8 +60,8 @@ int get_data_for_rlcsa(const string& readFileName,
 		    	getline(readFile , line); // the actual read
 		    	reads.push_back(line);
 		    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'
-		 		reads.push_back(reverse_complement(line));
-		    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'   	
+		 		// reads.push_back(reverse_complement(line));
+		   //  	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'   	
 		    	assert(getline(readFile , line)); // the +/- sign
 		    	assert(getline(readFile , line)); // the quality values
 		   	}

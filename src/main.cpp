@@ -10,7 +10,9 @@ inline int calc_abundance(const RLCSA* rlcsa,
 	)
 {
 	pair_type result = rlcsa->count(sample);
-	return length(result);
+	pair_type result_rc = rlcsa->count(reverse_complement(sample));
+	int abundance = length(result) + length(result_rc);
+	return abundance;
 }
 
 void get_in_out_degrees(const string& node, 
@@ -116,11 +118,11 @@ void sample_nodes(const RLCSA* rlcsa,
 
 			read = reads[shuffle_vector[i]];
 
-			// MAKE SURE THIS IS OK!
-			if (rand() / (double)RAND_MAX < 0.5)
-			{
-				read = reverse_complement(read);
-			}
+			// // MAKE SURE THIS IS OK!
+			// if (rand() / (double)RAND_MAX < 0.5)
+			// {
+			// 	read = reverse_complement(read);
+			// }
 
 			int pos = rand() % (read.length() - k + 1);
 	        sample = read.substr(pos,k);

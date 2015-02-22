@@ -28,7 +28,7 @@ inline char reverse_complement_char(char c)
     return c;
 }
 
-inline string reverse_complement(string& s)
+inline string reverse_complement(const string& s)
 {
     string reverse;
 
