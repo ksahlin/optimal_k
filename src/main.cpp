@@ -208,7 +208,8 @@ void sample_nodes(const RLCSA* rlcsa,
 uint64_t get_sample_size(const double &prop_external_k, 
 	const double &delta_avg_unitig_length)
 {
-    double delta_max = delta_avg_unitig_length / (double)(2 + delta_avg_unitig_length);
+	double delta_max = delta_avg_unitig_length*( 1 - prop_external_k ) / (double)( 1 + prop_external_k * delta_avg_unitig_length );
+    //double delta_max = delta_avg_unitig_length / (double)(2 + delta_avg_unitig_length);
     double delta_p_external_k_plus_one = (double)(prop_external_k * delta_max);
 
     assert(delta_p_external_k_plus_one > 0);
