@@ -62,14 +62,14 @@ In this section we will derive the sample sizes required to get accurate estimat
 %\subparagraph{Sample proportion} % (fold)
 %\label{subp:sample_proportion}
 
-\textbf{Sample proportion.} Suppose that we have a set partitioned as $A \cup B$, and we need to estimate the proportion $p = |A| / (|A| + |B|)$. Suppose that we sample $n$ elements of $A \cup B$ and for each of them record whether they belong to $A$ or to $B$, obtaining in this way an estimate $\hat{p}$ of $p$. Let us denote the relative error of $\hat{p}$ as $\epsilon \in \mathbb{R}$, that is, $\hat{p} = (1 + \epsilon)p$.
-
-It is a standard result \cite{??} that if we obtain $\hat{p}$ from $n$ samples, then with $100(1-\alpha)\%$ confidence, we have 
-\[- z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} \leq \epsilon \leq z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} \]
-where $z_{\frac{\alpha}{2}}$ is the $\alpha/2$ quantile from the normal distribution. We want to bound $|\epsilon|$ by an error $\epsilon_p$ given in input. That is, we want to choose the sample size $n$ such that $z_{\frac{\alpha}{2}}\sqrt{\hat{p}(1-\hat{p})/n} \leq \epsilon_p$. Therefore, for a given $\epsilon$ and $\alpha$, we need to select $n$ such that
+\textbf{Sample proportion.} Suppose that we have a set partitioned as $A \cup B$, and we need to estimate the proportion $p = |A| / (|A| + |B|)$. Suppose that we sample $n$ elements of $A \cup B$ and for each of them record whether they belong to $A$ or to $B$, obtaining in this way an estimate $\hat{p}$ of $p$. It is a standard result that if we obtain $\hat{p}$ from $n$ samples, the $100(1-\alpha)\%$ confidence interval of $\hat{p}$ is
+\[\left[\hat{p} - z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} , \hat{p} + z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}}\right] \]
+where $z_{\frac{\alpha}{2}}$ is the $\alpha/2$ quantile from the normal distribution. For a given relative error $\epsilon$, we want to choose the sample size $n$ such that the $100(1-\alpha)\%$ confidence interval of $\hat{p}$ has a margin of error no more than $E := \epsilon p$. By standard means, we obtain
 \begin{equation}
-	n \geq \left(\frac{z_{\frac{\alpha}{2}}}{\epsilon_p}\right)^2\hat{p}(1-\hat{p}).
+	n \geq \left(\frac{z_{\frac{\alpha}{2}}}{E}\right)^2\hat{p}(1-\hat{p}).
+	\label{eqn:sample-size}
 \end{equation}
+Notice that in relation (\ref{eqn:sample-size}) above, both $p$ and $\hat{p}$ are not known at the start of the sampling, when the value of $n$ needs to be chosen. \alex{In our case, we choose ...  }
 
 % subparagraph sample_proportion (end)
 
