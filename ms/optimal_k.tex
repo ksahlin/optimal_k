@@ -58,7 +58,7 @@ A unitig of a graph is a maximal unary path. In the contig assembly phase, popul
 
 The general idea is to provide the user with metrics such as unitigs N50 and E-Size and average number of genomic vertices in a DBG  for all possible k-mer sizes and abundances. \kristoffer{ We implement a FM-index data structure described in cite XX. This allows us to query a k-mer, its in and out neighbors in O() time. }  We furthermore derive formulas for how much we need to sample in order to reach a given accuracy on all our estimates. 
 
-\noindent \textbf{Notation.} We assume that the input consists of a set $R$ of $n$ reads or length $r$. We denote by $\K_k$ be the multiset of all $k$-mers in the reads, and note that $|\K_k| = n(r-k+1)$. Moreover, we denote by $\DB$ be the de Bruijn graph of \emph{order} $k$ and \emph{minimum abundance} $a$ built on $R$. That is, the set of vertices of $\DB$ is the set of all $k$-mers in the reads which occur at least $a$ times in $R$, and two vertices of $\DB$ are connected by an arc if they have a suffix-prefix overlap of length $k-1$. Let $V(\DB)$ denote the set of vertices of $\DB$. For all $v \in V(\DB)$, let $\abu(v)$ denote the abundance of the $k$-mer $v$. We denote by $\dplus(v)$ the number of out-neighbors of $v$ in $\DB$, and by $\dminus(v)$ the number of out-neighbors of $v$ in $\DB$. These values can be obtained by queries to the index built on the set $R$. 
+\noindent \textbf{Notation.} We assume that the input consists of a set $R$ of $n$ reads or length $r$. We denote by $\K_k$ be the multiset of all $k$-mers in the reads; observe that $|\K_k| = n(r-k+1)$. Moreover, we denote by $\DB$ the de Bruijn graph of \emph{order} $k$ and \emph{minimum abundance} $a$ built on $R$. That is, the set of vertices of $\DB$ is the set of all $k$-mers in the reads which occur at least $a$ times in $R$, and two vertices of $\DB$ are connected by an arc if they have a suffix-prefix overlap of length $k-1$. Let $V(\DB)$ denote the set of vertices of $\DB$. For all $v \in V(\DB)$, let $\abu(v)$ denote the abundance of the $k$-mer $v$. We denote by $\dplus(v)$ the number of out-neighbors of $v$ in $\DB$, and by $\dminus(v)$ the number of out-neighbors of $v$ in $\DB$. These values can be obtained by queries to the index built on the set $R$. 
 
 A node $v$ of $\DB$ is called \emph{unary} if $\dminus(v) = \dplus(v) = 1$, and it is called \emph{isolated} if $\dminus(v) = \dplus(v) = 0$. A path in $\DB$ is called a \emph{unitig} if all its internal vertices are unary, and its two extremities are not. When clear from the context, we will also use the term unitig to denote the string spelled by a unitig path in $\DB$. Given a unitig $w = (v_1,v_2,\dots,v_t)$ of $\DB$, we denote by $|w|_n$ the number of nodes of $w$, i.e., $|w|_n = t$, and by $|w|_s$ the length of the string spelled by $w$, that is, $|w|_s = k + t - 1$.
 
@@ -68,7 +68,7 @@ A node $v$ of $\DB$ is called \emph{unary} if $\dminus(v) = \dplus(v) = 1$, and 
 
 \alex{Say that one of the main ideas is to do weighted sampling.}
 
-\subsection{Algorithms} % (fold)
+\subsection{Sampling algorithms} % (fold)
 \label{sub:algorithm}
 
 %\subparagraph{Estimating the number of nodes of a DBG} % (fold)
@@ -89,7 +89,7 @@ Since $V(\DB)$ is a subset of the multiset $\K_k$, we can consider the proportio
 We can estimate $p_{k,a}$ by sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, and taking
 \[\hat{p}_{k,a} := \frac{\sum_{i = 1}^m \frac{1}{\abu(x_i)}\mathbb{I}(x_i, a)}{m}.\]
 
-Therefore, we also get an estimate of $X := |V(\DB)|$ as $\hat{X} = \hat{p}_{k,a}|\K_k| = \hat{p}_{k,a} n(r-k+1)$. By the theory in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples we need in order to bound the relative error within a certain confidence interval.
+Therefore, we also get an estimate of $X := |V(\DB)|$ as $\hat{X} = \hat{p}_{k,a}|\K_k| = \hat{p}_{k,a} n(r-k+1)$. By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{X}$ within a certain confidence interval.
 
 \alex{Say that we can implement this for all abundances}
 
@@ -101,11 +101,11 @@ Therefore, we also get an estimate of $X := |V(\DB)|$ as $\hat{X} = \hat{p}_{k,a
 & (\dplus(v) = 0 \text{ and } \dminus(v) = 0)\}.
 \end{align*}
 Every node $v$ in $\ST$ is either an isolated node, or it is a start node of a different a unitig for each of its out-neighbors. We can therefore write
-\[|\U| = \sum_{v \in \ST} \max(1,\dplus(v)).\]
+\[|\ST| = \sum_{v \in \ST} \max(1,\dplus(v)).\]
 
 As above, we can also obtain this number by summing over all $k$-mers in the reads:
 
-\[|\U| = \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right).\]
+\[|\ST| = \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right).\]
 % subparagraph estimating_the_number_of_nodes_in_a_db_graph (end)
 
 Analogously, we can consider the proportion of start nodes over all $k$-mers in the reads
@@ -113,24 +113,37 @@ Analogously, we can consider the proportion of start nodes over all $k$-mers in 
 and estimate it, after sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, as
 \[\hat{q}_{k,a} := \frac{\sum_{i = 1}^{m} \max\left(\frac{1}{\abu(x_i)}\mathbb{I}(x,a),\frac{1}{\abu(x_i)}\mathbb{I}(x_i,a)\dplus(x_i)\right)}{m}.\]
 
-The estimate of $Y := |\ST|$ is then $\hat{Y} = \hat{q}_{k,a}|\K_k| = \hat{q}_{k,a}n(r-k+1)$. By the theory in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples we need in order to bound the relative error within a certain confidence interval.
-\alex{say we can implement this for all abundaces.}
+The estimate of $Y := |\ST|$ is then $\hat{Y} = \hat{q}_{k,a}|\K_k| = \hat{q}_{k,a}n(r-k+1)$. By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{Y}$ within a certain confidence interval.
+\alex{say we can implement this for all abundances.}
 
 \medskip
 \noindent\textbf{Estimating the average length of the unitigs of a dBG.} We are now interested in determining the average length of the strings spelled by the unitigs of $\DB$. 
 
-It is enough to first estimate the average number of unary (i.e. internal) nodes of of a unitig, and then obtain the average string length by summing $k + 1$.\footnote{This assumes, in order to simplify the presentation, that the dBG has no isolated nodes, which are unitigs with $0$ internal nodes but spell strings of length $k$. However, isolated nodes can be easily accounted for as separate case in all the formulas.} Since above we have obtained an estimate for the number of unitigs, the idea here is to estimate also the number of unary nodes, and then obtain the estimate for the average number of nodes by diving the latter by the former.
+Denote by the \emph{truncated length} of a unitig $w = (v_1,v_2,\dots,v_t)$ the number of its internal vertices plus its start vertex. We first estimate the average truncated lengths of the unitigs of $\DB$, and then obtain the average unitig string length by summing $k$.\footnote{This assumes, in order to simplify the presentation, that the dBG has no isolated nodes, which are unitigs with $0$ internal nodes but spell strings of length $k$. However, isolated nodes can be easily accounted for as separate case in all the formulas.} Working with the truncated unitig lengths guarantees that we can again easily bound the sampling error.
 
-Let $\UN$ denote the set of unary nodes of $\DB$. As above, we can write
-\[\UN = \sum_{\begin{subarray}{c} x \in \K_k \text{ such that } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a).\]
+Let $\UN$ denote the set of unary nodes of $\DB$; notice that $\UN \cap \ST = \emptyset$. The average truncated length of the unitigs is obtained as 
+\begin{equation}
+\frac{|\UN \cup \ST|}{|\ST|}.
+\label{eqn:avg_internal}
+\end{equation}
 
-Since we want to estimate the ratio 
-\[r_{k,a} := \frac{|\UN|}{|\UN \cup \ST|}\]
+As above, we can write
+\[|\UN| = \sum_{\begin{subarray}{c} x \in \K_k \text{ such that } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a).\]
 
-\subparagraph{Estimating the average number of nodes in a DBG} % (fold)
-\label{subp:estimating_the_average_number_of_nodes_in_a_dbg}
-Note that we get the number of unitigs in a graph by counting all the start vertices and their outdegree. Let $X_s$ be the number of start nodes in $\mathcal{G}$. We also label all ot in the DBG is given We now divide the set $X$ into $Y$ be the number of internal vertices in the DBG. An internal node in a node that... 
+We consider the proportion
+\begin{align*}
+r_{k,a} & := \frac{|\ST|}{|\UN \cup \ST|} = \\ 
+& = \frac{\sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}{\sum_{\begin{subarray}{c} x \in \K_k \text{ such that } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a) + \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}\in [0,1].\\
+\end{align*}
 
+We obtain an estimate $\hat{r}_{k,a}$ of $r_{k,a}$ by sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers in $\K_k$ with abundance at least $a$ (that is, for which the indicator variable $\mathbb{I}(x_i,a)$ is 1):
+\[\hat{r}_{k,a} := \frac{\sum_{i=1}^{m} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}{\sum_{\begin{subarray}{c} i \in [1,m] \text{ such that } \\ \dplus(x_i) = \dminus(x_i) = 1 \end{subarray}} \frac{1}{\abu(x_i)} + \sum_{i=1}^{m} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}.\]
+An estimate $\hat{Z}$ for the quantity from (\ref{eqn:avg_internal}) is then obtained as $1/\hat{r}_{k,a}$. By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error on $\hat{Z}$ within a certain confidence interval.
+\alex{say we can implement this for all abundances.}
+
+%\subparagraph{Estimating the average number of nodes in a DBG} % (fold)
+%\label{subp:estimating_the_average_number_of_nodes_in_a_dbg}
+%Note that we get the number of unitigs in a graph by counting all the start vertices and their outdegree. Let $X_s$ be the number of start nodes in $\mathcal{G}$. We also label all ot in the DBG is given We now divide the set $X$ into $Y$ be the number of internal vertices in the DBG. An internal node in a node that... 
 
 %\subparagraph{Estimating the E-size} % (fold)
 %\label{subp:estimating_the_e_size}
@@ -139,9 +152,9 @@ Note that we get the number of unitigs in a graph by counting all the start vert
 \noindent\textbf{Estimating the E-size of the unitigs of a dBG.} Let $\U$ denote the set of all unitigs of $\DB$. The E-size of $\U$ is defined as the expected length of the unitigs of $\DB$. Formally, 
 \[\esize(\U) := \sum_{s \in \U}|s|p(s) = \sum_{s \in \U} |s|\frac{|s|}{\sum_{s' \in \U}|s'|} = \frac{\sum_{s \in \U}|s|^2}{\sum_{s \in \U}|s|}.\]
 
-In order to derive an estimate for E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, we need to normalize it with the expected number of times of sampling each unitig.
+In order to derive an estimate for the E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, we need to normalize it with the expected number of times of sampling each unitig.
 
-Consider the following procedure which produces a multiset $W$ containing the unitigs of $\DB$: for all $k$-mers $x \in \K_k$, if $x$ is a node of $\DB$, output all the unitigs containing $x$. Each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \frac{1}{t}\sum_{i = 1}^{t}\alpha(v_i)$ times in $W$. Therefore, we can equivalently express the E-size of the set $\U$ as 
+Our sampling procedure produces a multiset $W$ of all unitigs of $\DB$, as follows: for all $k$-mers $x \in \K_k$, if $x$ is a node of $\DB$, then output all the unitigs containing $x$. They can be obtained by traversing the graph along the in-/out-neighbors of $x$, after taking into account whether $x$ is a unary node of $\DB$ or not. Each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \frac{1}{t}\sum_{i = 1}^{t}\alpha(v_i)$ times in $W$. Therefore, we can equivalently express the E-size of the set $\U$ as 
 \[\esize(\U) = \sum_{w \in W} |w| \frac{|w|\frac{1}{\alpha(w)}}{\sum_{w \in W}|w|\frac{1}{\alpha(w)}}.\]
 
 Instead of iterating over all $k$-mers in $\K_k$, we now sample a multiset of $k$-mers in $\K_k$, and if they are nodes in the de Bruijn graph, we report the unitigs containing these $k$-mers. Assume that this produces a multiset $\{w_1,\dots,w_m\}$ of unitigs of $\DB$. We can estimate $\esize(\U)$ as 
@@ -162,14 +175,18 @@ Instead of iterating over all $k$-mers in $\K_k$, we now sample a multiset of $k
 
 \subsection{Sampling accuracy\label{sec:sampling-accuracy}}
 
-Suppose that we have a set partitioned as $A \cup B$, and we need to estimate the proportion $p = |A| / (|A| + |B|)$. Suppose that we sample $n$ elements of $A \cup B$ and for each of them record whether they belong to $A$ or to $B$, and then divide these two counts by $n$, obtaining in this way an estimate $\hat{p}$ of $p$. It is a standard result that the $100(1-\alpha)\%$ confidence interval of $\hat{p}$ is
-\[\left[\hat{p} - z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}} , \hat{p} + z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{n}}\right] \]
+Suppose that we have a set partitioned as $A \cup B$, and we need to estimate the proportion $p = |A| / (|A| + |B|) \in [0,1]$. Suppose that we sample $m$ elements of $A \cup B$ and for each of them record whether they belong to $A$ or to $B$, and then divide these two counts by $m$, obtaining in this way an estimate $\hat{p}$ of $p$. It is a standard result that the $100(1-\alpha)\%$ confidence interval of $\hat{p}$ is
+\[\left[\hat{p} - z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{m}} , \hat{p} + z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{m}}\right] \]
 where $z_{\frac{\alpha}{2}}$ is the $\alpha/2$ quantile from the normal distribution. For a given relative error $\varepsilon$, we want to choose the sample size $n$ such that the $100(1-\alpha)\%$ confidence interval of $\hat{p}$ has a margin of error no more than $E := \varepsilon p$. By standard means, we obtain
 \begin{equation}
-	n \geq \left(\frac{z_{\frac{\alpha}{2}}}{E}\right)^2\hat{p}(1-\hat{p}).
+	m \geq \left(\frac{z_{\frac{\alpha}{2}}}{E}\right)^2\hat{p}(1-\hat{p}).
 	\label{eqn:sample-size}
 \end{equation}
-Notice that in the relation (\ref{eqn:sample-size}) above, both $p$ and $\hat{p}$ are not known at the start of the sampling, when the value of $n$ needs to be chosen. \alex{In our case, we choose ...  }
+Notice that in the relation (\ref{eqn:sample-size}) above, both $p$ and $\hat{p}$ are not known at the start of the sampling, when the value of $m$ needs to be chosen. 
+
+\alex{In our case, we choose $p$ and $\hat{p}$ ...  }
+
+Moreover, if we want to estimate $f = 1/p$ with a given relative error $\varepsilon'$, then we can estimate it as $\hat{f} = 1/\hat{p}$. In this case, we need to set the relative error $\varepsilon$ on $\hat{p}$ as $\varepsilon = 1/(1+\varepsilon') - 1$. The above observation about $\hat{p}$ tell how many samples $m$ we need as a relation on $\varepsilon = 1/(1+\varepsilon') - 1$.
 
 %\subparagraph{Sample proportion} % (fold)
 %\label{subp:sample_proportion}

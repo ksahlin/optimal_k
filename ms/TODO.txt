@@ -1,5 +1,3 @@
-- Derive and implement sample size estimate for number of nodes
-
 BOTH:
 - Are there any other published method to compare with except kmergenie?
 - Write introduction
@@ -30,6 +28,7 @@ Kristoffer:
 
 Alex:
 - Make optimal-k support several read files - i.e. fix bug.
+- Implement sample size estimate for number of nodes
 - Implement E-size estimate in cpp (for single abundance suffices)
 - Write aboute sample size for average number of nodes.
 - Make unitiger has an option not to print to file
