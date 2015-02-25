@@ -60,7 +60,8 @@ The general idea is to provide the user with metrics such as unitigs N50 and E-S
 
 \noindent \textbf{Notation.} We assume that the input consists of a set $R$ of $n$ reads or length $r$. We denote by $\K_k$ be the multiset of all $k$-mers in the reads; observe that $|\K_k| = n(r-k+1)$. Moreover, we denote by $\DB$ the de Bruijn graph of \emph{order} $k$ and \emph{minimum abundance} $a$ built on $R$. That is, the set of vertices of $\DB$ is the set of all $k$-mers in the reads which occur at least $a$ times in $R$, and two vertices of $\DB$ are connected by an arc if they have a suffix-prefix overlap of length $k-1$. Let $V(\DB)$ denote the set of vertices of $\DB$. For all $v \in V(\DB)$, let $\abu(v)$ denote the abundance of the $k$-mer $v$. We denote by $\dplus(v)$ the number of out-neighbors of $v$ in $\DB$, and by $\dminus(v)$ the number of out-neighbors of $v$ in $\DB$. These values can be obtained by queries to the index built on the set $R$. 
 
-A node $v$ of $\DB$ is called \emph{unary} if $\dminus(v) = \dplus(v) = 1$, and it is called \emph{isolated} if $\dminus(v) = \dplus(v) = 0$. A path in $\DB$ is called a \emph{unitig} if all its internal vertices are unary, and its two extremities are not. When clear from the context, we will also use the term unitig to denote the string spelled by a unitig path in $\DB$. Given a unitig $w = (v_1,v_2,\dots,v_t)$ of $\DB$, we denote by $|w|_n$ the number of nodes of $w$, i.e., $|w|_n = t$, and by $|w|_s$ the length of the string spelled by $w$, that is, $|w|_s = k + t - 1$.
+A node $v$ of $\DB$ is called \emph{unary} if $\dminus(v) = \dplus(v) = 1$, and it is called \emph{isolated} if $\dminus(v) = \dplus(v) = 0$. A path in $\DB$ is called a \emph{unitig} if all its internal vertices are unary, and its two extremities are not. When clear from the context, we will also use the term unitig to denote the string spelled by a unitig path in $\DB$. 
+%Given a unitig $w = (v_1,v_2,\dots,v_t)$ of $\DB$, we denote by $|w|_n$ the number of nodes of $w$, i.e., $|w|_n = t$, and by $|w|_s$ the length of the string spelled by $w$, that is, $|w|_s = k + t - 1$.
 
 \alex{Talk about reverse complements in dB graphs: a k-mer and its reverse complement are bundled into the same node and the abundances are added up. Say how we deal with this case in practice.}
 
@@ -149,17 +150,20 @@ An estimate $\hat{Z}$ for the quantity from (\ref{eqn:avg_internal}) is then obt
 %\label{subp:estimating_the_e_size}
 
 \medskip
-\noindent\textbf{Estimating the E-size of the unitigs of a dBG.} Let $\U$ denote the set of all unitigs of $\DB$. The E-size of $\U$ is defined as the expected length of the unitigs of $\DB$. Formally, 
-\[\esize(\U) := \sum_{s \in \U}|s|p(s) = \sum_{s \in \U} |s|\frac{|s|}{\sum_{s' \in \U}|s'|} = \frac{\sum_{s \in \U}|s|^2}{\sum_{s \in \U}|s|}.\]
+\noindent\textbf{Estimating the E-size of the unitigs of a dBG.} The E-size of the set $\U$ of unitig strings of $\DB$ is defined as the expected length of the unitigs of $\DB$. Formally, 
+\[\esize(\U) := \sum_{w \in \U}|w|p(w) = \sum_{w \in \U} |w|\frac{|w|}{\sum_{w' \in \U}|w'|} = \frac{\sum_{w \in \U}|w|^2}{\sum_{w \in \U}|w|},\]
+where $|w|$ denotes the length of the string spelled by the unitig $w$. We also denote the number of nodes of a unitig $w$ as $||w||$. In order to derive an estimate for the E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, the main issue here is that we need to normalize it with the expected number of times of sampling each unitig.
 
-In order to derive an estimate for the E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, we need to normalize it with the expected number of times of sampling each unitig.
+Our sampling procedure produces a set $W$ of all unitigs of $\DB$, as follows: choose a $k$-mer $x \in \K_k$ at random, and if $x$ is a node of $\DB$, then output all the unitigs containing $x$. These can be obtained by traversing the graph along the in-/out-neighbors of $x$, after taking into account whether $x$ is a unary node of $\DB$ or not. If all $k$-mers in $\K_k$ were sampled, then each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \sum_{i = 1}^{t}\alpha(v_i)$ times in $W$. 
 
-Our sampling procedure produces a multiset $W$ of all unitigs of $\DB$, as follows: for all $k$-mers $x \in \K_k$, if $x$ is a node of $\DB$, then output all the unitigs containing $x$. They can be obtained by traversing the graph along the in-/out-neighbors of $x$, after taking into account whether $x$ is a unary node of $\DB$ or not. Each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \frac{1}{t}\sum_{i = 1}^{t}\alpha(v_i)$ times in $W$. Therefore, we can equivalently express the E-size of the set $\U$ as 
-\[\esize(\U) = \sum_{w \in W} |w| \frac{|w|\frac{1}{\alpha(w)}}{\sum_{w \in W}|w|\frac{1}{\alpha(w)}}.\]
+Observe first that we can equivalently express the E-size of the set $\U$ as 
+\[\esize(\U) = \sum_{w \in W} |w| \frac{|w|\frac{||w||}{\alpha(w)}}{\sum_{w \in W}|w|\frac{||w||}{\alpha(w)}}.\]
 
-Instead of iterating over all $k$-mers in $\K_k$, we now sample a multiset of $k$-mers in $\K_k$, and if they are nodes in the de Bruijn graph, we report the unitigs containing these $k$-mers. Assume that this produces a multiset $\{w_1,\dots,w_m\}$ of unitigs of $\DB$. We can estimate $\esize(\U)$ as 
+Assume that this produces a multiset $\{w_1,\dots,w_m\}$ of unitigs of $\DB$. We can then estimate $\esize(\U)$ as 
 
-\[\hat{{\sf E}}_{\sf size} := \sum_{i = 1}^{m} |w_i| \frac{|w_i|\frac{1}{\alpha(w)}}{\sum_{j=1}^{m}|w_j|\frac{1}{\alpha(w)}}.\]
+\[\hat{{\sf E}}_{\sf size} := \sum_{i = 1}^{m} |w_i| \frac{|w_i|\frac{||w_i||}{\alpha(w)}}{\sum_{j=1}^{m}|w_j|\frac{||w_j||}{\alpha(w_j)}}.\]
+
+\alex{Say that here we cannot guarantee a sampling accuracy (if so).}
 
 %Consider the following procedure which produces a multiset containing the set $\U$ of all unitigs of $\DB$. For all $k$-mers $x$ in the multiset $\K_k$ do:
 %\begin{itemize}

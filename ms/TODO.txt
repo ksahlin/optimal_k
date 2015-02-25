@@ -24,11 +24,8 @@ Kristoffer:
 		- Memory
 		- NG50, E-size, Size, Errors
 
-
-
 Alex:
 - Make optimal-k support several read files - i.e. fix bug.
-- Implement sample size estimate for number of nodes
+- Make unitiger have an option not to print to file
+- Implement sample size estimate for number of nodes, number of unitigs
 - Implement E-size estimate in cpp (for single abundance suffices)
-- Write aboute sample size for average number of nodes.
-- Make unitiger has an option not to print to file

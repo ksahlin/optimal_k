@@ -3,3 +3,6 @@
 bin/
 Unitiger/bin/
 data/
+ms/optimal_k.aux
+ms/optimal_k.log
+ms/optimal_k.synctex.gz
