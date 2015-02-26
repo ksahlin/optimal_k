@@ -3,6 +3,7 @@ BOTH:
 - Write introduction
 
 Kristoffer:
+- Check sampling algorithms
 - Results:
 	- Methods:
 		- optimal_k
