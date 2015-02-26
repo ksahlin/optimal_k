@@ -291,6 +291,33 @@ unordered_set<string> compute_unitigs(Graph& graph)
     return unitigs;
 }
 
+double compute_average_length(unordered_set<string>& unitigs)
+{
+    size_t sum_lengths = 0;
+    for (unordered_set<string>::iterator itr = unitigs.begin(); itr != unitigs.end(); ++itr) 
+        {
+            sum_lengths += (*itr).length();
+        }
+
+    return sum_lengths / (double)unitigs.size();
+}
+
+double compute_e_size(unordered_set<string>& unitigs)
+{
+    double e_size;
+    size_t sum_lengths = 0;
+    size_t sum_lengths_squared = 0;
+    for (unordered_set<string>::iterator itr = unitigs.begin(); itr != unitigs.end(); ++itr) 
+        {
+            int ctg_len = (*itr).length();
+            sum_lengths += ctg_len;  //(*itr).length();
+
+            sum_lengths_squared += pow( static_cast<double>(ctg_len) ,2);
+        }
+    e_size = sum_lengths_squared / (double)sum_lengths;
+    return e_size;
+}
+
 int print_unitigs(Graph& graph, unordered_set<string>& unitigs, string reads)
 {
     try 
@@ -319,52 +346,6 @@ int print_unitigs(Graph& graph, unordered_set<string>& unitigs, string reads)
 
 }
 
-double compute_average_length(unordered_set<string>& unitigs)
-{
-    size_t sum_lengths = 0;
-    for (unordered_set<string>::iterator itr = unitigs.begin(); itr != unitigs.end(); ++itr) 
-        {
-            sum_lengths += (*itr).length();
-        }
-
-    return sum_lengths / (double)unitigs.size();
-}
-
-double compute_e_size(unordered_set<string>& unitigs)
-{
-    double e_size;
-    size_t sum_lengths = 0;
-    size_t sum_lengths_squared = 0;
-    for (unordered_set<string>::iterator itr = unitigs.begin(); itr != unitigs.end(); ++itr) 
-        {
-            int ctg_len = (*itr).length();
-            sum_lengths += ctg_len;  //(*itr).length();
-
-            sum_lengths_squared += pow( static_cast<double>(ctg_len) ,2);
-        }
-    e_size = sum_lengths_squared / (double)sum_lengths;
-    return e_size;
-}
-
-
-// void output_unitigs(unordered_set<string>& unitigs, const string unitig_filepath )
-// {
-
-//     ofstream unitig_file;
-//     cout << unitig_file << endl;
-//     unitig_file.open(unitig_filepath.c_str());
-    
-
-
-//     for (unordered_set<string>::iterator itr = unitigs.begin(); itr != unitigs.end(); ++itr) 
-//         {
-//             unitig_file << ">unitig" << (*itr).length() << "\n";
-//             unitig_file << (*itr) << "\n";
-//         }
-
-//     unitig_file.close();
-// }
-
 void print_metrics(const Graph& graph,
     size_t k,
     size_t abundance,
@@ -387,10 +368,12 @@ void print_metrics(const Graph& graph,
     metricsFile << endl; 
 }
 
+
 int main (int argc, char* argv[])
 {
     size_t k, mink, maxk, abundance;
     string readFileName, outputFileName;
+    bool print_output_unitigs;
 
     string usage = "\n  %prog OPTIONS";
     const string version = "%prog 0.1\nCopyright (C) 2014-2015\n"
@@ -413,6 +396,7 @@ int main (int argc, char* argv[])
     parser.add_option("-m", "--mink") .type("int") .dest("mink") .action("store") .set_default(0) .help("min kmer size");
     parser.add_option("-M", "--maxk") .type("int") .dest("maxk") .action("store") .set_default(0) .help("max kmer size");
     parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");
+    parser.add_option("-s", "--silentoutput") .action("store_true") .dest("not_print_output_unitigs") .set_default(false) .help("this option suppresses writing the unitigs to file");
 
 
     optparse::Values& options = parser.parse_args(argc, argv);
@@ -422,6 +406,7 @@ int main (int argc, char* argv[])
     mink = (size_t) options.get("mink");
     maxk = (size_t) options.get("maxk");
     abundance = (int) options.get("a");
+    print_output_unitigs = (options.get("not_print_output_unitigs") ? false : true);
 
     ofstream metricsFile;
     // if only one value of k is given, then do this only for k
@@ -449,11 +434,11 @@ int main (int argc, char* argv[])
             return EXIT_FAILURE;
         }
         unitigs = compute_unitigs(graph);
-        #pragma omp critical
+        if (print_output_unitigs)
         {
             print_unitigs(graph, unitigs, outputFileName);
-            print_metrics(graph, k, abundance, unitigs, metricsFile);    
         }
+        print_metrics(graph, k, abundance, unitigs, metricsFile);    
     }
 
     metricsFile.close();
