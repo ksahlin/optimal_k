@@ -95,32 +95,32 @@ Therefore, we also get an estimate of $X := |V(\DB)|$ as $\hat{X} = \hat{p}_{k,a
 \alex{Say that we can implement this for all abundances}
 
 \medskip
-\noindent \textbf{Estimating the number of unitigs of a dBG.} Let $\U$ denote the set of all unitigs of $\DB$. We derive now a simple combinatorial expression for $|\U|$, which will is key in sampling. Let $\ST$ denote the set of start nodes of the unitigs of $\DB$, that is, 
+\noindent \textbf{Estimating the number of unitigs of a dBG.} Let $\U$ denote the set of all unitigs of $\DB$. We derive now a simple combinatorial expression for $|\U|$, which is key in the sampling phase. Let $\ST$ denote the set of start nodes of the unitigs of $\DB$, that is, 
 \begin{align*}
 \ST := \{v \in V(\DB) \:&|\: \dplus(v) \geq 2 \text{ or } \\
 & (\dplus(v) = 1 \text{ and } \dminus(v) \neq 1) \text{ or} \\
 & (\dplus(v) = 0 \text{ and } \dminus(v) = 0)\}.
 \end{align*}
-Every node $v$ in $\ST$ is either an isolated node, or it is a start node of a different a unitig for each of its out-neighbors. We can therefore write
-\[|\ST| = \sum_{v \in \ST} \max(1,\dplus(v)).\]
+Since every node $v$ in $\ST$ is either an isolated node, or it is a start node of a different unitig, starting with $v$ and then continuing to each of its out-neighbors, we can write
+\[|\U| = \sum_{v \in \ST} \max(1,\dplus(v)).\]
 
-As above, we can also obtain this number by summing over all $k$-mers in the reads:
+As above, we can also obtain this number also by summing over all $k$-mers in the reads:
 
-\[|\ST| = \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right).\]
+\[|\U| = \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right).\]
 % subparagraph estimating_the_number_of_nodes_in_a_db_graph (end)
 
-Analogously, we can consider the proportion of start nodes over all $k$-mers in the reads
-\[q_{k,a} := \frac{|\ST|}{|\K_k|} = \frac{\sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}{|\K_k|} \in [0,1],\]
-and estimate it, after sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, as
+We consider the ratio between the number of unitigs and all $k$-mers in the reads
+\[q_{k,a} := \frac{|\U|}{|\K_k|} = \frac{\sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}{|\K_k|}.\]
+Observe that $q_{k,a} \in [0,1]$ since every unitig contains at least one $k$-mer, thus $|\U| \leq |\K_k|$. We can analogously estimate it, after sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, as
 \[\hat{q}_{k,a} := \frac{\sum_{i = 1}^{m} \max\left(\frac{1}{\abu(x_i)}\mathbb{I}(x,a),\frac{1}{\abu(x_i)}\mathbb{I}(x_i,a)\dplus(x_i)\right)}{m}.\]
 
-The estimate of $Y := |\ST|$ is then $\hat{Y} = \hat{q}_{k,a}|\K_k| = \hat{q}_{k,a}n(r-k+1)$. By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{Y}$ within a certain confidence interval.
+The estimate of $Y := |\U|$ is then $\hat{Y} = \hat{q}_{k,a}|\K_k| = \hat{q}_{k,a}n(r-k+1)$. By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{Y}$ within a certain confidence interval.
 \alex{say we can implement this for all abundances.}
 
 \medskip
 \noindent\textbf{Estimating the average length of the unitigs of a dBG.} We are now interested in determining the average length of the strings spelled by the unitigs of $\DB$. 
 
-Denote by the \emph{truncated length} of a unitig $w = (v_1,v_2,\dots,v_t)$ the number of its internal vertices plus its start vertex. We first estimate the average truncated lengths of the unitigs of $\DB$, and then obtain the average unitig string length by summing $k$.\footnote{This assumes, in order to simplify the presentation, that the dBG has no isolated nodes, which are unitigs with $0$ internal nodes but spell strings of length $k$. However, isolated nodes can be easily accounted for as separate case in all the formulas.} Working with the truncated unitig lengths guarantees that we can again easily bound the sampling error.
+Denote by the \emph{truncated length} of a unitig $w = (v_1,v_2,\dots,v_t)$ the number of its internal vertices plus its start vertex. We first estimate the average truncated lengths of the unitigs of $\DB$, and then obtain the average unitig string length by summing $k$.\footnote{This assumes, in order to simplify the presentation, that the dBG has no isolated nodes, which are unitigs with $0$ internal nodes and truncated length $1$, but spell strings of length $k$. However, isolated nodes can be easily accounted for as separate case in all the formulas.} Working with the truncated unitig lengths guarantees that we can again easily bound the sampling error.
 
 Let $\UN$ denote the set of unary nodes of $\DB$; notice that $\UN \cap \ST = \emptyset$. The average truncated length of the unitigs is obtained as 
 \begin{equation}
@@ -150,17 +150,19 @@ An estimate $\hat{Z}$ for the quantity from (\ref{eqn:avg_internal}) is then obt
 %\label{subp:estimating_the_e_size}
 
 \medskip
-\noindent\textbf{Estimating the E-size of the unitigs of a dBG.} The E-size of the set $\U$ of unitig strings of $\DB$ is defined as the expected length of the unitigs of $\DB$. Formally, 
-\[\esize(\U) := \sum_{w \in \U}|w|p(w) = \sum_{w \in \U} |w|\frac{|w|}{\sum_{w' \in \U}|w'|} = \frac{\sum_{w \in \U}|w|^2}{\sum_{w \in \U}|w|},\]
-where $|w|$ denotes the length of the string spelled by the unitig $w$. We also denote the number of nodes of a unitig $w$ as $||w||$. In order to derive an estimate for the E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, the main issue here is that we need to normalize it with the expected number of times of sampling each unitig.
+\noindent\textbf{Estimating the E-size of the unitigs of a dBG.} The E-size of the set $\U$ of unitig strings of $\DB$ is defined as the expected length of the unitig strings of $\DB$ \cite{??}. Formally, 
+\[\esize(\U) := \sum_{w \in \U}|w|\mathbb{P}(w) = \sum_{w \in \U} |w|\frac{|w|}{\sum_{w' \in \U}|w'|} = \frac{\sum_{w \in \U}|w|^2}{\sum_{w \in \U}|w|},\]
+where $|w|$ denotes the length of the string spelled by the unitig $w$. We also denote the number of nodes of a unitig $w$ as $||w||$. In order to derive an estimate for the E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, the main issue here is that we need to normalize it \alex{with the expected number of times of sampling each unitig. [IS THIS STILL CORRECT?]}
 
-Our sampling procedure produces a set $W$ of all unitigs of $\DB$, as follows: choose a $k$-mer $x \in \K_k$ at random, and if $x$ is a node of $\DB$, then output all the unitigs containing $x$. These can be obtained by traversing the graph along the in-/out-neighbors of $x$, after taking into account whether $x$ is a unary node of $\DB$ or not. If all $k$-mers in $\K_k$ were sampled, then each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \sum_{i = 1}^{t}\alpha(v_i)$ times in $W$. 
+Our sampling procedure produces a multiset $W$ of unitigs of $\DB$, as follows: we choose a $k$-mer $x \in \K_k$ at random, and if $x$ is a node of $\DB$, we output all the unitigs containing $x$. These unitigs can be obtained by traversing the graph along the in-/out-neighbors of $x$, after taking into account whether $x$ is a unary node of $\DB$ or not. 
 
-Observe first that we can equivalently express the E-size of the set $\U$ as 
-\[\esize(\U) = \sum_{w \in W} |w| \frac{|w|\frac{||w||}{\alpha(w)}}{\sum_{w \in W}|w|\frac{||w||}{\alpha(w)}}.\]
+Suppose that the above procedure samples every node of $\DB$ exactly once, and that $\overline{W}$ is the resulting multiset of unitigs. Then, each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \sum_{i = 1}^{t}\alpha(v_i)$ times in $\overline{W}$. However, since not all abundances are equal, we need to remove the bias from over- or under-sampling $k$-mers due to their different abundances. Observe that if all $k$-mers of $\DB$ had the same abundance $a$, then $w$ would appear $ta$ times in $\overline{W}$. Therefore, we can equivalently express the E-size of the set $\U$ by normalizing the probability of $w$ with $a||w||/\abu(w)$. This gives the following expression:
+\begin{equation}
+\esize(\U) = \sum_{w \in \overline{W}} |w| \frac{|w|\frac{a||w||}{\alpha(w)}}{\sum_{w \in \overline{W}}|w|\frac{a||w||}{\alpha(w)}} = \sum_{w \in \overline{W}} |w| \frac{|w|\frac{||w||}{\alpha(w)}}{\sum_{w \in \overline{W}}|w|\frac{||w||}{\alpha(w)}}.
+\label{eqn:e-size}
+\end{equation}
 
-Assume that this produces a multiset $\{w_1,\dots,w_m\}$ of unitigs of $\DB$. We can then estimate $\esize(\U)$ as 
-
+However, we cannot afford to sample all $k$-mers in $\K_k$. If sampling only a subset of $k$-mers we obtain the multiset $W = \{w_1,\dots,w_m\}$ of unitigs, the above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
 \[\hat{{\sf E}}_{\sf size} := \sum_{i = 1}^{m} |w_i| \frac{|w_i|\frac{||w_i||}{\alpha(w)}}{\sum_{j=1}^{m}|w_j|\frac{||w_j||}{\alpha(w_j)}}.\]
 
 \alex{Say that here we cannot guarantee a sampling accuracy (if so).}
