@@ -58,7 +58,7 @@ A unitig of a graph is a maximal unary path. In the contig assembly phase, popul
 
 The general idea is to provide the user with metrics such as unitigs N50 and E-Size and average number of genomic vertices in a DBG  for all possible k-mer sizes and abundances. \kristoffer{ We implement a FM-index data structure described in cite XX. This allows us to query a k-mer, its in and out neighbors in O() time. }  We furthermore derive formulas for how much we need to sample in order to reach a given accuracy on all our estimates. 
 
-\noindent \textbf{Notation.} We assume that the input consists of a set $R$ of $n$ reads or length $r$. We denote by $\K_k$ be the multiset of all $k$-mers in the reads; observe that $|\K_k| = n(r-k+1)$. Moreover, we denote by $\DB$ the de Bruijn graph of \emph{order} $k$ and \emph{minimum abundance} $a$ built on $R$. That is, the set of vertices of $\DB$ is the set of all $k$-mers in the reads which occur at least $a$ times in $R$, and two vertices of $\DB$ are connected by an arc if they have a suffix-prefix overlap of length $k-1$. Let $V(\DB)$ denote the set of vertices of $\DB$. For all $v \in V(\DB)$, let $\abu(v)$ denote the abundance of the $k$-mer $v$. We denote by $\dplus(v)$ the number of out-neighbors of $v$ in $\DB$, and by $\dminus(v)$ the number of out-neighbors of $v$ in $\DB$. These values can be obtained by queries to the index built on the set $R$. 
+\noindent \textbf{Notation.} We assume that the input consists of a set $R$ of $n$ reads of length $r$. We denote by $\K_k$, the multiset of all $k$-mers in the reads; observe that $|\K_k| = n(r-k+1)$. Moreover, we denote by $\DB$, the de Bruijn graph with vertices of length $k$ and \emph{minimum abundance} $a$. That is, the set of vertices of $\DB$ is the set of all $k$-mers in the reads which occur at least $a$ times in $R$, and two vertices of $\DB$ are connected by an arc if they have a suffix-prefix overlap of length $k-1$. Let $V(\DB)$ denote the set of vertices of $\DB$. For all $v \in V(\DB)$, let $\abu(v)$ denote the abundance of $k$-mer $v$. We denote by $\dplus(v)$ the number of out-neighbors of $v$ in $\DB$, and by $\dminus(v)$ the number of in-neighbors of $v$ in $\DB$. These values can be obtained by queries to the index built on the set $R$. 
 
 A node $v$ of $\DB$ is called \emph{unary} if $\dminus(v) = \dplus(v) = 1$, and it is called \emph{isolated} if $\dminus(v) = \dplus(v) = 0$. A path in $\DB$ is called a \emph{unitig} if all its internal vertices are unary, and its two extremities are not. When clear from the context, we will also use the term unitig to denote the string spelled by a unitig path in $\DB$. 
 %Given a unitig $w = (v_1,v_2,\dots,v_t)$ of $\DB$, we denote by $|w|_n$ the number of nodes of $w$, i.e., $|w|_n = t$, and by $|w|_s$ the length of the string spelled by $w$, that is, $|w|_s = k + t - 1$.
@@ -90,12 +90,14 @@ Since $V(\DB)$ is a subset of the multiset $\K_k$, we can consider the proportio
 We can estimate $p_{k,a}$ by sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, and taking
 \[\hat{p}_{k,a} := \frac{\sum_{i = 1}^m \frac{1}{\abu(x_i)}\mathbb{I}(x_i, a)}{m}.\]
 
-Therefore, we also get an estimate of $X := |V(\DB)|$ as $\hat{X} = \hat{p}_{k,a}|\K_k| = \hat{p}_{k,a} n(r-k+1)$. By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{X}$ within a certain confidence interval.
+Therefore, we also get an estimate of $X_{k,a} := |V(\DB)|$ as $\hat{X}_{k,a} = \hat{p}_{k,a}|\K_k| = \hat{p}_{k,a} n(r-k+1)$. Notice that if we sample all k-mers, we get $\hat{X}_{k,a} = \frac{|V(\DB)|}{|\K_k|}|\K_k| = |V(\DB)|$. In section~\ref{sec:sampling-accuracy} we will discuss how many samples $m$ we need to accurately estimate $\hat{X}_{k,a}$.
+
+%By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{X}$ within a certain confidence interval.
 
 \alex{Say that we can implement this for all abundances}
 
 \medskip
-\noindent \textbf{Estimating the number of unitigs of a dBG.} Let $\U$ denote the set of all unitigs of $\DB$. We derive now a simple combinatorial expression for $|\U|$, which is key in the sampling phase. Let $\ST$ denote the set of start nodes of the unitigs of $\DB$, that is, 
+\noindent \textbf{Estimating the number of unitigs of a dBG.} Let $\U$ denote the set of all unitigs of $\DB$. We now derive a simple combinatorial expression for $|\U|$, which is key in the sampling phase. Let $\ST$ denote the set of start nodes of the unitigs of $\DB$, that is, 
 \begin{align*}
 \ST := \{v \in V(\DB) \:&|\: \dplus(v) \geq 2 \text{ or } \\
 & (\dplus(v) = 1 \text{ and } \dminus(v) \neq 1) \text{ or} \\
@@ -104,7 +106,7 @@ Therefore, we also get an estimate of $X := |V(\DB)|$ as $\hat{X} = \hat{p}_{k,a
 Since every node $v$ in $\ST$ is either an isolated node, or it is a start node of a different unitig, starting with $v$ and then continuing to each of its out-neighbors, we can write
 \[|\U| = \sum_{v \in \ST} \max(1,\dplus(v)).\]
 
-As above, we can also obtain this number also by summing over all $k$-mers in the reads:
+As above, we can obtain this number by summing over all $k$-mers in the reads:
 
 \[|\U| = \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right).\]
 % subparagraph estimating_the_number_of_nodes_in_a_db_graph (end)
@@ -114,7 +116,7 @@ We consider the ratio between the number of unitigs and all $k$-mers in the read
 Observe that $q_{k,a} \in [0,1]$ since every unitig contains at least one $k$-mer, thus $|\U| \leq |\K_k|$. We can analogously estimate it, after sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, as
 \[\hat{q}_{k,a} := \frac{\sum_{i = 1}^{m} \max\left(\frac{1}{\abu(x_i)}\mathbb{I}(x,a),\frac{1}{\abu(x_i)}\mathbb{I}(x_i,a)\dplus(x_i)\right)}{m}.\]
 
-The estimate of $Y := |\U|$ is then $\hat{Y} = \hat{q}_{k,a}|\K_k| = \hat{q}_{k,a}n(r-k+1)$. By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{Y}$ within a certain confidence interval.
+The estimate of $Y := |\U|$ is then $\hat{Y} = \hat{q}_{k,a}|\K_k| = \hat{q}_{k,a}n(r-k+1)$. Similarly to $X_{k,a}$, sampling all k-mers will give $\hat{Y} = |\U|$. In section~\ref{sec:sampling-accuracy}, we discuss how many samples $m$ we need to accurately estimate $\hat{Y}$.
 \alex{say we can implement this for all abundances.}
 
 \medskip
