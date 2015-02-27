@@ -29,5 +29,6 @@ Alex:
 - Make optimal-k support several read files - i.e. fix bug.
 - [DONE: added the option -s|--silentoutput] Make unitiger have an option not to print to file
 - make unitiger run single thread (the graph construction)
+- make all reads uppercase 
 - Implement sample size estimate for number of nodes, number of unitigs
 - Implement E-size estimate in cpp (for single abundance suffices)
