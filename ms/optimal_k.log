@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014) (preloaded format=pdflatex 2014.5.25)  26 FEB 2015 12:18
+This is pdfTeX, Version 3.14159265-2.6-1.40.15 (TeX Live 2014) (preloaded format=pdflatex 2014.5.25)  27 FEB 2015 17:10
 entering extended mode
  \write18 enabled.
  file:line:error style messages enabled.
@@ -318,23 +318,33 @@ LaTeX Font Info:    Try loading font information for U+msb on input line 40.
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 ) [1
 
-{/usr/local/texlive/2014/texmf-var/fonts/map/pdftex/updmap/pdftex.map}] [2]
+{/usr/local/texlive/2014/texmf-var/fonts/map/pdftex/updmap/pdftex.map}] [2] [3]
 
-LaTeX Warning: Citation `??' on page 3 undefined on input line 153.
 
-[3] [4] [5] (./optimal_k.aux)
+LaTeX Warning: Citation `Salzberg2011' on page 4 undefined on input line 157.
+
+LaTeX Font Info:    Try loading font information for OMS+cmr on input line 167.
+
+(/usr/local/texlive/2014/texmf-dist/tex/latex/base/omscmr.fd
+File: omscmr.fd 1999/05/25 v2.5h Standard LaTeX font definitions
+)
+LaTeX Font Info:    Font shape `OMS/cmr/m/n' in size <10.95> not available
+(Font)              Font shape `OMS/cmsy/m/n' tried instead on input line 167.
+ [4]
+No file optimal_k.bbl.
+[5] (./optimal_k.aux)
 
 LaTeX Warning: There were undefined references.
 
  ) 
 Here is how much of TeX's memory you used:
- 4200 strings out of 493117
- 61887 string characters out of 6135433
- 130516 words of memory out of 5000000
- 7601 multiletter control sequences out of 15000+600000
+ 4219 strings out of 493117
+ 62216 string characters out of 6135433
+ 130524 words of memory out of 5000000
+ 7616 multiletter control sequences out of 15000+600000
  15399 words of font info for 58 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 44i,17n,42p,914b,199s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 44i,17n,42p,903b,199s stack positions out of 5000i,500n,10000p,200000b,80000s
 </usr/local/texlive/2014/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx10.pfb
 ></usr/local/texlive/2014/texmf-dist/fonts/type1/public/amsfonts/cm/cmbx12.pfb>
 </usr/local/texlive/2014/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><
@@ -355,7 +365,7 @@ xmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></usr/local/texlive/2014/texm
 f-dist/fonts/type1/public/amsfonts/cm/cmti10.pfb></usr/local/texlive/2014/texmf
 -dist/fonts/type1/public/amsfonts/symbols/msam10.pfb></usr/local/texlive/2014/t
 exmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb>
-Output written on optimal_k.pdf (5 pages, 219787 bytes).
+Output written on optimal_k.pdf (5 pages, 222394 bytes).
 PDF statistics:
  100 PDF objects out of 1000 (max. 8388607)
  72 compressed objects within 1 object stream
