@@ -12,6 +12,7 @@ int get_reads(const string readFileName,
 	{
 		try 
 		{
+
 			ifstream readFile;
 			readFile.open(tokenFileName);
 
@@ -24,6 +25,8 @@ int get_reads(const string readFileName,
 		    	assert(getline(readFile , line)); // the quality values
 		   	}
 		   	readFile.close();
+
+		   	cout << "Finished reading from " << tokenFileName << endl;
 		} catch (exception& error) 
 		{ // check if there was any error
 			std::cerr << "Error: " << error.what() << std::endl;
@@ -31,7 +34,7 @@ int get_reads(const string readFileName,
 		}
 	}
 
-	cout << "Input file contains " << reads.size() << " reads." << endl;
+	cout << "Input file(s) contain(s) " << reads.size() << " reads." << endl;
 
    	return EXIT_SUCCESS;
 }
@@ -65,7 +68,8 @@ int get_data_for_rlcsa(const string& readFileName,
 		    	assert(getline(readFile , line)); // the +/- sign
 		    	assert(getline(readFile , line)); // the quality values
 		   	}
-		   	readFile.close();			
+		   	readFile.close();	
+		   	cout << "Finished reading from " << tokenFileName << endl;		
 		} catch (exception& error) 
 		{ // check if there was any error
 			std::cerr << "Error: " << error.what() << std::endl;
@@ -74,7 +78,7 @@ int get_data_for_rlcsa(const string& readFileName,
 	}
 
 
-   	cout << "Input file " << readFileName << " contains " << reads.size() << " reads." << endl;
+   	cout << "Input file(s) " << readFileName << " contain(s) " << reads.size() << " reads." << endl;
    	cout << "The temporary data array will have size " << (double)char_count/1000000000 << "GB." << endl;
 
    	uint64_t i = 0;

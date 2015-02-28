@@ -1,10 +1,11 @@
-// We include what we need for the test
-// 
+
 #include <gatb/gatb_core.hpp>
 #include <string>
 #include <fstream>
 #include <unordered_set>
 #include <stdlib.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 #include <iostream>
 #include <fstream>
@@ -63,55 +64,55 @@ bool is_readable( const std::string & file )
 
 
 
-int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abundance)
+int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abundance, size_t nb_cores)
 {
     //std::string readsGraph = reads.substr(0,reads.find_last_of(".")) + ".h5";
 
-    std::string readsGraph = reads + ".h5";
+    //std::string readsGraph = reads + ".h5";
 
     // Create de bruijn graph
-    if (false and is_readable(readsGraph))  // we always construct the graph from scratch from reads
+    // Tokenize reads file (list of files separated by ,)
+    int filecount=1;
+    char *readcstr = (char *)reads.c_str();
+    for(int i = 0; i < strlen(readcstr); i++) 
     {
-        std::cout << "Loading from " << readsGraph << std::endl;
-        graph = Graph::load(reads);
+        if (readcstr[i] == ',')
+            filecount++;
+    }
+
+    if (filecount > 1) 
+    {
+        char **files = new char*[filecount];
+        files[0] = readcstr;
+        int j = 1;
+        int l = strlen(readcstr);
+        for (int i = 0; i < l; i++) {
+            if (readcstr[i] == ',')
+            {
+                readcstr[i] = '\0';
+                files[j] = &readcstr[i+1];
+                j++;
+            }
+        }
+
+        BankFasta *b = new BankFasta(filecount, files);
+        // mkdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str(), S_IRUSR | S_IWUSR | S_IXUSR);
+        // chdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str());
+        graph = Graph::create(b, (char const *)"-kmer-size %d -abundance %d -verbose 0 -nb-cores %d", k, abundance, nb_cores);
+        // -bloom cache -debloom original 
+		// chdir("..");
+  		// rmdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str());
     } 
     else 
     {
-        // Tokenize reads file (list of files separated by ,)
-        int filecount=1;
-        char *readcstr = (char *)reads.c_str();
-        for(int i = 0; i < strlen(readcstr); i++) 
-        {
-            if (readcstr[i] == ',')
-                filecount++;
-        }
+    	//mkdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str(), S_IRUSR | S_IWUSR | S_IXUSR);
+        graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -verbose 0 -nb-cores %d", reads.c_str(), k, abundance, nb_cores);
+        //rmdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str());
+    }
+  
+	//std::cout << graph.getInfo() << std::endl;
 
-        if (filecount > 1) 
-        {
-            char **files = new char*[filecount];
-            files[0] = readcstr;
-            int j = 1;
-            int l = strlen(readcstr);
-            for (int i = 0; i < l; i++) {
-                if (readcstr[i] == ',')
-                {
-                    readcstr[i] = '\0';
-                    files[j] = &readcstr[i+1];
-                    j++;
-                }
-            }
-
-            BankFasta *b = new BankFasta(filecount, files);
-            graph = Graph::create(b, (char const *)"-kmer-size %d -abundance %d -bloom cache -debloom original -verbose 0", k, abundance);
-        } 
-        else 
-        {
-            graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -bloom cache -debloom original -verbose 0", reads.c_str(), k, abundance);
-        }
-  }
-  //std::cout << graph.getInfo() << std::endl;
-
-  return EXIT_SUCCESS;
+	return EXIT_SUCCESS;
 }
 
 
@@ -371,7 +372,7 @@ void print_metrics(const Graph& graph,
 
 int main (int argc, char* argv[])
 {
-    size_t k, mink, maxk, abundance;
+    size_t k, mink, maxk, abundance, nb_cores;
     string readFileName, outputFileName;
     bool print_output_unitigs;
 
@@ -397,6 +398,7 @@ int main (int argc, char* argv[])
     parser.add_option("-M", "--maxk") .type("int") .dest("maxk") .action("store") .set_default(0) .help("max kmer size");
     parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");
     parser.add_option("-s", "--silentoutput") .action("store_true") .dest("not_print_output_unitigs") .set_default(false) .help("this option suppresses writing the unitigs to file");
+    parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(0) .help("number of threads for graph construction (0 for using cores; default: %default)");
 
 
     optparse::Values& options = parser.parse_args(argc, argv);
@@ -406,6 +408,8 @@ int main (int argc, char* argv[])
     mink = (size_t) options.get("mink");
     maxk = (size_t) options.get("maxk");
     abundance = (int) options.get("a");
+    //nb_cores = (size_t) options.get("t");
+    nb_cores = 1;
     print_output_unitigs = (options.get("not_print_output_unitigs") ? false : true);
 
     ofstream metricsFile;
@@ -426,7 +430,7 @@ int main (int argc, char* argv[])
         Graph graph;
         try
         {
-            initialize_de_bruijn_graph(graph, readFileName, k, abundance);
+            initialize_de_bruijn_graph(graph, readFileName, k, abundance, nb_cores);
         }
         catch (gatb::core::system::Exception& e)
         {
@@ -438,7 +442,7 @@ int main (int argc, char* argv[])
         {
             print_unitigs(graph, unitigs, outputFileName);
         }
-        print_metrics(graph, k, abundance, unitigs, metricsFile);    
+        print_metrics(graph, k, abundance, unitigs, metricsFile);
     }
 
     metricsFile.close();

@@ -335,7 +335,7 @@ int main(int argc, char** argv)
     vector<ofstream> outputFile(max_abundance + 1);
     for (int a = min_abundance; a <= max_abundance; a++)
     {
-    	outputFile[a].open((outputFileName + ".a" + int_to_string(a)).c_str());
+    	outputFile[a].open((outputFileName + ".a" + int_to_string(a) + ".csv").c_str());
     	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
     } 
 
@@ -346,7 +346,7 @@ int main(int argc, char** argv)
 
  		for (int a = min_abundance; a <= max_abundance; a++)
  		{
- 			sample_size[a] = get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
+ 			sample_size[a] = 100000; //get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
  		}
 
  		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size, n_internal, n_starts, n_nodes, n_unitigs);	
