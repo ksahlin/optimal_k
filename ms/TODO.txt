@@ -26,7 +26,7 @@ Kristoffer:
 		- NG50, E-size, Size, Errors
 
 Alex:
-- Make optimal-k support several read files - i.e. fix bug.
+- [FIXED: the only way was to write a wrapper: GATB has a problem with multiple values of k] Make optimal-k support several read files - i.e. fix bug.
 - [DONE: added the option -s] Make unitiger have an option not to print to file
 - [DONE: added the option -t] make unitiger run single thread (the graph construction)
 - make all reads uppercase 
