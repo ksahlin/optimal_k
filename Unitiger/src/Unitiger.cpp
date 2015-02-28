@@ -408,8 +408,7 @@ int main (int argc, char* argv[])
     mink = (size_t) options.get("mink");
     maxk = (size_t) options.get("maxk");
     abundance = (int) options.get("a");
-    //nb_cores = (size_t) options.get("t");
-    nb_cores = 1;
+    nb_cores = (size_t) options.get("t");
     print_output_unitigs = (options.get("not_print_output_unitigs") ? false : true);
 
     ofstream metricsFile;

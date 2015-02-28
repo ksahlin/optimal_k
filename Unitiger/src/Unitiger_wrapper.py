@@ -9,14 +9,13 @@ group = parser.add_argument_group("Required arguments")
 group.add_argument("-u", dest="unitigerPath", help="path to Unitiger executable", required=True)
 group.add_argument("-r", dest="readFile", help="FASTQ file(s) (separated by comma)", required=True)
 group.add_argument("-o", dest="outputFile", help="output file", required=True)
-
-parser.add_argument("-k", dest="mink", help="min k", default=5)
-parser.add_argument("-K", dest="maxk", help="max k", default=5)
-
+group.add_argument("-k", dest="mink", help="min k", default=5)
+group.add_argument("-K", dest="maxk", help="max k", default=5)
 
 group = parser.add_argument_group("Optional arguments")
-parser.add_argument("-a", dest="mina", help="min a", default=3)
-parser.add_argument("-A", dest="maxa", help="max A", default=3)
+group.add_argument("-a", dest="mina", help="min a", default=3)
+group.add_argument("-A", dest="maxa", help="max A", default=3)
+group.add_argument("-t", dest="threads", help="number of threads (0 = all cores)", default = 1)
 
 args = parser.parse_args()
 
@@ -30,8 +29,8 @@ writtenHeader = False
 
 for k in range(mink, maxk + 1):
 	for a in range(mina, maxa + 1):
-		print "RUNNING: " + args.unitigerPath + " -r " + args.readFile + " -o " + args.outputFile + " -k " + str(k) + " -a " + str(a) + " -s "
-		subprocess.call(args.unitigerPath + " -r " + args.readFile + " -o " + args.outputFile + " -k " + str(k) + " -a " + str(a) + " -s ", shell=True)
+		print "RUNNING: " + args.unitigerPath + " -r " + args.readFile + " -o " + args.outputFile + " -k " + str(k) + " -a " + str(a) + " -t " + args.threads + " -s "
+		subprocess.call(args.unitigerPath + " -r " + args.readFile + " -o " + args.outputFile + " -k " + str(k) + " -a " + str(a) + " -t " + args.threads + " -s ", shell=True)
 		
 		currentMetricsFile = file(args.outputFile + ".mink" + str(k) + ".maxk" + str(k) + ".a" + str(a) + ".metrics.csv" , "r")
 		lines = currentMetricsFile.readlines()
