@@ -24,7 +24,16 @@ string merge_kmer_at_beginning (string s, string kmer)
     return s;
 }
 
-string reverse_complement(string s)
+inline char reverse_complement_char(char c)
+{
+    if (c == 'A') return 'T';
+    if (c == 'T') return 'A';
+    if (c == 'C') return 'G';
+    if (c == 'G') return 'C';
+    return c;
+}
+
+inline string reverse_complement(string s)
 {
     string reverse;
 
