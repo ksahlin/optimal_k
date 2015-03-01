@@ -1,7 +1,7 @@
 
 #include "utils.h"
 
-#define twosided95p_quantile 1.96
+#define TWOSIDED95P_QUANTILE 1.96
 
 int N_THREADS;
 
@@ -63,8 +63,8 @@ void sample_nodes(const RLCSA* rlcsa,
 	const vector<uint64_t>& sample_size,
 	vector<double> &n_internal,
 	vector<double> &n_starts,
-	vector<uint64_t> &n_nodes,
-	vector<uint64_t> &n_unitigs
+	vector<double> &n_nodes,
+	vector<double> &n_unitigs
 	)
 {
 	uint64_t total_kmers = reads.size() * (reads[0].length() - k + 1);
@@ -198,8 +198,6 @@ void sample_nodes(const RLCSA* rlcsa,
 	{
 		n_internal[a] = n_internal_local[a];
 		n_starts[a] = n_starts_local[a];
-		// this should be correct, but it doesn't give the right estimates
-		// n_nodes = total_kmers * kmers_above_abundance / (double)(kmers_above_abundance + kmers_below_abundance);
 		// fix kmers_tried
 		assert(kmers_tried > 0);
 		n_nodes[a] = total_kmers / kmers_tried * kmers_above_abundance[a];
@@ -207,7 +205,8 @@ void sample_nodes(const RLCSA* rlcsa,
 	}
 }
 
-uint64_t get_sample_size(const double &prop_external_k, 
+uint64_t get_sample_size(
+	const double &prop_external_k, 
 	const double &delta_avg_unitig_length)
 {
 	double p = MIN(prop_external_k,0.5);
@@ -217,7 +216,24 @@ uint64_t get_sample_size(const double &prop_external_k,
     double delta_p_external_k_plus_one = (double)(p * delta_max);
 
     assert(delta_p_external_k_plus_one > 0);
-    return pow(twosided95p_quantile / delta_p_external_k_plus_one, 2) * (1 - p) * p;
+    return pow(TWOSIDED95P_QUANTILE / delta_p_external_k_plus_one, 2) * (1 - p) * p;
+}
+
+inline uint64_t get_sample_size_for_proportion(
+	double p, 	
+	double err)
+{
+	// MAKE SURE THIS IS OK
+	if (p < 0.01)
+	{
+		p = 0.01;
+	}
+	if (p > 0.99)
+	{
+		p = 0.99;
+	}
+    double absolute_err = p * err;
+    return abs((double)(TWOSIDED95P_QUANTILE / absolute_err) * (double)(TWOSIDED95P_QUANTILE / absolute_err) * (double)(1 - p) * (double)p);
 }
 
 int main(int argc, char** argv)
@@ -233,6 +249,7 @@ int main(int argc, char** argv)
     bool buildindex = false;
 	vector<string> reads;
 	int min_abundance,max_abundance;
+	double relative_error; // maximum relative error 10% of our estimators
 
  	double startTime = readTimer();
 
@@ -258,23 +275,27 @@ int main(int argc, char** argv)
 	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("input fastq file");
 	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
 	parser.add_option("-b", "--buildindex") .action("store_true") .dest("buildindex") .help("if the index on the fastq file is not built");
-	parser.add_option("-a", "--minabundance") .type("int") .dest("a") .action("store") .set_default(3) .help("runs for all abundances starting with this value (default: %default)");
-	parser.add_option("-A", "--maxabundance") .type("int") .dest("A") .action("store") .set_default(3) .help("runs for all abundances up to this value (default: %default)");
-	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(8) .help("number of threads, in [1..16] (default: %default)");
+	parser.add_option("-a", "--minabundance") .type("int") .dest("a") .action("store") .set_default(3) .help("try all abundances starting with this value (default: %default)");
+	parser.add_option("-A", "--maxabundance") .type("int") .dest("A") .action("store") .set_default(3) .help("try all abundances up to this value (default: %default)");
+	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(8) .help("number of threads; use 0 for all cores (default: %default)");
 	parser.add_option("-k", "--mink") .type("int") .dest("k") .action("store") .set_default(5) .help("minimum kmer size to try (default: %default)");
 	parser.add_option("-K", "--maxk") .type("int") .dest("K") .action("store") .set_default(85) .help("maximum kmer sizeto try (default: %default)");
-
-	
+	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
 	optparse::Values& options = parser.parse_args(argc, argv);
+
 	buildindex = (options.get("buildindex") ? true : false);
 	readFileName = (string) options.get("r");
 	outputFileName = (string) options.get("o");
-	// kmersize = (size_t) options.get("k");
 	min_abundance = (int) options.get("a");
 	max_abundance = (int) options.get("A");
 	mink = (int) options.get("k");
 	maxk = (int) options.get("K");
 	N_THREADS = (int) options.get("t");
+	if (N_THREADS == 0)
+	{
+		N_THREADS = omp_get_num_procs();
+	}
+	relative_error = (double) options.get("e");
 
 	// we need to build the index and exit
 	if (buildindex) 
@@ -294,13 +315,13 @@ int main(int argc, char** argv)
  		rlcsa.printInfo();
  		rlcsa.reportSize(true);
  		rlcsa.writeTo(get_first_token(readFileName) + "+");
- 		cout << "Constructed the index successfully. Now run again the program without -b|--buildindex option." << endl;
+ 		cout << "Constructed the index successfully. Now run again the program without the -b|--buildindex option." << endl;
  		return EXIT_SUCCESS;
 	}
 
 	if ((outputFileName == "") and (not buildindex))
 	{
-		cerr << "Parameter -o|--outputfile is needed" << endl;
+		cerr << "The argument -o|--outputfile is needed" << endl;
 		return EXIT_FAILURE;
 	}
 
@@ -323,14 +344,11 @@ int main(int argc, char** argv)
  	
  	// we sample internal nodes and check their abundances
  	startTime = readTimer();
- 	
+
+ 	// these vectors get re-written for each value of k
  	vector<uint64_t> sample_size(max_abundance + 1, 0);
-    vector<double> prop_external_k(max_abundance + 1, 0.5); // initial for proportion of external nodes in sample
-    double delta_avg_unitig_length = 0.1; // maximum error 10% of our estimator of average nr of nodes in unitig
-
-
-    // This is kind of deprecated: update the code to avoid its use
- 	vector<double> average_unitig_length(101,0);
+ 	vector<double> n_internal(max_abundance + 1,1), n_starts(max_abundance + 1,1);
+ 	vector<double> n_nodes(max_abundance + 1,1), n_unitigs(max_abundance + 1,1);
 
     vector<ofstream> outputFile(max_abundance + 1);
     for (int a = min_abundance; a <= max_abundance; a++)
@@ -341,37 +359,46 @@ int main(int argc, char** argv)
 
  	for (int k = mink; k <= maxk; k++)
  	{
- 		vector<double> n_internal(max_abundance + 1,0), n_starts(max_abundance + 1,0);
- 		vector<uint64_t> n_nodes(max_abundance + 1,0), n_unitigs(max_abundance + 1,0);
-
+ 		// getting the sample size
  		for (int a = min_abundance; a <= max_abundance; a++)
  		{
- 			sample_size[a] = 100000; //get_sample_size(prop_external_k[a], delta_avg_unitig_length);	
+ 			uint64_t SS_n_nodes = get_sample_size_for_proportion(n_nodes[a] / (double)(reads.size() * (reads[0].length() - k + 1)), relative_error);
+ 			uint64_t SS_n_unitigs = get_sample_size_for_proportion(n_unitigs[a] / (double)(reads.size() * (reads[0].length() - k + 1)), relative_error);
+ 			uint64_t SS_avg_nodes_unitig = get_sample_size_for_proportion(n_starts[a] / (double)(n_internal[a] + n_starts[a]), 1 / (double)(1 + relative_error) - 1);
+ 			
+ 			// cout << "SS_n_nodes = " << SS_n_nodes << endl;
+ 			// cout << "SS_n_unitigs = " << SS_n_unitigs << endl;
+ 			// cout << "ratio = " << n_starts[a] / (double)(n_internal[a] + n_starts[a]) << endl;
+ 			// cout << "SS_avg_nodes_unitig = " << SS_avg_nodes_unitig << endl;
+
+ 			uint64_t max_sample_size = MAX(SS_n_nodes,SS_n_unitigs);
+ 			max_sample_size = MAX(max_sample_size,SS_avg_nodes_unitig);
+ 			sample_size[a] = max_sample_size;
  		}
 
+ 		// sampling
  		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size, n_internal, n_starts, n_nodes, n_unitigs);	
 
+ 		// printing the results
  		for (int a = min_abundance; a <= max_abundance; a++)
  		{
  			assert(n_starts[a] > 0);
-			average_unitig_length[k] = n_internal[a] / (double)n_starts[a];
+			uint64_t avg_nodes_unitig = n_internal[a] / (double)n_starts[a];
 
 	 		outputFile[a] << k << ",";
 	 		outputFile[a] << a << ",";
-	 		outputFile[a] << n_nodes[a] << ","; // number of nodes
+	 		outputFile[a] << (uint64_t)n_nodes[a] << ","; // number of nodes
 	 		outputFile[a] << ".,"; // number of edges
-	 		outputFile[a] << (int)average_unitig_length[k] << ","; // average number of internal nodes in unitigs
-			outputFile[a] << (int)average_unitig_length[k] + k + 1 << ","; // average length of unitigs
-			outputFile[a] << sample_size[a] << ","; // estimated sample size
-			outputFile[a] << n_unitigs[a] << ","; // number of unitigs
+	 		outputFile[a] << (uint64_t)avg_nodes_unitig << ","; // average number of internal nodes in unitigs
+			outputFile[a] << (uint64_t)avg_nodes_unitig + k + 1 << ","; // average length of unitigs
+			outputFile[a] << (uint64_t)sample_size[a] << ","; // estimated sample size
+			outputFile[a] << (uint64_t)n_unitigs[a] << ","; // number of unitigs
 			outputFile[a] << "."; // e-size
 			outputFile[a] << endl; 
+			outputFile[a].flush();
 
-	 		cout << k << " " << a << " avg internal nodes=" << (int)average_unitig_length[k] << " avg length=" << (int)average_unitig_length[k] + k + 1 << " n_nodes=" << n_nodes[a] << "n_unitigs=" << n_unitigs[a] << " ess=" << sample_size[a] << endl;
+	 		cout << k << " " << a << " avg internal nodes=" << (uint64_t)avg_nodes_unitig << " avg length=" << (uint64_t)avg_nodes_unitig + k + 1 << " n_nodes=" << (uint64_t)n_nodes[a] << " n_unitigs=" << (uint64_t)n_unitigs[a] << " ess=" << (uint64_t)sample_size[a] << endl;
 	 		cout.flush();
-	 		// update estimator
-	 		prop_external_k[a] = (n_starts[a]) / (n_internal[a] + n_starts[a]);
-	 		// prop_external_k[a] = (2 * n_starts[a]) / (n_internal[a] + 2 * n_starts[a]);
  		}
 
  	}
@@ -381,7 +408,7 @@ int main(int argc, char** argv)
  		outputFile[a].close();	
  	}
  	
- 	cout << "Time for sampling: " << readTimer() - startTime << "sec" << endl;
+ 	cout << "Wall clock time: " << readTimer() - startTime << "sec" << endl;
 
 	return EXIT_SUCCESS;
 }
