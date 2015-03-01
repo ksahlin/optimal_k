@@ -131,16 +131,16 @@ Let $\UN$ denote the set of unary nodes of $\DB$; notice that $\UN \cap \ST = \e
 \end{equation}
 
 As above, we can write
-\[|\UN| = \sum_{\begin{subarray}{c} x \in \K_k \text{ s.t } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a).\]
+\[|\UN| = \sum_{\begin{subarray}{c} x \in \K_k \text{ with } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a).\]
 
 We consider the proportion
 \begin{align*}
 r_{k,a} & := \frac{|\ST|}{|\UN \cup \ST|} = \\ 
-& = \frac{\sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}{\sum_{\begin{subarray}{c} x \in \K_k \text{ s.t } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a) + \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}\in [0,1].\\
+& = \frac{\sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}{\sum_{\begin{subarray}{c} x \in \K_k \text{ with } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a) + \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}\in [0,1].\\
 \end{align*}
 
 We obtain an estimate $\hat{r}_{k,a}$ of $r_{k,a}$ by sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers in $\K_k$ with abundance at least $a$ (that is, for which the indicator variable $\mathbb{I}(x_i,a)$ is 1):
-\[\hat{r}_{k,a} := \frac{\sum_{i=1}^{m} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}{\sum_{\begin{subarray}{c} i \in [1,m] \text{ s.t } \\ \dplus(x_i) = \dminus(x_i) = 1 \end{subarray}} \frac{1}{\abu(x_i)} + \sum_{i=1}^{m} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}.\]
+\[\hat{r}_{k,a} := \frac{\sum_{i=1}^{m} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}{\sum_{\begin{subarray}{c} i \in [1,m] \text{ with } \\ \dplus(x_i) = \dminus(x_i) = 1 \end{subarray}} \frac{1}{\abu(x_i)} + \sum_{i=1}^{m} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}.\]
 An estimate $\hat{Z}_{k,a}$ for the quantity from (\ref{eqn:avg_internal}) is then obtained as $1/\hat{r}_{k,a}$. 
 
 Similarly to $X_{k,a}$ and $Y_{k,a}$, sampling all k-mers will give $\hat{Z}_{k,a} = Z_{k,a}$. We discuss how many samples $m$ we need to accurately estimate $\hat{Z}$ in section ~\ref{sec:sampling-accuracy}.

@@ -30,5 +30,5 @@ Alex:
 - [DONE: added the option -s] Make unitiger have an option not to print to file
 - [DONE: added the option -t] make unitiger run single thread (the graph construction)
 - [DONE] make all reads uppercase 
-- Implement sample size estimate for number of nodes, number of unitigs
+- [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
 - Implement E-size estimate in cpp (for single abundance suffices)
