@@ -77,15 +77,6 @@ void sample_nodes(const RLCSA* rlcsa,
 	bool sampled_enough = false;
 	vector<uint64_t> sampled_so_far(max_abundance + 1, 0);
 
-
-	vector<int> shuffle_vector;
-	// create a random permutation of [0..n_reads-1]
-	for (uint64_t i = 0; i < n_reads; i++)
-	{
-		shuffle_vector.push_back(i);
-	}
-	std::random_shuffle(shuffle_vector.begin(), shuffle_vector.end());
-
 	int a_w_max_ss = -1;
 	uint64_t max_sample_size = 0;
 	for (int a = min_abundance; a <= max_abundance; a++)
@@ -98,8 +89,9 @@ void sample_nodes(const RLCSA* rlcsa,
 	}
 
 	// omp_set_dynamic(0);
-	#pragma omp parallel for shared(n_internal_local,n_starts_local,sampled_enough,sampled_so_far) num_threads(N_THREADS)
-	for (uint64_t i = 0; i < n_reads; i++)
+	// shared(n_internal_local,n_starts_local,sampled_enough,sampled_so_far)
+	#pragma omp parallel for num_threads(N_THREADS)
+	for (uint64_t i = 0; i < 10 * n_reads; i++)
 	{
 		//#pragma omp flush (sampled_enough)
 		if (!sampled_enough)
@@ -110,25 +102,20 @@ void sample_nodes(const RLCSA* rlcsa,
 				continue;
 			}
 			
-			string read;
-			string sample;
-
-			read = reads[shuffle_vector[i]];
-
+			uint64_t read_index = (rand() / (double)RAND_MAX) * reads.size();
+			string read = reads[read_index];
 			// // MAKE SURE THIS IS OK!
 			// if (rand() / (double)RAND_MAX < 0.5)
 			// {
 			// 	read = reverse_complement(read);
 			// }
-
 			int pos = rand() % (read.length() - k + 1);
-	        sample = read.substr(pos,k);
+	        string sample = read.substr(pos,k);
 
-	        // fix kmers tried
 	        #pragma omp atomic
 	        kmers_tried++;
 
-	        // FIX THIS:
+	        // OPTIMIZE THIS IF POSSIBLE:
         	if (sample.find('N') != string::npos)
         	{
         		continue;
@@ -293,8 +280,9 @@ int main(int argc, char** argv)
 
 
 	// if the index does not exist we need to build it
-	if ((not is_readable(indexFileName)) or buildindex) 
+	if ((not is_readable(indexFileName + ".rlcsa.array")) or (not is_readable(indexFileName + ".rlcsa.parameters")) or buildindex) 
 	{
+		cout << "BUILDING THE INDEX FOR THE READS" << endl;
 		if (EXIT_FAILURE == get_data_for_rlcsa(readFileName, data, char_count))
 		{
 			return EXIT_FAILURE;
@@ -319,6 +307,7 @@ int main(int argc, char** argv)
 	}
 
 	// we need to load the index
+	cout << "LOADING THE INDEX FOR THE READS" << endl;
  	const RLCSA* rlcsa = new RLCSA(indexFileName, false);
  	if (!(rlcsa->isOk())) 
  	{
@@ -346,7 +335,7 @@ int main(int argc, char** argv)
     vector<ofstream> outputFile(max_abundance + 1);
     for (int a = min_abundance; a <= max_abundance; a++)
     {
-    	outputFile[a].open((outputFileName + ".a" + int_to_string(a) + ".csv").c_str());
+    	outputFile[a].open((outputFileName + ".mink" + int_to_string(mink) + ".maxk" + int_to_string(maxk) + ".metrics.csv").c_str());
     	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
     } 
 
