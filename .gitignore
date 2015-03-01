@@ -6,6 +6,7 @@ data/
 ms/optimal_k.aux
 ms/optimal_k.log
 ms/optimal_k.synctex.gz
-ms/optimal_k.log
-
-ms/optimal_k.synctex.gz
+ms/Output/optimal_k.aux
+ms/Output/optimal_k.fdb_latexmk
+ms/Output/optimal_k.fls
+ms/optimal_k.pdf
