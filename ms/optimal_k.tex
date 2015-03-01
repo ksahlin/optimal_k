@@ -160,14 +160,14 @@ Similarly to $X_{k,a}$ and $Y_{k,a}$, sampling all k-mers will give $\hat{Z}_{k,
 \label{eq:esize}
 \esize(\U) := \sum_{w \in \U}|w|P(w) = \sum_{w \in \U} |w|\frac{|w|}{\sum_{w' \in \U}|w'|} = \frac{\sum_{w \in \U}|w|^2}{\sum_{w \in \U}|w|},	
 \end{equation}
-where $|w|$ denotes the length of the string spelled by the unitig $w$ and $P(w)$ the probability of sampling a position on the genome covered by $w$ ($P(w)=\frac{|w|}{G}$, if $|G|$ is the length of the genome). We also denote the number of nodes of a unitig $w$ as $||w||$. 
+where $|w|$ denotes the length of the string spelled by the unitig $w$ and $P(w)$ the probability of sampling a position on the genome covered by $w$. The genome is taken to be the concatenation of all unitigs, so $P(w)=\frac{|w|}{|G|}$, where $|G|$ is the genome length. We also denote the number of nodes of a unitig $w$ as $||w||$.
 
-In order to derive an unbiased sampling procedure of $\esize(\U)$, it is important to notice two things in equation~\ref{eq:esize}.
+In order to derive an unbiased sampling procedure of $\esize(\U)$, it is important to notice two points in Equation~\ref{eq:esize}.
 \begin{itemize}
 	\item The length of $w$ determines how likely it is to sample $w$, \emph{i.e.} $P(w_1)>P(w_2)$ if $w_1>w_2$
 	\item The abundance of the nodes in $w$ is not accounted for. 
 \end{itemize}
-Since we are sampling k-mers where the abundance of a k-mer determine how likely it is that we sample it, we need to weight each unitig with the average abundance.  
+Since we will be sampling $k$-mers and their abundance determines how likely it is that we sample each of them, we need to weight each unitig samples from a $k$-mer with the average abundance of the unitig.
 
 %In order to derive an estimate for the E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, the main issue here is that we need to normalize it \alex{with the expected number of times of sampling each unitig. [IS THIS STILL CORRECT?]} \kristoffer{The text is correct at least, are you reffering to that?}
 %By sampling k-mers at random, we may sample a unitig several times. However, the above formula for E-size contains each unitig once, we therefore introduce sampling weights to normalize

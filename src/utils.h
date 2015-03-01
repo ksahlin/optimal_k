@@ -10,6 +10,7 @@
 #include <unordered_set>
 #include <omp.h>
 #include <algorithm>
+#include <string>
 
 #include "../bin/rlcsa/rlcsa.h"
 #include "OptionParser.h"
@@ -45,6 +46,14 @@ inline string int_to_string(size_t x)
     stringstream ss;
     ss << x;
     return ss.str();
+}
+
+inline void make_upper_case(string& s)
+{
+    for (int i = 0; i < s.length(); i++)
+    {
+        s[i] = toupper(s[i]);
+    }
 }
 
 inline string get_first_token(string s)
