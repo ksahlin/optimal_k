@@ -238,7 +238,7 @@ int main(int argc, char** argv)
     int mink, maxk;
     uint64_t char_count;
     uchar *data = NULL;
-    string readFileName, outputFileName;
+    string readFileName, outputFileName, indexFileName;
     bool buildindex = false;
 	vector<string> reads;
 	int min_abundance,max_abundance;
@@ -267,7 +267,7 @@ int main(int argc, char** argv)
 
 	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("input fastq file");
 	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
-	parser.add_option("-b", "--buildindex") .action("store_true") .dest("buildindex") .help("if the index on the fastq file is not built");
+	parser.add_option("-b", "--buildindex") .action("store_true") .dest("buildindex") .help("force the index to be rebuilt, even though it exists");
 	parser.add_option("-a", "--minabundance") .type("int") .dest("a") .action("store") .set_default(3) .help("try all abundances starting with this value (default: %default)");
 	parser.add_option("-A", "--maxabundance") .type("int") .dest("A") .action("store") .set_default(3) .help("try all abundances up to this value (default: %default)");
 	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(8) .help("number of threads; use 0 for all cores (default: %default)");
@@ -278,6 +278,7 @@ int main(int argc, char** argv)
 
 	buildindex = (options.get("buildindex") ? true : false);
 	readFileName = (string) options.get("r");
+	indexFileName = get_first_token(readFileName) + "+";
 	outputFileName = (string) options.get("o");
 	min_abundance = (int) options.get("a");
 	max_abundance = (int) options.get("A");
@@ -290,36 +291,35 @@ int main(int argc, char** argv)
 	}
 	relative_error = (double) options.get("e");
 
-	// we need to build the index and exit
-	if (buildindex) 
+
+	// if the index does not exist we need to build it
+	if ((not is_readable(indexFileName)) or buildindex) 
 	{
 		if (EXIT_FAILURE == get_data_for_rlcsa(readFileName, data, char_count))
 		{
 			return EXIT_FAILURE;
 		}
 		// Build RLCSA and report some information.
-		RLCSA rlcsa(data, char_count, 32, 0, 1, true); // parameter with value '1' is number of threads; available is compiles with muti-thread support
+		RLCSA rlcsa_built(data, char_count, 32, 0, 1, true); // parameter with value '1' is number of threads; available is compiles with muti-thread support
  		data = 0; // The constructor deleted the data.
 
-		if ( !(rlcsa.isOk()) ) 
+		if ( !(rlcsa_built.isOk()) ) 
  		{
  			return EXIT_FAILURE;
  		}
- 		rlcsa.printInfo();
- 		rlcsa.reportSize(true);
- 		rlcsa.writeTo(get_first_token(readFileName) + "+");
- 		cout << "Constructed the index successfully. Now run again the program without the -b|--buildindex option." << endl;
- 		return EXIT_SUCCESS;
+ 		rlcsa_built.printInfo();
+ 		rlcsa_built.reportSize(true);
+ 		rlcsa_built.writeTo(indexFileName);
 	}
 
-	if ((outputFileName == "") and (not buildindex))
+	if (outputFileName == "")
 	{
 		cerr << "The argument -o|--outputfile is needed" << endl;
 		return EXIT_FAILURE;
 	}
 
 	// we need to load the index
- 	const RLCSA* rlcsa = new RLCSA(get_first_token(readFileName) + "+", false);
+ 	const RLCSA* rlcsa = new RLCSA(indexFileName, false);
  	if (!(rlcsa->isOk())) 
  	{
  		return EXIT_FAILURE;
@@ -393,7 +393,6 @@ int main(int argc, char** argv)
 	 		cout << k << " " << a << " avg internal nodes=" << (uint64_t)avg_nodes_unitig << " avg length=" << (uint64_t)avg_nodes_unitig + k + 1 << " n_nodes=" << (uint64_t)n_nodes[a] << " n_unitigs=" << (uint64_t)n_unitigs[a] << " ess=" << (uint64_t)sample_size[a] << endl;
 	 		cout.flush();
  		}
-
  	}
  	
  	for (int a = 1; a <= max_abundance; a++)

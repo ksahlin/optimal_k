@@ -76,4 +76,12 @@ int get_data_for_rlcsa(const string& readFileName,
 	uchar*& data, 
 	uint64_t& char_count
 	);
+
+// Check if a file is readable
+inline bool is_readable( const std::string & file ) 
+{ 
+    std::ifstream f( file.c_str() ); 
+    return !f.fail(); 
+} 
+
 #endif // UTILS_H_INCLUDED
