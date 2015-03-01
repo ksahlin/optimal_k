@@ -4,9 +4,6 @@
 #include <fstream>
 #include <unordered_set>
 #include <stdlib.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include <iostream>
 #include <fstream>
 
@@ -25,15 +22,6 @@ string merge_kmer_at_beginning (string s, string kmer)
 {
     s = kmer[0] + s;
     return s;
-}
-
-char reverse_complement_char(char c)
-{
-    if (c == 'A') return 'T';
-    if (c == 'T') return 'A';
-    if (c == 'C') return 'G';
-    if (c == 'G') return 'C';
-    return c;
 }
 
 string reverse_complement(string s)
@@ -62,6 +50,17 @@ bool is_readable( const std::string & file )
     return !f.fail(); 
 } 
 
+void make_upper_case(string& s)
+{
+    for (size_t i = 0; i < s.length(); i++)
+    {
+        if (s[i] == 'a') s[i] = 'A';
+        else if (s[i] == 'c') s[i] = 'C';
+        else if (s[i] == 'g') s[i] = 'G';
+        else if (s[i] == 't') s[i] = 'T';
+        else if (s[i] == 'n') s[i] = 'N';
+    }
+}
 
 
 int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abundance, size_t nb_cores)
@@ -96,18 +95,11 @@ int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abun
         }
 
         BankFasta *b = new BankFasta(filecount, files);
-        // mkdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str(), S_IRUSR | S_IWUSR | S_IXUSR);
-        // chdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str());
         graph = Graph::create(b, (char const *)"-kmer-size %d -abundance %d -verbose 0 -nb-cores %d", k, abundance, nb_cores);
-        // -bloom cache -debloom original 
-		// chdir("..");
-  		// rmdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str());
     } 
     else 
     {
-    	//mkdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str(), S_IRUSR | S_IWUSR | S_IXUSR);
         graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -verbose 0 -nb-cores %d", reads.c_str(), k, abundance, nb_cores);
-        //rmdir((int_to_string(k) + "x" + int_to_string(abundance)).c_str());
     }
   
 	//std::cout << graph.getInfo() << std::endl;
@@ -372,7 +364,7 @@ void print_metrics(const Graph& graph,
 
 int main (int argc, char* argv[])
 {
-    size_t k, mink, maxk, abundance, nb_cores;
+    size_t k, abundance, nb_cores;
     string readFileName, outputFileName;
     bool print_output_unitigs;
 
@@ -393,9 +385,7 @@ int main (int argc, char* argv[])
 
     parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("input fastq file (if more, separated by comma)");
     parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
-    parser.add_option("-k", "--kmersize") .type("int") .dest("k") .action("store") .set_default(0) .help("kmer size (default: %default)");
-    parser.add_option("-m", "--mink") .type("int") .dest("mink") .action("store") .set_default(0) .help("min kmer size");
-    parser.add_option("-M", "--maxk") .type("int") .dest("maxk") .action("store") .set_default(0) .help("max kmer size");
+    parser.add_option("-k", "--kmersize") .type("int") .dest("k") .action("store") .set_default(31) .help("kmer size (default: %default)");
     parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");
     parser.add_option("-s", "--silentoutput") .action("store_true") .dest("not_print_output_unitigs") .set_default(false) .help("this option suppresses writing the unitigs to file");
     parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(1) .help("number of threads for graph construction (0 for using cores; default: %default)");
@@ -405,44 +395,32 @@ int main (int argc, char* argv[])
     readFileName = (string) options.get("r");
     outputFileName = (string) options.get("o");
     k = (size_t) options.get("k");
-    mink = (size_t) options.get("mink");
-    maxk = (size_t) options.get("maxk");
     abundance = (int) options.get("a");
     nb_cores = (size_t) options.get("t");
     print_output_unitigs = (options.get("not_print_output_unitigs") ? false : true);
 
     ofstream metricsFile;
-    // if only one value of k is given, then do this only for k
-    if (k > 0)
-    {
-        mink = k;
-        maxk = k;
-    }
 
-    metricsFile.open((outputFileName + ".mink" + int_to_string(mink) + ".maxk" + int_to_string(maxk) + ".a" + int_to_string(abundance) + ".metrics.csv").c_str());
+    metricsFile.open((outputFileName + ".k" + int_to_string(k) + ".a" + int_to_string(abundance) + ".metrics.csv").c_str());
     metricsFile << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
-
     
-    for (k = mink; k <= maxk; k++)
+    unordered_set<string> unitigs;
+    Graph graph;
+    try
     {
-        unordered_set<string> unitigs;
-        Graph graph;
-        try
-        {
-            initialize_de_bruijn_graph(graph, readFileName, k, abundance, nb_cores);
-        }
-        catch (gatb::core::system::Exception& e)
-        {
-            std::cerr << "EXCEPTION: " << e.getMessage() << endl;
-            return EXIT_FAILURE;
-        }
-        unitigs = compute_unitigs(graph);
-        if (print_output_unitigs)
-        {
-            print_unitigs(graph, unitigs, outputFileName);
-        }
-        print_metrics(graph, k, abundance, unitigs, metricsFile);
+        initialize_de_bruijn_graph(graph, readFileName, k, abundance, nb_cores);
     }
+    catch (gatb::core::system::Exception& e)
+    {
+        std::cerr << "EXCEPTION: " << e.getMessage() << endl;
+        return EXIT_FAILURE;
+    }
+    unitigs = compute_unitigs(graph);
+    if (print_output_unitigs)
+    {
+        print_unitigs(graph, unitigs, outputFileName);
+    }
+    print_metrics(graph, k, abundance, unitigs, metricsFile);
 
     metricsFile.close();
 

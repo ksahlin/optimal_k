@@ -32,7 +32,7 @@ for k in range(mink, maxk + 1):
 		print "RUNNING: " + args.unitigerPath + " -r " + args.readFile + " -o " + args.outputFile + " -k " + str(k) + " -a " + str(a) + " -t " + args.threads + " -s "
 		subprocess.call(args.unitigerPath + " -r " + args.readFile + " -o " + args.outputFile + " -k " + str(k) + " -a " + str(a) + " -t " + args.threads + " -s ", shell=True)
 		
-		currentMetricsFile = file(args.outputFile + ".mink" + str(k) + ".maxk" + str(k) + ".a" + str(a) + ".metrics.csv" , "r")
+		currentMetricsFile = file(args.outputFile + ".k" + str(k) + ".a" + str(a) + ".metrics.csv" , "r")
 		lines = currentMetricsFile.readlines()
 		if not writtenHeader:
 			metricsFile.write(lines[0])
@@ -41,7 +41,7 @@ for k in range(mink, maxk + 1):
 		metricsFile.flush()
 		currentMetricsFile.close()
 		
-		os.remove(args.outputFile + ".mink" + str(k) + ".maxk" + str(k) + ".a" + str(a) + ".metrics.csv")
+		os.remove(args.outputFile + ".k" + str(k) + ".a" + str(a) + ".metrics.csv")
 
 metricsFile.close()
 

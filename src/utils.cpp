@@ -19,6 +19,7 @@ int get_reads(const string readFileName,
 		   	while (getline(readFile , line)) // this is the comment line
 		   	{
 		    	getline(readFile , line); // the actual read
+		    	make_upper_case(line);
 		    	reads.push_back(line);
 		    	//reads.push_back(reverse_complement(line));
 		    	assert(getline(readFile , line)); // the +/- sign
@@ -61,6 +62,7 @@ int get_data_for_rlcsa(const string& readFileName,
 		   	while (getline(readFile , line)) // this is the comment line
 		   	{
 		    	getline(readFile , line); // the actual read
+		    	make_upper_case(line);
 		    	reads.push_back(line);
 		    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'
 		 		// reads.push_back(reverse_complement(line));
