@@ -72,9 +72,6 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> n_internal_local(max_abundance + 1, 0);
 	vector<double> n_starts_local(max_abundance + 1, 0);
 
-	double n_internal_local_a = 0;
-	double n_starts_local_a = 0;
-
 	uint64_t kmers_tried = 0;
 	uint64_t n_reads = reads.size();
 	bool sampled_enough = false;
@@ -83,14 +80,14 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	vector<int> shuffle_vector;
 	// create a random permutation of [0..n_reads-1]
-	for (int i = 0; i < n_reads; i++)
+	for (uint64_t i = 0; i < n_reads; i++)
 	{
 		shuffle_vector.push_back(i);
 	}
 	std::random_shuffle(shuffle_vector.begin(), shuffle_vector.end());
 
 	int a_w_max_ss = -1;
-	int max_sample_size = 0;
+	uint64_t max_sample_size = 0;
 	for (int a = min_abundance; a <= max_abundance; a++)
 	{
 		if (sample_size[a] >= max_sample_size)
@@ -102,7 +99,7 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	// omp_set_dynamic(0);
 	#pragma omp parallel for shared(n_internal_local,n_starts_local,sampled_enough,sampled_so_far) num_threads(N_THREADS)
-	for (int i = 0; i < n_reads; i++)
+	for (uint64_t i = 0; i < n_reads; i++)
 	{
 		//#pragma omp flush (sampled_enough)
 		if (!sampled_enough)
@@ -238,11 +235,7 @@ inline uint64_t get_sample_size_for_proportion(
 
 int main(int argc, char** argv)
 {
-	int opt_index = 0;
-	N_THREADS;
-    int opt;
-    int mink;
-    int maxk;
+    int mink, maxk;
     uint64_t char_count;
     uchar *data = NULL;
     string readFileName, outputFileName;

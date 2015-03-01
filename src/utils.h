@@ -51,7 +51,7 @@ inline string int_to_string(size_t x)
 
 inline void make_upper_case(string& s)
 {
-    for (int i = 0; i < s.length(); i++)
+    for (uint i = 0; i < s.length(); i++)
     {
         s[i] = toupper(s[i]);
     }
