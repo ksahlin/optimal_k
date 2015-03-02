@@ -252,15 +252,15 @@ int main(int argc, char** argv)
     	.description(desc)
     	.epilog(epilog);
 
-	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("input fastq file");
+	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("input fastq file (all reads need to have the same length)");
 	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
-	parser.add_option("-b", "--buildindex") .action("store_true") .dest("buildindex") .help("force the index to be rebuilt, even though it exists");
 	parser.add_option("-a", "--minabundance") .type("int") .dest("a") .action("store") .set_default(3) .help("try all abundances starting with this value (default: %default)");
 	parser.add_option("-A", "--maxabundance") .type("int") .dest("A") .action("store") .set_default(3) .help("try all abundances up to this value (default: %default)");
 	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(8) .help("number of threads; use 0 for all cores (default: %default)");
-	parser.add_option("-k", "--mink") .type("int") .dest("k") .action("store") .set_default(5) .help("minimum kmer size to try (default: %default)");
-	parser.add_option("-K", "--maxk") .type("int") .dest("K") .action("store") .set_default(85) .help("maximum kmer sizeto try (default: %default)");
+	parser.add_option("-k", "--mink") .type("int") .dest("k") .action("store") .set_default(15) .help("minimum kmer size to try (default: %default)");
+	parser.add_option("-K", "--maxk") .type("int") .dest("K") .action("store") .set_default(0) .help("maximum kmer sizeto try (default: read_length - 10)");
 	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
+	parser.add_option("-b", "--buildindex") .action("store_true") .dest("buildindex") .help("force the index to be rebuilt, even though it exists");
 	optparse::Values& options = parser.parse_args(argc, argv);
 
 	buildindex = (options.get("buildindex") ? true : false);
@@ -327,6 +327,7 @@ int main(int argc, char** argv)
  	// we sample internal nodes and check their abundances
  	startTime = readTimer();
 
+
  	// these vectors get re-written for each value of k
  	vector<uint64_t> sample_size(max_abundance + 1, 0);
  	vector<double> n_internal(max_abundance + 1,1), n_starts(max_abundance + 1,1);
@@ -339,6 +340,10 @@ int main(int argc, char** argv)
     	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
     } 
 
+    if (maxk == 0)
+    {
+    	maxk = reads[0].length() - 10;
+    }
  	for (int k = mink; k <= maxk; k++)
  	{
  		// getting the sample size
