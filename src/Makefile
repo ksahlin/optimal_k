@@ -9,7 +9,7 @@ CPPFLAGS = -std=c++0x -O3 -fopenmp -DMASSIVE_DATA_RLCSA
 # -Wall
 
 build: $(FILES)
-	cd ../bin/rlcsa; make build_rlcsa; cd ../../src/; mkdir ../bin; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE) $(FILES) ../bin/rlcsa/rlcsa.a -Wall
+	mkdir ../bin; mkdir ../bin/rlcsa; cp -r rlcsa ../bin/; cd ../bin/rlcsa; make build_rlcsa; cd ../../src/; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE) $(FILES) ../bin/rlcsa/rlcsa.a -Wall
 
 validate: $(FILES_VALIDATE)
 	cd ../bin/rlcsa; make build_rlcsa; cd ../../src/; mkdir ../bin; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE_VALIDATE) $(FILES_VALIDATE) ../bin/rlcsa/rlcsa.a
