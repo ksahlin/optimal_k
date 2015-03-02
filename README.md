@@ -1,24 +1,24 @@
 # optimal_k
 Calculates optimal k for a DBG assembler given one or more read libraries
 
-# Installation for optimal_k
+# Installation for optimal-k
 
-In src directory, run 
+In *src directory*, run 
 
 	make
 
 This places the executable *optimal-k* in the directory *bin*.
 
-In Unitiger directory, run
+# Installation for Unitiger
+
+In *Unitiger* directory, run
 
 	make
 
-The places the executable *Unitiger* and the 
-Python wrapper *Unitiger_wrapper.py* in the directory *bin/Unitiger*
+The places the executable *Unitiger* and the Python wrapper 
+*Unitiger_wrapper.py* in the directory *bin/Unitiger*
 
 # Usage
-
-Run 
 
 	optimal-k OPTIONS
 
