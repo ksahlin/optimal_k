@@ -31,6 +31,7 @@ Alex:
 - [DONE: added the option -t] make unitiger run single thread (the graph construction)
 - [DONE] make all reads uppercase 
 - [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
+- [DONE] Write installation instructions in README.txt
+- [DONE] Automatically choose highest kmer size (readlength - 10). For practical and time efficiency reasons. ALSO now mink = 15
+
 - Implement E-size estimate in cpp (for single abundance suffices)
-- Write installation instructions in README.txt
-- [DONE]Automatically choose highest kmer size (readlength - 10). For practical and time efficiency reasons. ALSO now mink = 15
