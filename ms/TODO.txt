@@ -3,7 +3,6 @@ BOTH:
 - Write introduction
 
 Kristoffer:
-- Check sampling algorithms
 - Results:
 	- Methods:
 		- optimal_k
@@ -32,3 +31,5 @@ Alex:
 - [DONE] make all reads uppercase 
 - [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
 - Implement E-size estimate in cpp (for single abundance suffices)
+- Write installation instructions in README.txt
+- Automatically choose highest kmer size (readlength - 10). For practical and time efficiency reasons.
