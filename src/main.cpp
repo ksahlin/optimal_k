@@ -275,6 +275,7 @@ int main(int argc, char** argv)
 	if (N_THREADS == 0)
 	{
 		N_THREADS = omp_get_num_procs();
+		cout << "RUNNING ON " << N_THREADS << "THREADS/CORES." << endl;
 	}
 	relative_error = (double) options.get("e");
 
@@ -287,8 +288,9 @@ int main(int argc, char** argv)
 		{
 			return EXIT_FAILURE;
 		}
+		cout << "Got here" << endl;
 		// Build RLCSA and report some information.
-		RLCSA rlcsa_built(data, char_count, 32, 0, 1, true); // parameter with value '1' is number of threads; available is compiles with muti-thread support
+		RLCSA rlcsa_built(data, char_count, 32, 0, N_THREADS, true);
  		data = 0; // The constructor deleted the data.
 
 		if ( !(rlcsa_built.isOk()) ) 
