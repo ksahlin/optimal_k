@@ -14,7 +14,7 @@ In Unitiger directory, run
 	make
 
 The places the executable *Unitiger* and the 
-Python wrapper *Python_wrapper.py* in the directory *bin/Unitiger*
+Python wrapper *Unitiger_wrapper.py* in the directory *bin/Unitiger*
 
 # Usage
 
@@ -25,6 +25,8 @@ Run
 	python Unitiger_wrapper.py OPTIONS
 
 # Simple example
+
+Suppose you are in data/human/
 
 	../../bin/optimal-k -r frag_1.fastq,frag_2.fastq -o metrics_file
 
