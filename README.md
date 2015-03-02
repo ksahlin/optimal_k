@@ -15,15 +15,14 @@ In Unitiger directory, run
 
 	make
 
-The places the executable, and the Python wrapper *Python_wrapper.py* 
-needed for running it in the directory *bin/Unitiger*
+The places the executable and the Python wrapper *Python_wrapper.py* 
+in the directory *bin/Unitiger*
 
 # Usage for optimal_k
 
-In the directory *bin* run 
+Run 
 
 	optimal-k OPTIONS
-
 
 # Usage for Unitiger
 
