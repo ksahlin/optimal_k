@@ -256,7 +256,7 @@ int main(int argc, char** argv)
 	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
 	parser.add_option("-a", "--minabundance") .type("int") .dest("a") .action("store") .set_default(3) .help("try all abundances starting with this value (default: %default)");
 	parser.add_option("-A", "--maxabundance") .type("int") .dest("A") .action("store") .set_default(3) .help("try all abundances up to this value (default: %default)");
-	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(8) .help("number of threads; use 0 for all cores (default: %default)");
+	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(0) .help("number of threads; use 0 for all cores (default: %default)");
 	parser.add_option("-k", "--mink") .type("int") .dest("k") .action("store") .set_default(15) .help("minimum kmer size to try (default: %default)");
 	parser.add_option("-K", "--maxk") .type("int") .dest("K") .action("store") .set_default(0) .help("maximum kmer sizeto try (default: read_length - 10)");
 	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
