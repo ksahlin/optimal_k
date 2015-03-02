@@ -9,23 +9,23 @@ In src directory, run
 
 This places the executable *optimal-k* in the directory *bin*.
 
-# Installation for Unitiger
-
 In Unitiger directory, run
 
 	make
 
-The places the executable and the Python wrapper *Python_wrapper.py* 
-in the directory *bin/Unitiger*
+The places the executable *Unitiger* and the 
+Python wrapper *Python_wrapper.py* in the directory *bin/Unitiger*
 
-# Usage for optimal_k
+# Usage
 
 Run 
 
 	optimal-k OPTIONS
 
-# Usage for Unitiger
+	python Unitiger_wrapper.py OPTIONS
 
-Run
+# Simple example
 
-	python Unitiger_wrapper.py -u PATH_TO_UNITGER_EXECUTABLE OPTIONS
+	optimal-k -r frag_1.fastq,frag_2.fastq -o metrics_file
+
+	python Unitiger_wrapper.py -r frag_1.fastq,frag_2.fastq -o metrics_file
