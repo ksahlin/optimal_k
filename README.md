@@ -26,6 +26,6 @@ Run
 
 # Simple example
 
-	optimal-k -r frag_1.fastq,frag_2.fastq -o metrics_file
+	../../bin/optimal-k -r frag_1.fastq,frag_2.fastq -o metrics_file
 
-	python Unitiger_wrapper.py -r frag_1.fastq,frag_2.fastq -o metrics_file
+	python ../../bin/Unitiger/Unitiger_wrapper.py -r frag_1.fastq,frag_2.fastq -o metrics_file
