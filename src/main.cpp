@@ -10,9 +10,9 @@ inline int calc_abundance(const RLCSA* rlcsa,
 	)
 {
 	pair_type result = rlcsa->count(sample);
-	//pair_type result_rc = rlcsa->count(reverse_complement(sample));
-	// int abundance = length(result) + length(result_rc);
-	// return abundance;
+	pair_type result_rc = rlcsa->count(reverse_complement(sample));
+	int abundance = length(result) + length(result_rc);
+	return abundance;
 	return length(result);
 }
 
@@ -140,7 +140,7 @@ void get_unitig_stats(const string& node,
 	const int abundance,
 	uint64_t &u_length,
 	double &u_abundance,
-	default_random_engine generator
+	default_random_engine& generator
 )
 {
 	u_length = 0;
@@ -304,8 +304,15 @@ void sample_nodes(const RLCSA* rlcsa,
         		{
         			kmers_above_abundance[a] += 1 * sample_weight;
         			//cout << "u_length = " << u_length << " u_abundance = " << u_abundance << endl;
-        			e_size_sum_length[a] += (u_length + k - 1) * ((double)u_length / u_abundance);
-        			e_size_sum_length_squared[a] += (u_length + k - 1) * (u_length + k - 1) * ((double)u_length / u_abundance);
+        			e_size_sum_length[a] += (u_length + k - 1) * ((double)1 / u_abundance);
+        			e_size_sum_length_squared[a] += (u_length + k - 1) * (u_length + k - 1) * ((double)1 / u_abundance);
+        			
+        			// e_size_sum_length[a] += ((double)u_length / u_abundance);
+        			// e_size_sum_length_squared[a] += (u_length + k - 1) * (((double)u_length / (double)u_abundance));
+
+					// e_size_sum_length[a] += ((double)u_length / u_abundance) + k - 1;
+     				// e_size_sum_length_squared[a] += (u_length + k - 1) * (((double)u_length / (double)u_abundance) + k - 1);
+
         			//e_size_sum_length[a] += (u_length) * ((double)1 / u_abundance);
         			//e_size_sum_length_squared[a] += (u_length) * (u_length) * ((double)1 / u_abundance);
         		}
@@ -541,7 +548,7 @@ int main(int argc, char** argv)
 
  			uint64_t max_sample_size = MAX(SS_n_nodes,SS_n_unitigs);
  			max_sample_size = MAX(max_sample_size,SS_avg_nodes_unitig);
- 			sample_size[a] = 100000; //max_sample_size;
+ 			sample_size[a] = max_sample_size;
  		}
 
  		// sampling
