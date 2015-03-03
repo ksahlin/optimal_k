@@ -10,9 +10,10 @@ inline int calc_abundance(const RLCSA* rlcsa,
 	)
 {
 	pair_type result = rlcsa->count(sample);
-	pair_type result_rc = rlcsa->count(reverse_complement(sample));
-	int abundance = length(result) + length(result_rc);
-	return abundance;
+	//pair_type result_rc = rlcsa->count(reverse_complement(sample));
+	// int abundance = length(result) + length(result_rc);
+	// return abundance;
+	return length(result);
 }
 
 void get_in_out_degrees(const string& node, 
@@ -54,6 +55,157 @@ void get_in_out_degrees(const string& node,
 	}
 }
 
+void get_in_out_neighbors(const string& node, 
+	const RLCSA* rlcsa, 
+	const int &min_abundance,
+	const int &max_abundance,
+	vector< vector<string> > &in_neighbors,
+	vector< vector<string> > &out_neighbors
+	)
+{
+	for (int a = min_abundance; a <= max_abundance; a++)
+	{
+		in_neighbors[a].clear();
+		out_neighbors[a].clear();	
+	}
+	
+	string neighbor;
+	pair_type result;
+	for (auto nucl : {'A','C','G','T'})
+	{
+		neighbor = nucl + node.substr(0,node.length()-1);
+		int neighbor_abundance = calc_abundance(rlcsa,neighbor);
+		neighbor_abundance = MIN(max_abundance, neighbor_abundance);
+	 	for (int a = min_abundance; a <= neighbor_abundance; a++)
+	 	{
+	 		in_neighbors[a].push_back(neighbor);
+	 	}
+	}
+
+	for (auto nucl : {'A','C','G','T'})
+	{
+		neighbor = node.substr(1,node.length()-1) + nucl;
+		int neighbor_abundance = calc_abundance(rlcsa,neighbor);
+		neighbor_abundance = MIN(max_abundance, neighbor_abundance);
+	 	for (int a = min_abundance; a <= neighbor_abundance; a++)
+	 	{
+	 		out_neighbors[a].push_back(neighbor);
+	 	}
+	}
+}
+
+void extend_unitig_from_node(const string& node,
+	const RLCSA* rlcsa, 
+	const int abundance,
+	uint64_t &u_length,
+	double &u_abundance,
+	const char direction
+)
+{
+	u_length = 0;
+	u_abundance = 0;
+
+	string current_node = node;
+
+	vector< vector<string> > in_neighbors(abundance + 1), out_neighbors(abundance + 1);
+	while (true)
+	{
+		get_in_out_neighbors(current_node, rlcsa, abundance, abundance, in_neighbors, out_neighbors);
+
+		// if unary
+		if ((in_neighbors[abundance].size() == 1) and (out_neighbors[abundance].size() == 1))
+		{
+			u_length += 1;
+			u_abundance += calc_abundance(rlcsa, current_node);
+			if (direction == 'o')
+			{
+				current_node = out_neighbors[abundance][0];
+			} 
+			else if (direction == 'i')
+			{
+				current_node = in_neighbors[abundance][0];
+			}
+		} 
+		else
+		{
+			u_length += 1;
+			u_abundance += calc_abundance(rlcsa, current_node) / (double)(out_neighbors[abundance].size() + in_neighbors[abundance].size());
+			break;
+		}
+	}
+}
+
+void get_unitig_stats(const string& node,
+	const RLCSA* rlcsa, 
+	const int abundance,
+	uint64_t &u_length,
+	double &u_abundance,
+	default_random_engine generator
+)
+{
+	u_length = 0;
+	u_abundance = 0;
+	vector< vector<string> > in_neighbors(abundance + 1), out_neighbors(abundance + 1);
+	get_in_out_neighbors(node, rlcsa, abundance, abundance, in_neighbors, out_neighbors);
+
+	// check if node is isolated
+	if ((in_neighbors[abundance].size() == 0) and (out_neighbors[abundance].size() == 0))
+	{
+		u_length = 1;
+		u_abundance = calc_abundance(rlcsa, node);
+		return;
+	}
+	
+	// check if node is unary
+	if ((in_neighbors[abundance].size() == 1) and (out_neighbors[abundance].size() == 1))
+	{
+		// check if self-loop
+		if (node == out_neighbors[abundance][0])
+		{
+			u_length = 2;
+			u_abundance = calc_abundance(rlcsa, node);
+			return;	
+		}
+
+		uint64_t out_length, in_length;
+		double out_abundance, in_abundance;
+		extend_unitig_from_node(out_neighbors[abundance][0], rlcsa, abundance, out_length, out_abundance, 'o');
+		extend_unitig_from_node(in_neighbors[abundance][0], rlcsa, abundance, in_length, in_abundance, 'i');
+
+		u_length = 1 + out_length + in_length;
+		u_abundance = calc_abundance(rlcsa, node) + out_abundance + in_abundance;
+		return;
+	}
+	
+	// node is not unary and not isolated
+	
+	char direction;
+	string neighbor;
+	// choose a random out-neighbor
+	// uint random_index = (rand() / (double)RAND_MAX) * (in_neighbors[abundance].size() + out_neighbors[abundance].size());
+	std::uniform_int_distribution<char> uniform_neighbor_distribution(0,in_neighbors[abundance].size() + out_neighbors[abundance].size() - 1);
+	uint random_index = uniform_neighbor_distribution(generator);
+
+	if (random_index < in_neighbors[abundance].size()) // chosen an in-neighbor
+	{
+		direction = 'i';
+		neighbor = in_neighbors[abundance][random_index];
+	}
+	else // chosen an out-neighbor
+	{
+		direction = 'o';
+		neighbor = out_neighbors[abundance][random_index - in_neighbors[abundance].size()];
+	}
+
+	// compute stats for the path starting with node, neighbor
+	uint64_t temp_length;
+	double temp_abundance;
+	extend_unitig_from_node(neighbor, rlcsa, abundance, temp_length, temp_abundance, direction);
+
+	u_length = 1 + temp_length;
+	u_abundance += temp_abundance + calc_abundance(rlcsa, node) / (double)(out_neighbors[abundance].size() + in_neighbors[abundance].size());
+
+}
 
 void sample_nodes(const RLCSA* rlcsa, 
 	const int k,
@@ -64,18 +216,28 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &n_internal,
 	vector<double> &n_starts,
 	vector<double> &n_nodes,
-	vector<double> &n_unitigs
+	vector<double> &n_unitigs,
+	vector<double> &e_size
 	)
 {
+
 	uint64_t total_kmers = reads.size() * (reads[0].length() - k + 1);
 	vector<double> kmers_above_abundance(max_abundance + 1, 0);
 	vector<double> n_internal_local(max_abundance + 1, 0);
 	vector<double> n_starts_local(max_abundance + 1, 0);
 
+	vector<double> e_size_sum_length(max_abundance + 1, 0);
+	vector<double> e_size_sum_length_squared(max_abundance + 1, 0);
+
 	uint64_t kmers_tried = 0;
 	uint64_t n_reads = reads.size();
 	bool sampled_enough = false;
 	vector<uint64_t> sampled_so_far(max_abundance + 1, 0);
+	
+	std::random_device rd;
+	std::default_random_engine generator(rd());
+	std::uniform_int_distribution<uint64_t> uniform_read_distribution(0,n_reads - 1);
+
 
 	int a_w_max_ss = -1;
 	uint64_t max_sample_size = 0;
@@ -91,7 +253,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	// omp_set_dynamic(0);
 	// shared(n_internal_local,n_starts_local,sampled_enough,sampled_so_far)
 	#pragma omp parallel for num_threads(N_THREADS)
-	for (uint64_t i = 0; i < 10 * n_reads; i++)
+	for (uint64_t i = 0; i < 1000 * n_reads; i++)
 	{
 		//#pragma omp flush (sampled_enough)
 		if (!sampled_enough)
@@ -102,14 +264,16 @@ void sample_nodes(const RLCSA* rlcsa,
 				continue;
 			}
 			
-			uint64_t read_index = (rand() / (double)RAND_MAX) * reads.size();
+			uint64_t read_index = uniform_read_distribution(generator); // (rand() / (double)RAND_MAX) * reads.size();
 			string read = reads[read_index];
 			// // MAKE SURE THIS IS OK!
 			// if (rand() / (double)RAND_MAX < 0.5)
 			// {
 			// 	read = reverse_complement(read);
 			// }
-			int pos = rand() % (read.length() - k + 1);
+			std::uniform_int_distribution<uint64_t> uniform_pos_distribution(0,read.length() - k);
+			int pos = uniform_pos_distribution(generator); // rand() % (read.length() - k + 1);
+			
 	        string sample = read.substr(pos,k);
 
 	        #pragma omp atomic
@@ -132,9 +296,16 @@ void sample_nodes(const RLCSA* rlcsa,
         	
         	for (int a = min_abundance; a <= for_limit; a++)
         	{
+        		uint64_t u_length;
+        		double u_abundance;
+        		get_unitig_stats(sample, rlcsa, a, u_length, u_abundance, generator);
+        			
         		#pragma omp critical
         		{
-        			kmers_above_abundance[a] += 1 * sample_weight;	
+        			kmers_above_abundance[a] += 1 * sample_weight;
+        			// cout << "u_length = " << u_length << " u_abundance = " << u_abundance << endl;
+        			e_size_sum_length[a] += (u_length + k - 1) * ((double)u_length / u_abundance);
+        			e_size_sum_length_squared[a] += (u_length + k - 1) * (u_length + k - 1) * ((double)u_length / u_abundance);
         		}
 
     			if ((out_degree[a] == 1) and (in_degree[a] == 1)) // is internal
@@ -186,6 +357,7 @@ void sample_nodes(const RLCSA* rlcsa,
 		assert(kmers_tried > 0);
 		n_nodes[a] = total_kmers / kmers_tried * kmers_above_abundance[a];
 		n_unitigs[a] = total_kmers / kmers_tried * n_starts[a];
+		e_size[a] = e_size_sum_length_squared[a] / e_size_sum_length[a];
 	}
 }
 
@@ -233,9 +405,6 @@ int main(int argc, char** argv)
 
  	double startTime = readTimer();
 
-	// initializing random number generator
-	srand(time(NULL));
-
 	// command line argument parser
 	string usage = "\n  %prog OPTIONS";
 	const string version = "%prog 0.1\nCopyright (C) 2014-2015\n"
@@ -275,7 +444,7 @@ int main(int argc, char** argv)
 	if (N_THREADS == 0)
 	{
 		N_THREADS = omp_get_num_procs();
-		cout << "RUNNING ON " << N_THREADS << "THREADS/CORES." << endl;
+		cout << "RUNNING ON " << N_THREADS << " cores" << endl;
 	}
 	relative_error = (double) options.get("e");
 
@@ -297,8 +466,8 @@ int main(int argc, char** argv)
  		{
  			return EXIT_FAILURE;
  		}
- 		rlcsa_built.printInfo();
- 		rlcsa_built.reportSize(true);
+ 		// rlcsa_built.printInfo();
+ 		// rlcsa_built.reportSize(true);
  		rlcsa_built.writeTo(indexFileName);
 	}
 
@@ -330,10 +499,18 @@ int main(int argc, char** argv)
  	startTime = readTimer();
 
 
+ 	// uint64_t u_length;
+ 	// double u_abundance;
+ 	// get_unitig_stats("TTTT", rlcsa, 1, u_length, u_abundance);
+
+ 	// cout << "u_length = " << u_length << " u_abundance = " << u_abundance << endl;
+ 	// return EXIT_SUCCESS;
+
  	// these vectors get re-written for each value of k
  	vector<uint64_t> sample_size(max_abundance + 1, 0);
  	vector<double> n_internal(max_abundance + 1,1), n_starts(max_abundance + 1,1);
  	vector<double> n_nodes(max_abundance + 1,1), n_unitigs(max_abundance + 1,1);
+ 	vector<double> e_size(max_abundance + 1,1);
 
     vector<ofstream> outputFile(max_abundance + 1);
     for (int a = min_abundance; a <= max_abundance; a++)
@@ -362,11 +539,11 @@ int main(int argc, char** argv)
 
  			uint64_t max_sample_size = MAX(SS_n_nodes,SS_n_unitigs);
  			max_sample_size = MAX(max_sample_size,SS_avg_nodes_unitig);
- 			sample_size[a] = max_sample_size;
+ 			sample_size[a] = 100000; //max_sample_size;
  		}
 
  		// sampling
- 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size, n_internal, n_starts, n_nodes, n_unitigs);	
+ 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size, n_internal, n_starts, n_nodes, n_unitigs, e_size);	
 
  		// printing the results
  		for (int a = min_abundance; a <= max_abundance; a++)
@@ -382,11 +559,11 @@ int main(int argc, char** argv)
 			outputFile[a] << (uint64_t)avg_nodes_unitig + k + 1 << ","; // average length of unitigs
 			outputFile[a] << (uint64_t)sample_size[a] << ","; // estimated sample size
 			outputFile[a] << (uint64_t)n_unitigs[a] << ","; // number of unitigs
-			outputFile[a] << "."; // e-size
+			outputFile[a] << e_size[a]; // e-size
 			outputFile[a] << endl; 
 			outputFile[a].flush();
 
-	 		cout << k << " " << a << " avg internal nodes=" << (uint64_t)avg_nodes_unitig << " avg length=" << (uint64_t)avg_nodes_unitig + k + 1 << " n_nodes=" << (uint64_t)n_nodes[a] << " n_unitigs=" << (uint64_t)n_unitigs[a] << " ess=" << (uint64_t)sample_size[a] << endl;
+	 		cout << k << " " << a << " avg internal nodes=" << (uint64_t)avg_nodes_unitig << " avg length=" << (uint64_t)avg_nodes_unitig + k + 1 << " n_nodes=" << (uint64_t)n_nodes[a] << " n_unitigs=" << (uint64_t)n_unitigs[a] << " e_size=" << e_size[a] << " ess=" << (uint64_t)sample_size[a] << endl;
 	 		cout.flush();
  		}
  	}

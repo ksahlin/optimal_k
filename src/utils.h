@@ -11,6 +11,7 @@
 #include <omp.h>
 #include <algorithm>
 #include <string>
+#include <random>
 
 #include "../bin/rlcsa/rlcsa.h"
 #include "OptionParser.h"

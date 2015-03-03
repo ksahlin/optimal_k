@@ -13,6 +13,9 @@ COMPILE_RLCSA = rm -rf ../bin/rlcsa; mkdir -p ../bin/rlcsa; cp -r rlcsa/ ../bin/
 build: $(FILES)
 	mkdir -p ../bin; $(COMPILE_RLCSA); cd ../../src/; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE) $(FILES) ../bin/rlcsa/rlcsa.a -Wall
 
+quick: $(FILES)
+	mkdir -p ../bin; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE) $(FILES) ../bin/rlcsa/rlcsa.a -Wall
+
 # validate: $(FILES_VALIDATE)
 # 	cd ../bin/rlcsa; make build_rlcsa; cd ../../src/; mkdir ../bin; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE_VALIDATE) $(FILES_VALIDATE) ../bin/rlcsa/rlcsa.a
 

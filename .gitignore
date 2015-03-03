@@ -1,6 +1,8 @@
 *.o
 *.a
 bin/
+bin/rlcsa/
+bin/Unitiger/
 Unitiger/bin/
 data/
 ms/optimal_k.aux
