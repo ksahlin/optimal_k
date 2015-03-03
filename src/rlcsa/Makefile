@@ -5,7 +5,7 @@
 SIZE_FLAGS = -DMASSIVE_DATA_RLCSA
 
 # Parallelism is supported by either libstdc++ Parallel Mode or MCSTL.
-# PARALLEL_FLAGS = -DMULTITHREAD_SUPPORT -D_GLIBCXX_PARALLEL -fopenmp
+PARALLEL_FLAGS = -DMULTITHREAD_SUPPORT -D_GLIBCXX_PARALLEL -fopenmp
 # MCSTL_ROOT = /fs-3/d/jltsiren/suds/mcstl
 # PARALLEL_FLAGS = -DMULTITHREAD_SUPPORT -I$(MCSTL_ROOT)/c++ -fopenmp
 

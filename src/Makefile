@@ -8,13 +8,15 @@ OUT_EXE_VALIDATE = validate
 CPPFLAGS = -std=c++0x -O3 -fopenmp -DMASSIVE_DATA_RLCSA
 # -Wall
 
-build: $(FILES)
-	mkdir ../bin; mkdir ../bin/rlcsa; cp -r rlcsa ../bin/; cd ../bin/rlcsa; make build_rlcsa; cd ../../src/; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE) $(FILES) ../bin/rlcsa/rlcsa.a -Wall
+COMPILE_RLCSA = rm -rf ../bin/rlcsa; mkdir -p ../bin/rlcsa; cp -r rlcsa/ ../bin/; cd ../bin/rlcsa; make build_rlcsa
 
-validate: $(FILES_VALIDATE)
-	cd ../bin/rlcsa; make build_rlcsa; cd ../../src/; mkdir ../bin; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE_VALIDATE) $(FILES_VALIDATE) ../bin/rlcsa/rlcsa.a
+build: $(FILES)
+	mkdir -p ../bin; $(COMPILE_RLCSA); cd ../../src/; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE) $(FILES) ../bin/rlcsa/rlcsa.a -Wall
+
+# validate: $(FILES_VALIDATE)
+# 	cd ../bin/rlcsa; make build_rlcsa; cd ../../src/; mkdir ../bin; $(CC) $(CPPFLAGS) -o ../bin/$(OUT_EXE_VALIDATE) $(FILES_VALIDATE) ../bin/rlcsa/rlcsa.a
 
 clean:
-	rm -f $(OUT_EXE); cd ../bin/rlcsa; make clean
+	rm -f ../bin/$(OUT_EXE); rm -rf ../bin/rlcsa;
 
 rebuild: clean build
