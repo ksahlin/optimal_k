@@ -203,7 +203,7 @@ void get_unitig_stats(const string& node,
 	extend_unitig_from_node(neighbor, rlcsa, abundance, temp_length, temp_abundance, direction);
 
 	u_length = 1 + temp_length;
-	u_abundance += temp_abundance + calc_abundance(rlcsa, node) / (double)(out_neighbors[abundance].size() + in_neighbors[abundance].size());
+	u_abundance = temp_abundance + calc_abundance(rlcsa, node) / (double)(out_neighbors[abundance].size() + in_neighbors[abundance].size());
 
 }
 
@@ -303,9 +303,11 @@ void sample_nodes(const RLCSA* rlcsa,
         		#pragma omp critical
         		{
         			kmers_above_abundance[a] += 1 * sample_weight;
-        			// cout << "u_length = " << u_length << " u_abundance = " << u_abundance << endl;
+        			//cout << "u_length = " << u_length << " u_abundance = " << u_abundance << endl;
         			e_size_sum_length[a] += (u_length + k - 1) * ((double)u_length / u_abundance);
         			e_size_sum_length_squared[a] += (u_length + k - 1) * (u_length + k - 1) * ((double)u_length / u_abundance);
+        			//e_size_sum_length[a] += (u_length) * ((double)1 / u_abundance);
+        			//e_size_sum_length_squared[a] += (u_length) * (u_length) * ((double)1 / u_abundance);
         		}
 
     			if ((out_degree[a] == 1) and (in_degree[a] == 1)) // is internal
