@@ -13,10 +13,10 @@ inline int calc_abundance(const RLCSA* rlcsa,
 	pair_type result_rc = rlcsa->count(reverse_complement(sample));
 	int abundance = length(result) + length(result_rc);
 	return abundance;
-	return length(result);
+	// return length(result);
 }
 
-void get_in_out_degrees(const string& node, 
+inline void get_in_out_degrees(const string& node, 
 	const RLCSA* rlcsa, 
 	const int &min_abundance,
 	const int &max_abundance,
@@ -55,7 +55,7 @@ void get_in_out_degrees(const string& node,
 	}
 }
 
-void get_in_out_neighbors(const string& node, 
+inline void get_in_out_neighbors(const string& node, 
 	const RLCSA* rlcsa, 
 	const int &min_abundance,
 	const int &max_abundance,
@@ -94,7 +94,7 @@ void get_in_out_neighbors(const string& node,
 	}
 }
 
-void extend_unitig_from_node(const string& node,
+inline void extend_unitig_from_node(const string& node,
 	const RLCSA* rlcsa, 
 	const int abundance,
 	uint64_t &u_length,
@@ -135,7 +135,8 @@ void extend_unitig_from_node(const string& node,
 	}
 }
 
-void get_unitig_stats(const string& node,
+inline void get_unitig_stats(const string& node,
+	const int& node_abundance,
 	const RLCSA* rlcsa, 
 	const int abundance,
 	uint64_t &u_length,
@@ -152,7 +153,7 @@ void get_unitig_stats(const string& node,
 	if ((in_neighbors[abundance].size() == 0) and (out_neighbors[abundance].size() == 0))
 	{
 		u_length = 1;
-		u_abundance = calc_abundance(rlcsa, node);
+		u_abundance = node_abundance; //calc_abundance(rlcsa, node);
 		return;
 	}
 	
@@ -163,7 +164,7 @@ void get_unitig_stats(const string& node,
 		if (node == out_neighbors[abundance][0])
 		{
 			u_length = 2;
-			u_abundance = calc_abundance(rlcsa, node);
+			u_abundance = node_abundance; //calc_abundance(rlcsa, node);
 			return;	
 		}
 
@@ -173,7 +174,7 @@ void get_unitig_stats(const string& node,
 		extend_unitig_from_node(in_neighbors[abundance][0], rlcsa, abundance, in_length, in_abundance, 'i');
 
 		u_length = 1 + out_length + in_length;
-		u_abundance = calc_abundance(rlcsa, node) + out_abundance + in_abundance;
+		u_abundance = node_abundance + out_abundance + in_abundance; // calc_abundance(rlcsa, node)
 		return;
 	}
 	
@@ -203,7 +204,7 @@ void get_unitig_stats(const string& node,
 	extend_unitig_from_node(neighbor, rlcsa, abundance, temp_length, temp_abundance, direction);
 
 	u_length = 1 + temp_length;
-	u_abundance = temp_abundance + calc_abundance(rlcsa, node) / (double)(out_neighbors[abundance].size() + in_neighbors[abundance].size());
+	u_abundance = temp_abundance + node_abundance / (double)(out_neighbors[abundance].size() + in_neighbors[abundance].size());
 
 }
 
@@ -253,7 +254,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	// omp_set_dynamic(0);
 	// shared(n_internal_local,n_starts_local,sampled_enough,sampled_so_far)
 	#pragma omp parallel for num_threads(N_THREADS)
-	for (uint64_t i = 0; i < 1000 * n_reads; i++)
+	for (uint64_t i = 0; i < 100 * n_reads; i++)
 	{
 		//#pragma omp flush (sampled_enough)
 		if (!sampled_enough)
@@ -298,23 +299,14 @@ void sample_nodes(const RLCSA* rlcsa,
         	{
         		uint64_t u_length;
         		double u_abundance;
-        		get_unitig_stats(sample, rlcsa, a, u_length, u_abundance, generator);
+        		get_unitig_stats(sample, sample_abundance, rlcsa, a, u_length, u_abundance, generator);
         			
         		#pragma omp critical
         		{
         			kmers_above_abundance[a] += 1 * sample_weight;
         			//cout << "u_length = " << u_length << " u_abundance = " << u_abundance << endl;
         			e_size_sum_length[a] += (u_length + k - 1) * ((double)1 / u_abundance);
-        			e_size_sum_length_squared[a] += (u_length + k - 1) * (u_length + k - 1) * ((double)1 / u_abundance);
-        			
-        			// e_size_sum_length[a] += ((double)u_length / u_abundance);
-        			// e_size_sum_length_squared[a] += (u_length + k - 1) * (((double)u_length / (double)u_abundance));
-
-					// e_size_sum_length[a] += ((double)u_length / u_abundance) + k - 1;
-     				// e_size_sum_length_squared[a] += (u_length + k - 1) * (((double)u_length / (double)u_abundance) + k - 1);
-
-        			//e_size_sum_length[a] += (u_length) * ((double)1 / u_abundance);
-        			//e_size_sum_length_squared[a] += (u_length) * (u_length) * ((double)1 / u_abundance);
+        			e_size_sum_length_squared[a] += (u_length + k - 1) * (u_length + k - 1) * ((double)1 / u_abundance);        			
         		}
 
     			if ((out_degree[a] == 1) and (in_degree[a] == 1)) // is internal
@@ -342,7 +334,6 @@ void sample_nodes(const RLCSA* rlcsa,
             		#pragma omp critical
             		{
             			n_starts_local[a] += 1 * sample_weight;	
-            			//cout << "isolated" << endl;	
             			sampled_so_far[a]++;
             		}
             	}
@@ -370,19 +361,19 @@ void sample_nodes(const RLCSA* rlcsa,
 	}
 }
 
-uint64_t get_sample_size(
-	const double &prop_external_k, 
-	const double &delta_avg_unitig_length)
-{
-	double p = MIN(prop_external_k,0.5);
-	//double delta_max = delta_avg_unitig_length*( p ) / (double)( 1 + (1 - p) * delta_avg_unitig_length );
-    //double delta_max = delta_avg_unitig_length / (double)(2 + delta_avg_unitig_length);
-    double delta_max = delta_avg_unitig_length;
-    double delta_p_external_k_plus_one = (double)(p * delta_max);
+// uint64_t get_sample_size(
+// 	const double &prop_external_k, 
+// 	const double &delta_avg_unitig_length)
+// {
+// 	double p = MIN(prop_external_k,0.5);
+// 	//double delta_max = delta_avg_unitig_length*( p ) / (double)( 1 + (1 - p) * delta_avg_unitig_length );
+//     //double delta_max = delta_avg_unitig_length / (double)(2 + delta_avg_unitig_length);
+//     double delta_max = delta_avg_unitig_length;
+//     double delta_p_external_k_plus_one = (double)(p * delta_max);
 
-    assert(delta_p_external_k_plus_one > 0);
-    return pow(TWOSIDED95P_QUANTILE / delta_p_external_k_plus_one, 2) * (1 - p) * p;
-}
+//     assert(delta_p_external_k_plus_one > 0);
+//     return pow(TWOSIDED95P_QUANTILE / delta_p_external_k_plus_one, 2) * (1 - p) * p;
+// }
 
 inline uint64_t get_sample_size_for_proportion(
 	double p, 	
@@ -453,7 +444,7 @@ int main(int argc, char** argv)
 	if (N_THREADS == 0)
 	{
 		N_THREADS = omp_get_num_procs();
-		cout << "RUNNING ON " << N_THREADS << " cores" << endl;
+		cout << "RUNNING ON " << N_THREADS << " cores (change this number with the -t option)" << endl;
 	}
 	relative_error = (double) options.get("e");
 
@@ -466,7 +457,6 @@ int main(int argc, char** argv)
 		{
 			return EXIT_FAILURE;
 		}
-		cout << "Got here" << endl;
 		// Build RLCSA and report some information.
 		RLCSA rlcsa_built(data, char_count, 32, 0, N_THREADS, true);
  		data = 0; // The constructor deleted the data.
@@ -487,7 +477,7 @@ int main(int argc, char** argv)
 	}
 
 	// we need to load the index
-	cout << "LOADING THE INDEX FOR THE READS" << endl;
+	cout << "LOADING THE INDEX FOR THE READS (force the index to be re-built with the -b option)" << endl;
  	const RLCSA* rlcsa = new RLCSA(indexFileName, false);
  	if (!(rlcsa->isOk())) 
  	{
