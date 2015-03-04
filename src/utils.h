@@ -43,6 +43,17 @@ inline string reverse_complement(const string& s)
     return reverse;
 }
 
+inline int calc_abundance(const RLCSA* rlcsa, 
+    const string& sample
+    )
+{
+    pair_type result = rlcsa->count(sample);
+    pair_type result_rc = rlcsa->count(reverse_complement(sample));
+    int abundance = length(result) + length(result_rc);
+    return abundance;
+    // return length(result);
+}
+
 inline string int_to_string(size_t x)
 {
     stringstream ss;

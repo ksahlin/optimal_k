@@ -1,5 +1,5 @@
 CC = g++
-FILES = main.cpp OptionParser.cpp utils.cpp
+FILES = main.cpp esize_estimation.h OptionParser.cpp utils.cpp
 OUT_EXE = optimal-k
 
 FILES_VALIDATE = validate.cpp OptionParser.cpp utils.cpp
