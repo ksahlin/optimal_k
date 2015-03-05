@@ -12,10 +12,10 @@ int get_reads(const string readFileName,
 	{
 		try 
 		{
-
 			ifstream readFile;
 			readFile.open(tokenFileName);
 
+			cout << "*** Reading from file '" << tokenFileName << "'" << endl;
 		   	while (getline(readFile , line)) // this is the comment line
 		   	{
 		    	getline(readFile , line); // the actual read
@@ -27,7 +27,6 @@ int get_reads(const string readFileName,
 		   	}
 		   	readFile.close();
 
-		   	cout << "Finished reading from " << tokenFileName << endl;
 		} catch (exception& error) 
 		{ // check if there was any error
 			std::cerr << "Error: " << error.what() << std::endl;
@@ -35,7 +34,7 @@ int get_reads(const string readFileName,
 		}
 	}
 
-	cout << "Input file(s) contain(s) " << reads.size() << " reads." << endl;
+	cout << "*** Input file(s) contain(s) " << reads.size() << " reads." << endl;
 
    	return EXIT_SUCCESS;
 }
@@ -58,6 +57,7 @@ int get_data_for_rlcsa(const string& readFileName,
 	    	ifstream readFile;
 			readFile.open(tokenFileName);
 
+			cout << "*** Reading from file '" << tokenFileName << "'" << endl;
 		   	// counting total number of reads and their length
 		   	while (getline(readFile , line)) // this is the comment line
 		   	{
@@ -66,12 +66,11 @@ int get_data_for_rlcsa(const string& readFileName,
 		    	reads.push_back(line);
 		    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'
 		 		// reads.push_back(reverse_complement(line));
-		   //  	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'   	
+		   		// char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'   	
 		    	assert(getline(readFile , line)); // the +/- sign
 		    	assert(getline(readFile , line)); // the quality values
 		   	}
 		   	readFile.close();	
-		   	cout << "Finished reading from " << tokenFileName << endl;		
 		} catch (exception& error) 
 		{ // check if there was any error
 			std::cerr << "Error: " << error.what() << std::endl;
@@ -79,9 +78,8 @@ int get_data_for_rlcsa(const string& readFileName,
 		}
 	}
 
-
-   	cout << "Input file(s) " << readFileName << " contain(s) " << reads.size() << " reads." << endl;
-   	cout << "The temporary data array will have size " << (double)char_count/1000000000 << "GB." << endl;
+   	cout << "*** Input file(s) " << readFileName << " contain(s) " << reads.size() << " reads." << endl;
+   	cout << "*** The temporary data array will have size " << (double)char_count/1000000000 << "GB." << endl;
 
    	uint64_t i = 0;
 	data = new uchar[char_count];
@@ -95,7 +93,6 @@ int get_data_for_rlcsa(const string& readFileName,
     	data[i] = '\0';
     	i++;		
 	}
-   	cout << "Created the data array" << endl;
 
    	return EXIT_SUCCESS;
 }

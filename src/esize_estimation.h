@@ -154,7 +154,6 @@ inline void get_unitig_stats(const string& node,
 
 }
 
-
 inline void extend_unitig_from_node_SMART(const string& node,
 	const RLCSA* rlcsa, 
 	const int min_abundance,
@@ -165,32 +164,29 @@ inline void extend_unitig_from_node_SMART(const string& node,
 	vector<bool> alive_abunance(max_abundance + 1, true);
 	bool exists_alive_abundance = true;
 
-	for (int a = min_abundance; a <= max_abundance; a++)
-	{
-		u_length[a] = 0;	
-	}
+	// ALREADY INITIALIZED IN THE CALLING FUNCTION
+	// u_length[a] = 0 for all a
 	string current_node = node;
 	vector< vector<string> > in_neighbors(max_abundance + 1), out_neighbors(max_abundance + 1);
 
 	while (exists_alive_abundance)
 	{
 		get_in_out_neighbors(current_node, rlcsa, min_abundance, max_abundance, in_neighbors, out_neighbors);
+		
 		exists_alive_abundance = false;
-
 		for (int a = min_abundance; a <= max_abundance; a++)
 		{
 			if (alive_abunance[a])
 			{
+				u_length[a] += 1;
 				// if unary
 				if ((in_neighbors[a].size() == 1) and (out_neighbors[a].size() == 1))
 				{
-					u_length[a] += 1;
 					current_node = out_neighbors[a][0];
 					exists_alive_abundance = true;
 				} 
 				else 
 				{
-					u_length[a] += 1;
 					alive_abunance[a] = false;					
 				}
 			}
@@ -198,47 +194,107 @@ inline void extend_unitig_from_node_SMART(const string& node,
 	}
 }
 
+// THIS FUNCTION IS NOT USED
+// this function is extending the unitig starting at node
+// by keeping an interval of alive abundances
+// but in practice it has no improvement in runtime
+// *******************************************************************
+// inline void extend_unitig_from_node_SMART_range(const string& node,
+// 	const RLCSA* rlcsa, 
+// 	const int min_abundance,
+// 	const int max_abundance,
+// 	vector<uint64_t> &u_length
+// )
+// {
+// 	int min_alive_abundance = min_abundance;
+// 	int max_alive_abundance = max_abundance;
+// 	// ALREADY INITIALIZED IN THE CALLING FUNCTION
+// 	// u_length[a] = 0; for all a
+// 	string current_node = node;
+// 	vector< vector<string> > in_neighbors(max_abundance + 1), out_neighbors(max_abundance + 1);
+
+// 	while (min_alive_abundance <= max_alive_abundance)
+// 	{
+// 		get_in_out_neighbors(current_node, rlcsa, min_alive_abundance, max_alive_abundance, in_neighbors, out_neighbors);
+// 		//assert(in_neighbors[min_alive_abundance].size() > 0);
+
+// 		for (int a = min_alive_abundance; a <= max_alive_abundance; a++)
+// 		{
+// 			u_length[a] += 1;
+// 			// if unary
+// 			if ((in_neighbors[a].size() == 1) and (out_neighbors[a].size() == 1))
+// 			{
+// 				current_node = out_neighbors[a][0];
+// 			} 
+// 			else 
+// 			{
+// 				if ((in_neighbors[a].size() > 1) or (out_neighbors[a].size() > 1))
+// 				{
+// 					min_alive_abundance = a + 1;
+// 				}
+// 				if (out_neighbors[a].size() == 0)
+// 				{
+// 					max_alive_abundance = a - 1;
+// 					break;
+// 				}
+// 			}
+// 		}
+// 	}
+// }
+
 inline void get_unitig_stats_SMART(const string& node,
+	const int& node_abundance,
 	const RLCSA* rlcsa, 
-	const int min_abundance,
-	const int max_abundance,
+	const int& min_abundance,
+	const int& max_abundance,
 	vector< vector<uint64_t> > &u_length
 )
 {
-	for (int a = min_abundance; a <= max_abundance; a++)
-	{
-		u_length[a].clear();	
-	}
+	// ALREADY INITIALIZED IN THE CALLING FUNCTION
+	// u_length[a].clear(); for all al
 	
 	vector< vector<string> > in_neighbors(max_abundance + 1), out_neighbors(max_abundance + 1);
 	get_in_out_neighbors(node, rlcsa, min_abundance, max_abundance, in_neighbors, out_neighbors);
 
-	vector<int> abundances_for_which_start;
+	int min_abundance_for_which_node_is_start = max_abundance + 1;
+	vector<int> abundances_for_which_node_is_start;
 	for (int a = min_abundance; a <= max_abundance; a++)
 	{
 		// if is truly start of some unitig
 		if ((out_neighbors[a].size() > 1) or ((out_neighbors[a].size() == 1) and (in_neighbors[a].size() != 1)))
 		{
-			abundances_for_which_start.push_back(a);
-		}
+			abundances_for_which_node_is_start.push_back(a);
+			if (a < min_abundance_for_which_node_is_start)
+			{
+				min_abundance_for_which_node_is_start = a;
+			}
+		} 
+		else // if isolated node
 		if ((out_neighbors[a].size() == 0) and (in_neighbors[a].size() == 0))
 		{
 			u_length[a].push_back(1);
 		}
 	}
 
-	if (abundances_for_which_start.size() > 0)
+	// THERE IS A PROBLEM HERE!
+	if (abundances_for_which_node_is_start.size() > 0)
 	{
-		// extend unitig to the each possible out-neighbor
-
+		// extend unitig towards each possible out-neighbor
 		for (auto neighbor : out_neighbors[min_abundance])
 		{
 			vector<uint64_t> extended_length(max_abundance + 1, 0);
-			extend_unitig_from_node_SMART(neighbor, rlcsa, min_abundance, max_abundance, extended_length);
-
-			for (auto a : abundances_for_which_start)
+			int neighbor_abundance = calc_abundance(rlcsa,neighbor);
+			if (neighbor_abundance >= min_abundance_for_which_node_is_start)
 			{
-				u_length[a].push_back(1 + extended_length[a]);
+				extend_unitig_from_node_SMART(neighbor, rlcsa, min_abundance, MIN(max_abundance,neighbor_abundance), extended_length);
+
+				for (auto a : abundances_for_which_node_is_start)
+				{
+					if (neighbor_abundance >= a)
+					{
+						u_length[a].push_back(1 + extended_length[a]);	
+					}
+				}
 			}
 		}
 	}
