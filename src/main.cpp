@@ -168,9 +168,9 @@ void sample_nodes(const RLCSA* rlcsa,
 					{
 						#pragma omp critical
 						{
-							// PROBABLY THIS IS STILL NOT THREAD SAFE!
-							//cout << "abundance " << a << " is sampled for unitigs" << endl;
-							min_abundance_unitigs++;	
+							min_abundance_unitigs = a + 1;
+							// cout << "new min_abundance_unitigs " << min_abundance_unitigs << endl;
+							// cout << "n_sampled_unitigs[" << a << "]=" << n_sampled_unitigs[a] << endl;
 						}
 					}
     			}	
