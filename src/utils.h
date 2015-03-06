@@ -33,11 +33,11 @@ inline char reverse_complement_char(char c)
 
 inline string reverse_complement(const string& s)
 {
-    string reverse;
+    string reverse = s;
 
     for (int i = s.length()-1; i >= 0; i--)
     {
-        reverse += reverse_complement_char(s[i]);
+        reverse[s.length() - 1 - i] = reverse_complement_char(s[i]);
     }
 
     return reverse;

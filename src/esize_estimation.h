@@ -3,16 +3,16 @@
 
 inline void get_in_out_degrees_and_unique_out_neighbors(const string& node, 
 	const RLCSA* rlcsa, 
-	const int &min_abundance,
-	const int &max_abundance,
-	int in_degree[],
-	int out_degree[],
+	const uint32_t &min_abundance,
+	const uint32_t &max_abundance,
+	char in_degree[],
+	char out_degree[],
 	char out_neighbor_char[]
 )
 {
-	int a;
+	uint32_t a;
 	string neighbor = 'X' + node.substr(0,node.length()-1);
-	int neighbor_abundance;
+	uint32_t neighbor_abundance;
 
 	for (a = min_abundance; a <= max_abundance; a++)
 	{
@@ -48,23 +48,75 @@ inline void get_in_out_degrees_and_unique_out_neighbors(const string& node,
 	}
 }
 
+inline void get_in_out_neighbors_with_abundances(const string& node, 
+	const RLCSA* rlcsa, 
+	const uint32_t &min_abundance,
+	const uint32_t &max_abundance,
+	vector< vector<string> > &in_neighbors,
+	vector< vector<string> > &out_neighbors,
+	vector<uint32_t> &out_abundances
+	)
+{
+	string neighbor = 'X' + node.substr(0,node.length()-1);
+	uint32_t neighbor_abundance;
+	uint32_t a;
+
+	for (a = min_abundance; a <= max_abundance; a++)
+	{
+		in_neighbors[a].clear();
+		in_neighbors[a].reserve(4);
+		out_neighbors[a].clear();
+		in_neighbors[a].reserve(4);
+	}
+	out_abundances.clear();
+	out_abundances.reserve(4);
+
+	for (auto nucl : {'A','C','G','T'})
+	{
+		neighbor[0] = nucl;
+		neighbor_abundance = calc_abundance(rlcsa,neighbor);
+		neighbor_abundance = MIN(max_abundance, neighbor_abundance);
+	 	for (a = min_abundance; a <= neighbor_abundance; a++)
+	 	{
+	 		in_neighbors[a].push_back(neighbor);
+	 	}
+	}
+
+	neighbor = node.substr(1,node.length()-1) + 'X';
+	for (auto nucl : {'A','C','G','T'})
+	{
+		neighbor[neighbor.length()-1] = nucl;
+		neighbor_abundance = calc_abundance(rlcsa,neighbor);
+		neighbor_abundance = MIN(max_abundance, neighbor_abundance);
+	 	for (a = min_abundance; a <= neighbor_abundance; a++)
+	 	{
+	 		out_neighbors[a].push_back(neighbor);
+	 	}
+	 	if (neighbor_abundance >= min_abundance)
+	 	{
+	 		out_abundances.push_back(neighbor_abundance);	
+	 	}
+	}
+}
 
 inline void get_in_out_neighbors(const string& node, 
 	const RLCSA* rlcsa, 
-	const int &min_abundance,
-	const int &max_abundance,
+	const uint32_t &min_abundance,
+	const uint32_t &max_abundance,
 	vector< vector<string> > &in_neighbors,
 	vector< vector<string> > &out_neighbors
 	)
 {
 	string neighbor = 'X' + node.substr(0,node.length()-1);
-	int neighbor_abundance;
-	int a;
+	uint32_t neighbor_abundance;
+	uint32_t a;
 
 	for (a = min_abundance; a <= max_abundance; a++)
 	{
 		in_neighbors[a].clear();
-		out_neighbors[a].clear();	
+		in_neighbors[a].reserve(4);
+		out_neighbors[a].clear();
+		in_neighbors[a].reserve(4);
 	}
 	
 	for (auto nucl : {'A','C','G','T'})
@@ -93,7 +145,7 @@ inline void get_in_out_neighbors(const string& node,
 
 inline void extend_unitig_from_node(const string& node,
 	const RLCSA* rlcsa, 
-	const int abundance,
+	const uint32_t abundance,
 	uint64_t &u_length,
 	double &u_abundance,
 	const char direction
@@ -133,9 +185,9 @@ inline void extend_unitig_from_node(const string& node,
 }
 
 inline void get_unitig_stats(const string& node,
-	const int& node_abundance,
+	const uint32_t& node_abundance,
 	const RLCSA* rlcsa, 
-	const int abundance,
+	const uint32_t abundance,
 	uint64_t &u_length,
 	double &u_abundance,
 	default_random_engine& generator
@@ -180,9 +232,9 @@ inline void get_unitig_stats(const string& node,
 	char direction;
 	string neighbor;
 	// choose a random out-neighbor
-	// uint random_index = (rand() / (double)RAND_MAX) * (in_neighbors[abundance].size() + out_neighbors[abundance].size());
+	// uint32_t random_index = (rand() / (double)RAND_MAX) * (in_neighbors[abundance].size() + out_neighbors[abundance].size());
 	std::uniform_int_distribution<char> uniform_neighbor_distribution(0,in_neighbors[abundance].size() + out_neighbors[abundance].size() - 1);
-	uint random_index = uniform_neighbor_distribution(generator);
+	uint32_t random_index = uniform_neighbor_distribution(generator);
 
 	if (random_index < in_neighbors[abundance].size()) // chosen an in-neighbor
 	{
@@ -205,10 +257,10 @@ inline void get_unitig_stats(const string& node,
 
 }
 
-inline void extend_unitig_from_node_SMART_very_slightly_slower(const string& node,
+inline void extend_unitig_from_node_SMART_simpler_but_very_slightly_slower(const string& node,
 	const RLCSA* rlcsa, 
-	const int min_abundance,
-	const int max_abundance,
+	const uint32_t min_abundance,
+	const uint32_t max_abundance,
 	uint64_t u_length[]
 )
 {
@@ -219,10 +271,10 @@ inline void extend_unitig_from_node_SMART_very_slightly_slower(const string& nod
 	// u_length[a] = 0 for all a
 	string current_node = node;
 	char out_neighbor_char[max_abundance + 1];
-	int in_degree[max_abundance + 1], out_degree[max_abundance + 1];
+	char in_degree[max_abundance + 1], out_degree[max_abundance + 1];
 	// vector< vector<string> > in_neighbors(max_abundance + 1), out_neighbors(max_abundance + 1);
 
-	assert(calc_abundance(rlcsa,node) >= max_abundance);
+	// assert(calc_abundance(rlcsa,node) >= max_abundance);
 
 	while (exists_alive_abundance)
 	{
@@ -230,7 +282,7 @@ inline void extend_unitig_from_node_SMART_very_slightly_slower(const string& nod
 		get_in_out_degrees_and_unique_out_neighbors(current_node, rlcsa, min_abundance, max_abundance, in_degree, out_degree, out_neighbor_char);
 
 		exists_alive_abundance = false;
-		for (int a = min_abundance; a <= max_abundance; a++)
+		for (uint32_t a = min_abundance; a <= max_abundance; a++)
 		{
 			// assert(in_degree[a] == in_neighbors[a].size());
 			// assert(out_degree[a] == out_neighbors[a].size());
@@ -256,36 +308,39 @@ inline void extend_unitig_from_node_SMART_very_slightly_slower(const string& nod
 
 // THIS FUNCTION IS NOT USED
 // this function is extending the unitig starting at node
-// by keeping an interval of alive abundances
+// by keeping an uint32_terval of alive abundances
 // but in practice it is only slightly faster
 // *******************************************************************
 inline void extend_unitig_from_node_SMART(const string& node,
 	const RLCSA* rlcsa, 
-	const int min_abundance,
-	const int max_abundance,
+	const uint32_t min_abundance,
+	const uint32_t max_abundance,
 	uint64_t u_length[]
 )
 {
-	int min_alive_abundance = min_abundance;
-	int max_alive_abundance = max_abundance;
+	uint32_t min_alive_abundance = min_abundance;
+	uint32_t max_alive_abundance = max_abundance;
 	// ALREADY INITIALIZED IN THE CALLING FUNCTION
 	// u_length[a] = 0; for all a
 	string current_node = node;
 	char out_neighbor_char[max_abundance + 1];
-	int in_degree[max_abundance + 1], out_degree[max_abundance + 1];
+	char in_degree[max_abundance + 1], out_degree[max_abundance + 1];
 	bool updated_current_node;
+	uint32_t a;
 
 	while (min_alive_abundance <= max_alive_abundance)
 	{
 		get_in_out_degrees_and_unique_out_neighbors(current_node, rlcsa, min_alive_abundance, max_alive_abundance, in_degree, out_degree, out_neighbor_char);
-		//assert(in_neighbors[min_alive_abundance].size() > 0);
-		//assert(in_degree[min_alive_abundance] > 0);
 		updated_current_node = false;
 
-		for (int a = min_alive_abundance; a <= max_alive_abundance; a++)
+		for (a = min_alive_abundance; a <= max_alive_abundance; a++)
 		{
-			// cout << "aaa" << endl;
-			u_length[a] += 1;
+			u_length[a]++;
+			if (out_degree[a] == 0)
+			{
+				max_alive_abundance = a - 1;
+				break;
+			}
 			// if unary
 			if ((out_degree[a] == 1) and (in_degree[a] == 1))
 			{
@@ -302,33 +357,38 @@ inline void extend_unitig_from_node_SMART(const string& node,
 				{
 					min_alive_abundance = a + 1;
 				}
-				if (out_degree[a] == 0)
-				{
-					max_alive_abundance = a - 1;
-					break;
-				}
 			}
 		}
 	}
 }
 
 inline void get_unitig_stats_SMART(const string& node,
-	const int& node_abundance,
+	const uint32_t& node_abundance,
 	const RLCSA* rlcsa, 
-	const int& min_abundance,
-	const int& max_abundance,
+	const uint32_t& min_abundance,
+	const uint32_t& max_abundance,
 	vector< vector<uint64_t> > &u_length
 )
 {
 	// ALREADY INITIALIZED IN THE CALLING FUNCTION
 	// u_length[a].clear(); for all al
 	
+	// probably this is taken care of in the calling function
+	// but we include it just for safety
+	if (min_abundance > max_abundance)
+	{
+		return;
+	}
 	vector< vector<string> > in_neighbors(max_abundance + 1), out_neighbors(max_abundance + 1);
-	get_in_out_neighbors(node, rlcsa, min_abundance, max_abundance, in_neighbors, out_neighbors);
+	vector<uint32_t> out_abundances;
+	get_in_out_neighbors_with_abundances(node, rlcsa, min_abundance, max_abundance, in_neighbors, out_neighbors, out_abundances);
 
-	int min_abundance_for_which_node_is_start = max_abundance + 1;
-	vector<int> abundances_for_which_node_is_start;
-	for (int a = min_abundance; a <= max_abundance; a++)
+	uint32_t min_abundance_for_which_node_is_start = max_abundance;
+	uint32_t max_abundance_for_which_node_is_start = min_abundance;
+	vector<uint32_t> abundances_for_which_node_is_start;
+	abundances_for_which_node_is_start.reserve(max_abundance+1);
+
+	for (uint32_t a = min_abundance; a <= max_abundance; a++)
 	{
 		// if is truly start of some unitig
 		if ((out_neighbors[a].size() > 1) or ((out_neighbors[a].size() == 1) and (in_neighbors[a].size() != 1)))
@@ -337,6 +397,10 @@ inline void get_unitig_stats_SMART(const string& node,
 			if (a < min_abundance_for_which_node_is_start)
 			{
 				min_abundance_for_which_node_is_start = a;
+			}
+			if (a > max_abundance_for_which_node_is_start)
+			{
+				max_abundance_for_which_node_is_start = a;
 			}
 		} 
 		else // if isolated node
@@ -348,19 +412,20 @@ inline void get_unitig_stats_SMART(const string& node,
 
 	if (abundances_for_which_node_is_start.size() > 0)
 	{
-		uint64_t extended_length[max_abundance + 1];
-		int neighbor_abundance;
+		uint64_t extended_length[max_abundance_for_which_node_is_start + 1];
+		uint32_t neighbor_abundance;
 		// extend unitig towards each possible out-neighbor
+		int nbr_idx = 0;
 		for (auto neighbor : out_neighbors[min_abundance])
 		{
-			for (int a = min_abundance; a <= max_abundance; a++)
-			{
-				extended_length[a] = 0;
-			}
-			neighbor_abundance = calc_abundance(rlcsa,neighbor);
+			neighbor_abundance = out_abundances[nbr_idx]; // calc_abundance(rlcsa,neighbor);
 			if (neighbor_abundance >= min_abundance_for_which_node_is_start)
 			{
-				extend_unitig_from_node_SMART(neighbor, rlcsa, min_abundance, MIN(max_abundance,neighbor_abundance), extended_length);
+				for (uint32_t a = min_abundance_for_which_node_is_start; a <= max_abundance_for_which_node_is_start; a++)
+				{
+					extended_length[a] = 0;
+				}
+				extend_unitig_from_node_SMART(neighbor, rlcsa, min_abundance_for_which_node_is_start, MIN(max_abundance_for_which_node_is_start,neighbor_abundance), extended_length);
 
 				for (auto a : abundances_for_which_node_is_start)
 				{
@@ -370,6 +435,7 @@ inline void get_unitig_stats_SMART(const string& node,
 					}
 				}
 			}
+			nbr_idx++;
 		}
 	}
 }
