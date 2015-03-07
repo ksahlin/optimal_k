@@ -101,18 +101,15 @@ void sample_nodes(const RLCSA* rlcsa,
 	// omp_set_dynamic(0);
 	// shared(sampled_enough_kmers,sampled_enough_unitigs)
 	#pragma omp parallel for num_threads(N_THREADS)
-	for (uint64_t i = 0; i < n_reads; i++)
+	for (uint64_t i = 0; i < 100 * n_reads; i++)
 	{
 		if ((not sampled_enough_kmers) or (not sampled_enough_unitigs))
 		{
-			// only Master gets to update sampled_enough_kmers
-			if (omp_get_thread_num() == 0)
+			if (n_sampled_kmers >= sample_size_kmers[a_w_max_ss_kmers])
 			{
-				if (n_sampled_kmers >= sample_size_kmers[a_w_max_ss_kmers])
-				{
-					sampled_enough_kmers = true;
-				}	
-			}
+				#pragma omp critical
+				sampled_enough_kmers = true;
+			}	
 			
 			uint64_t read_index = uniform_read_distribution(generator);
 			string read = reads[read_index];
@@ -164,18 +161,19 @@ void sample_nodes(const RLCSA* rlcsa,
     				if (n_sampled_unitigs[min_abundance_unitigs] >= sample_size_unitigs[min_abundance_unitigs])
 	    			{
 	    				min_abundance_unitigs++;
-	    				cout << "min_abundance_unitigs = " << min_abundance_unitigs << endl;
-	    				cout << "n_total_sampled_unitigs = " << n_total_sampled_unitigs << endl;
-	    				for (uint32_t a = min_abundance; a <= max_abundance; a++)
-	    				{
-	    					cout << "n_sampled_unitigs[" << a << "]=" << n_sampled_unitigs[a] << endl;
-	    				}
-	    				if (min_abundance_unitigs > max_abundance)
-	    				{
-	    					sampled_enough_unitigs = true;		
-	    				}
+	    				// cout << "min_abundance_unitigs = " << min_abundance_unitigs << endl;
+	    				// cout << "n_total_sampled_unitigs = " << n_total_sampled_unitigs << endl;
+	    				// for (uint32_t a = min_abundance; a <= max_abundance; a++)
+	    				// {
+	    				// 	cout << "n_sampled_unitigs[" << a << "]=" << n_sampled_unitigs[a] << endl;
+	    				// }
 	    			}	
     			}
+    			if (min_abundance_unitigs > max_abundance)
+	    		{
+	    			#pragma omp critical
+	    			sampled_enough_unitigs = true;		
+	    		}
     		}
 
     		// computing the other estimates
@@ -367,6 +365,11 @@ int main(int argc, char** argv)
  	vector<double> n_nodes(max_abundance + 1,1), n_unitigs(max_abundance + 1,1);
  	vector<double> e_size(max_abundance + 1,1);
 
+    if (maxk == 0)
+    {
+    	maxk = reads[0].length() - 10;
+    }
+
  	cout << "*** Writing results to files:" << endl;
     vector<ofstream> outputFile(max_abundance + 1);
     for (uint32_t a = min_abundance; a <= max_abundance; a++)
@@ -376,10 +379,6 @@ int main(int argc, char** argv)
     	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_uint32_ternal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
     } 
 
-    if (maxk == 0)
-    {
-    	maxk = reads[0].length() - 10;
-    }
  	for (uint32_t k = mink; k <= maxk; k++)
  	{
  		// getting the sample size
