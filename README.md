@@ -34,10 +34,10 @@ Suppose you are in data/human/
 
 # Test run
 
-We force the program to build the idex and then exit (notice that we set k > K)
+We force the program to build the index and then exit (notice that we set k > K)
 
 	../../bin/optimal-k -r frag_1.fastq,frag_2.fastq -o metrics_file -k 2 -K 1 -b
 
-Then we run again for more abunances by loading the index
+We now run it for more abunances (the index is now loaded from disk)
 
 	../../bin/optimal-k -r frag_1.fastq,frag_2.fastq -o metrics_file -a 1 -A 5
