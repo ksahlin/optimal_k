@@ -68,5 +68,5 @@ add_executable        (${CMAKE_PROJECT_NAME}  ${ProjectFiles})
 target_link_libraries (${CMAKE_PROJECT_NAME}  ${gatb-core-libraries})
 
 # we add a compiler flag
-SET(GCC_COMPILE_MAP_FLAGS "-std=c++0x -g")
+SET(GCC_COMPILE_MAP_FLAGS "-std=c++0x -g -fopenmp")
 SET(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} ${GCC_COMPILE_MAP_FLAGS}")

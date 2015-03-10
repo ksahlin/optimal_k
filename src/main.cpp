@@ -318,7 +318,7 @@ int main(int argc, char** argv)
 	// if the index does not exist we need to build it
 	if ((not is_readable(indexFileName + ".rlcsa.array")) or (not is_readable(indexFileName + ".rlcsa.parameters")) or buildindex) 
 	{
-		cout << "*** Building the RLCSA index on the reads to files:" << endl;
+		cout << "*** Building the RLCSA index on the reads and saving it to files:" << endl;
 		cout << "***    " << indexFileName + ".rlcsa.array" << endl;
 		cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
 

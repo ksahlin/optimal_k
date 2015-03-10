@@ -31,8 +31,12 @@ if maxk == 0:
 	line = readFile.readline()
 	maxk = len(line) - 10
 
-metricsFile = file(args.outputFileName + ".mink" + str(mink) + ".maxk" + str(maxk) + ".metrics.csv" , "w")
-writtenHeader = False
+metricsFile = dict()
+writtenHeader = dict()
+
+for a in range(mina, maxa + 1):
+	metricsFile[a] = file(args.outputFileName + ".mink" + str(mink) + ".maxk" + str(maxk) + ".a" + str(a) + ".metrics.csv" , "w")
+	writtenHeader[a] = False
 
 for k in range(mink, maxk + 1):
 	for a in range(mina, maxa + 1):
@@ -41,15 +45,16 @@ for k in range(mink, maxk + 1):
 		
 		currentMetricsFile = file(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".metrics.csv" , "r")
 		lines = currentMetricsFile.readlines()
-		if not writtenHeader:
-			metricsFile.write(lines[0])
-			writtenHeader = True
-		metricsFile.write(lines[1])
-		metricsFile.flush()
+		if not writtenHeader[a]:
+			metricsFile[a].write(lines[0])
+			writtenHeader[a] = True
+		metricsFile[a].write(lines[1])
+		metricsFile[a].flush()
 		currentMetricsFile.close()
 		
 		os.remove(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".metrics.csv")
 
-metricsFile.close()
+for a in range(mina, maxa + 1):
+	metricsFile[a].close()
 
 

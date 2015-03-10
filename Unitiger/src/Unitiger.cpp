@@ -6,11 +6,11 @@
 #include <stdlib.h>
 #include <iostream>
 #include <fstream>
+#include <omp.h>
 
 #include "OptionParser.h"
 
 using namespace std;
-// using namespace tr1;
 
 string merge_kmer_at_end (string s, string kmer)
 {
@@ -78,10 +78,33 @@ int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abun
 
     //std::string readsGraph = reads + ".h5";
 
-    // Create de bruijn graph
+    string readsString;
+    string line;
+
+    try
+    {
+        ifstream readFile;
+        readFile.open(reads);
+
+        string readsString = "";
+        getline(readFile , line);
+        readsString = line;
+
+        while (getline(readFile , line)) // this is the comment line
+        {
+            readsString += "," + line;
+        }
+        readFile.close();
+    }
+    catch (exception& error) 
+    { // check if there was any error
+     std::cerr << "Error: " << error.what() << std::endl;
+     return EXIT_FAILURE;
+    }
+
     // Tokenize reads file (list of files separated by ,)
     int filecount=1;
-    char *readcstr = (char *)reads.c_str();
+    char *readcstr = (char *)readsString.c_str();
     for(int i = 0; i < strlen(readcstr); i++) 
     {
         if (readcstr[i] == ',')
@@ -111,7 +134,7 @@ int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abun
         graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -verbose 0 -nb-cores %d", reads.c_str(), k, abundance, nb_cores);
     }
   
-	//std::cout << graph.getInfo() << std::endl;
+	std::cout << graph.getInfo() << std::endl;
 
 	return EXIT_SUCCESS;
 }
@@ -220,21 +243,37 @@ void initialize_dummy_graph(Graph& graph, size_t& k)
 }
 
 
-unordered_set<string> compute_unitigs(Graph& graph)
+inline unordered_set<string> compute_unitigs(Graph& graph, int nb_cores)
 {
     unordered_set<string> unitigs;
 
-    // we get an iterator over the branching nodes
-    Graph::Iterator<BranchingNode> it = graph.iterator<BranchingNode> ();
+    if (nb_cores == 0)
+    {
+        nb_cores = omp_get_num_procs();
+    }
 
+    // we get an iterator over the branching nodes
+    Graph::Iterator<BranchingNode> iter = graph.iterator<BranchingNode> ();
+
+    // we gather all iterators in a vector
+    vector< Node > branching_nodes;
     // we iterate over the branching nodes
-    for (it.first(); !it.isDone(); it.next())
+    for (iter.first(); !iter.isDone(); iter.next())
+    {
+        branching_nodes.push_back(iter.item());
+    }
+    uint64_t n_nodes = branching_nodes.size();
+
+    #pragma omp parallel for num_threads(nb_cores)
+    for (uint64_t j = 0; j < n_nodes; j++)
     {
         // The currently iterated branching node is available with it.item()
         // We dump an ascii representation of the current node.
         // std::cout << "[" << it.rank() << "] " << graph.toString (it.item()) << std::endl;
 
-        Node current_node = it.item();
+        //Graph::Iterator<BranchingNode> it = branching_nodes[j];
+
+        Node current_node = branching_nodes[j];
 
         // for each out-neighbor, we traverse as long as we see unary nodes
         Graph::Vector<Node> out_neighbors = graph.successors<Node> (current_node);
@@ -258,7 +297,10 @@ unordered_set<string> compute_unitigs(Graph& graph)
             // std::cout << ">> Constructed contig: " << current_contig << std::endl;
             if ((unitigs.count(current_contig) == 0) and (unitigs.count(reverse_complement(current_contig)) == 0))
             {
-                unitigs.insert(current_contig);
+                #pragma omp critical
+                {
+                    unitigs.insert(current_contig);    
+                }
             }
         }
 
@@ -284,7 +326,10 @@ unordered_set<string> compute_unitigs(Graph& graph)
             // std::cout << ">> Constructed contig: " << current_contig << std::endl;
             if ((unitigs.count(current_contig) == 0) and (unitigs.count(reverse_complement(current_contig)) == 0))
             {
-                unitigs.insert(current_contig);
+                #pragma omp critical
+                {
+                    unitigs.insert(current_contig);    
+                }
             }
         }
 
@@ -424,7 +469,7 @@ int main (int argc, char* argv[])
         std::cerr << "EXCEPTION: " << e.getMessage() << endl;
         return EXIT_FAILURE;
     }
-    unitigs = compute_unitigs(graph);
+    unitigs = compute_unitigs(graph, nb_cores);
     if (print_output_unitigs)
     {
         print_unitigs(graph, unitigs, outputFileName);
