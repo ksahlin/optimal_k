@@ -30,16 +30,18 @@ Suppose you are in data/human/
 
 	../../bin/optimal-k -r reads_file -o metrics_file
 
-where reads_file is either a FASTA, FASTQ, FASTA.gz, FASTQ.gz file OR a file containing a list of files, one per line, e.g.,
+where *reads_file* is either a file in FASTA, FASTQ, FASTA.gz, FASTQ.gz format OR a file containing a list of files, one per line, e.g.,
 
 	frag_1.fastq
 	frag_2.fastq
 	shortjump_1.fastq.gz
 	shortjump_2.fastq.gz
 
-For running Unitiger (the input will soon be updated to the one above)
+For Unitiger
 
-	python ../../bin/Unitiger/Unitiger_wrapper.py -r frag_1.fastq,frag_2.fastq -o metrics_file
+	python ../../bin/Unitiger/Unitiger_wrapper.py -r reads_file_list_of_files -o metrics_file
+
+where *reads_file_list_of_files* is a list of files as above (*not* a FASTA/Q(.gz) file).
 
 # Test run
 
