@@ -220,8 +220,8 @@ inline void get_unitig_stats_OLD(const string& node,
 
 		uint64_t out_length, in_length;
 		double out_abundance, in_abundance;
-		extend_unitig_from_node(out_neighbors[abundance][0], rlcsa, abundance, out_length, out_abundance, 'o');
-		extend_unitig_from_node(in_neighbors[abundance][0], rlcsa, abundance, in_length, in_abundance, 'i');
+		extend_unitig_from_node_OLD(out_neighbors[abundance][0], rlcsa, abundance, out_length, out_abundance, 'o');
+		extend_unitig_from_node_OLD(in_neighbors[abundance][0], rlcsa, abundance, in_length, in_abundance, 'i');
 
 		u_length = 1 + out_length + in_length;
 		u_abundance = node_abundance + out_abundance + in_abundance; // calc_abundance(rlcsa, node)
@@ -251,7 +251,7 @@ inline void get_unitig_stats_OLD(const string& node,
 	// compute stats for the path starting with node, neighbor
 	uint64_t temp_length;
 	double temp_abundance;
-	extend_unitig_from_node(neighbor, rlcsa, abundance, temp_length, temp_abundance, direction);
+	extend_unitig_from_node_OLD(neighbor, rlcsa, abundance, temp_length, temp_abundance, direction);
 
 	u_length = 1 + temp_length;
 	u_abundance = temp_abundance + node_abundance / (double)(out_neighbors[abundance].size() + in_neighbors[abundance].size());
