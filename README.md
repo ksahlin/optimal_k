@@ -28,7 +28,16 @@ The places the executable *Unitiger* and the Python wrapper
 
 Suppose you are in data/human/
 
-	../../bin/optimal-k -r frag_1.fastq,frag_2.fastq -o metrics_file
+	../../bin/optimal-k -r reads_file -o metrics_file
+
+where reads_file is either a FASTA, FASTQ, FASTA.gz, FASTQ.gz file OR a file containing a list of files, one per line, e.g.,
+
+	frag_1.fastq
+	frag_2.fastq
+	shortjump_1.fastq.gz
+	shortjump_2.fastq.gz
+
+For running Unitiger (the input will soon be updated to the one above)
 
 	python ../../bin/Unitiger/Unitiger_wrapper.py -r frag_1.fastq,frag_2.fastq -o metrics_file
 
