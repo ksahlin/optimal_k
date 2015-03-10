@@ -12,8 +12,10 @@
 #include <algorithm>
 #include <string>
 #include <random>
+#include <zlib.h>
 
-#include "../bin/rlcsa/rlcsa.h"
+#include "rlcsa/rlcsa.h"
+#include "minia/Bank.h"
 #include "OptionParser.h"
 
 using namespace CSA;
@@ -79,12 +81,20 @@ inline string get_first_token(string s)
     return token;
 }
 
-int get_reads(const string readFileName, 
-	vector<string>& reads
-	);
+// int get_reads(const string readFileName, 
+// 	vector<string>& reads
+// 	);
 
+int get_reads_using_Bank(const string readFileName, 
+    vector<string>& reads
+    );
 
-int get_data_for_rlcsa(const string& readFileName, 
+// int get_data_for_rlcsa(const string& readFileName, 
+//     uchar*& data, 
+//     uint64_t& char_count
+//     );
+
+int get_data_for_rlcsa_using_Bank(const string& readFileName, 
 	uchar*& data, 
 	uint64_t& char_count
 	);

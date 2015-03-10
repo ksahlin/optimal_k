@@ -300,7 +300,7 @@ int main(int argc, char** argv)
 
 	buildindex = (options.get("buildindex") ? true : false);
 	readFileName = (string) options.get("r");
-	indexFileName = get_first_token(readFileName) + "+";
+	indexFileName = get_first_token(readFileName);
 	outputFileName = (string) options.get("o");
 	min_abundance = (uint32_t) options.get("a");
 	max_abundance = (uint32_t) options.get("A");
@@ -318,8 +318,11 @@ int main(int argc, char** argv)
 	// if the index does not exist we need to build it
 	if ((not is_readable(indexFileName + ".rlcsa.array")) or (not is_readable(indexFileName + ".rlcsa.parameters")) or buildindex) 
 	{
-		cout << "*** Building the RLCSA index on the reads" << endl;
-		if (EXIT_FAILURE == get_data_for_rlcsa(readFileName, data, char_count))
+		cout << "*** Building the RLCSA index on the reads to files:" << endl;
+		cout << "***    " << indexFileName + ".rlcsa.array" << endl;
+		cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
+
+		if (EXIT_FAILURE == get_data_for_rlcsa_using_Bank(readFileName, data, char_count))
 		{
 			return EXIT_FAILURE;
 		}
@@ -343,7 +346,10 @@ int main(int argc, char** argv)
 	}
 
 	// we need to load the index
-	cout << "*** Loading the RLCSA index for the reads from file '" << indexFileName << "' (force the index to be re-built with option -b)" << endl;
+	cout << "*** Loading the RLCSA index for the reads from files: (force the index to be re-built with option -b)" << endl;
+	cout << "***    " << indexFileName + ".rlcsa.array" << endl;
+	cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
+
  	const RLCSA* rlcsa = new RLCSA(indexFileName, false);
  	if (!(rlcsa->isOk())) 
  	{
@@ -353,7 +359,7 @@ int main(int argc, char** argv)
  	// rlcsa->reportSize(true);
 
  	// we load the reads
- 	if (EXIT_FAILURE == get_reads(readFileName, reads))
+ 	if (EXIT_FAILURE == get_reads_using_Bank(readFileName, reads))
 	{
 		return EXIT_FAILURE;
 	}
