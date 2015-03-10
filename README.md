@@ -41,7 +41,7 @@ For Unitiger
 
 	python ../../bin/Unitiger/Unitiger_wrapper.py -r reads_file_list_of_files -o metrics_file
 
-where *reads_file_list_of_files* is a list of files as above (*not* a FASTA/Q(.gz) file).
+where *reads_file_list_of_files* is a file containing a list of files as above (*not* a FASTA/Q(.gz) file).
 
 # Test run
 
