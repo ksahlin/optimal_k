@@ -6,7 +6,7 @@ import os
 parser = argparse.ArgumentParser(description="A wrapper for running Unitiger for more values of k and abundance. \n Ver. 1.0")
 
 group = parser.add_argument_group("Required arguments")
-group.add_argument("-r", dest="readFileName", help="FASTQ file(s) (separated by comma)", required=True)
+group.add_argument("-r", dest="readFileName", help="a file containing a list of FASTA/Q(.gz) file names, one per line", required=True)
 group.add_argument("-o", dest="outputFileName", help="output file", required=True)
 
 group = parser.add_argument_group("Optional arguments")

@@ -131,7 +131,7 @@ int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abun
     } 
     else 
     {
-        graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -verbose 0 -nb-cores %d", reads.c_str(), k, abundance, nb_cores);
+        graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -verbose 0 -nb-cores %d", readsString.c_str(), k, abundance, nb_cores);
     }
   
 	std::cout << graph.getInfo() << std::endl;
@@ -437,7 +437,7 @@ int main (int argc, char* argv[])
         .description(desc)
         .epilog(epilog);
 
-    parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("input fastq file (if more, separated by comma)");
+    parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("a file containing a list of FASTA/Q(.gz) file names, one per line");
     parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
     parser.add_option("-k", "--kmersize") .type("int") .dest("k") .action("store") .set_default(31) .help("kmer size (default: %default)");
     parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");

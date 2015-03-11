@@ -287,13 +287,13 @@ int main(int argc, char** argv)
     	.description(desc)
     	.epilog(epilog);
 
-	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("input fastq file (all reads need to have the same length)");
+	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("a file containing a list of FASTA/Q(.gz) file names, one per line (all reads need to have the same length)");
 	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
 	parser.add_option("-a", "--minabundance") .type("uint32_t") .dest("a") .action("store") .set_default(3) .help("try all abundances starting with this value (default: %default)");
 	parser.add_option("-A", "--maxabundance") .type("uint32_t") .dest("A") .action("store") .set_default(3) .help("try all abundances up to this value (default: %default)");
 	parser.add_option("-t", "--threads") .type("uint32_t") .dest("t") .action("store") .set_default(0) .help("number of threads; use 0 for all cores (default: %default)");
-	parser.add_option("-k", "--mink") .type("uint32_t") .dest("k") .action("store") .set_default(15) .help("minimum kmer size to try (default: %default)");
-	parser.add_option("-K", "--maxk") .type("uint32_t") .dest("K") .action("store") .set_default(0) .help("maximum kmer sizeto try (default: read_length - 10)");
+	parser.add_option("-k", "--mink") .type("uint32_t") .dest("k") .action("store") .set_default(15) .help("try all kmer sizes starting with this value (default: %default)");
+	parser.add_option("-K", "--maxk") .type("uint32_t") .dest("K") .action("store") .set_default(0) .help("try all kmer sizes up to this value (default: read_length - 10)");
 	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
 	parser.add_option("-b", "--buildindex") .action("store_true") .dest("buildindex") .help("force the index to be rebuilt, even though it exists");
 	optparse::Values& options = parser.parse_args(argc, argv);
@@ -346,7 +346,7 @@ int main(int argc, char** argv)
 	}
 
 	// we need to load the index
-	cout << "*** Loading the RLCSA index for the reads from files: (force the index to be re-built with option -b)" << endl;
+	cout << "*** Loading the RLCSA index for the reads from files: (force the index to be re-built with option -b|--buildindex)" << endl;
 	cout << "***    " << indexFileName + ".rlcsa.array" << endl;
 	cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
 
