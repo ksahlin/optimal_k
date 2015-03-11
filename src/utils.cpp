@@ -154,10 +154,11 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
    	{
    		data = new uchar[char_count];
    	}
-   	catch(std::bad_alloc& exc)
+   	catch (exception& error) 
 	{
 		cout << "*** ERROR: could not allocate memory for the temporary data array" << endl;
-  		return EXIT_FAILURE;
+		std::cerr << "*** Error was: " << error.what() << std::endl;
+		return EXIT_FAILURE;
 	}
 
 	for (auto read : reads)

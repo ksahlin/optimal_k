@@ -328,17 +328,27 @@ int main(int argc, char** argv)
 		}
 		// Build RLCSA and report some information.
 		cout << "*** Now creating the index" << endl;
-		RLCSA rlcsa_built(data, char_count, 32, 0, N_THREADS, true);
- 		data = 0; // The constructor deleted the data.
 
-		if ( !(rlcsa_built.isOk()) ) 
- 		{
- 			cout << "*** ERROR: could not create the index" << endl;
- 			return EXIT_FAILURE;
- 		}
- 		rlcsa_built.printInfo();
- 		rlcsa_built.reportSize(true);
- 		rlcsa_built.writeTo(indexFileName);
+		try
+		{
+			RLCSA rlcsa_built(data, char_count, 32, 0, N_THREADS, true);
+	 		data = 0; // The constructor deleted the data.
+
+			if ( !(rlcsa_built.isOk()) ) 
+	 		{
+	 			cout << "*** ERROR: could not create the index" << endl;
+	 			return EXIT_FAILURE;
+	 		}
+	 		rlcsa_built.printInfo();
+	 		rlcsa_built.reportSize(true);
+	 		rlcsa_built.writeTo(indexFileName);	
+		}
+		catch (exception& error) 
+		{ // check if there was any error
+			std::cerr << "Error: " << error.what() << std::endl;
+			return EXIT_FAILURE;
+		}
+		
 	}
 
 	if (outputFileName == "")
