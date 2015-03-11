@@ -10,8 +10,8 @@ group.add_argument("-r", dest="readFileName", help="a file containing a list of 
 group.add_argument("-o", dest="outputFileName", help="output file", required=True)
 
 group = parser.add_argument_group("Optional arguments")
-group.add_argument("-a", dest="mina", help="min a", default=3)
-group.add_argument("-A", dest="maxa", help="max A", default=3)
+group.add_argument("-a", dest="mina", help="min a", default=1)
+group.add_argument("-A", dest="maxa", help="max A", default=5)
 group.add_argument("-k", dest="mink", help="min k", default=15)
 group.add_argument("-K", dest="maxk", help="max k", default=0)
 group.add_argument("-t", dest="threads", help="number of threads (0 = all cores)", default = 0)
