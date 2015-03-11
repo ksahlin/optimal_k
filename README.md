@@ -30,7 +30,7 @@ Suppose you are in data/human/
 
 	../../bin/optimal-k -r reads_file -o metrics_file
 
-where *reads_file* is either a file in FASTA, FASTQ, FASTA.gz, FASTQ.gz format OR a file containing a list of files, one per line, e.g.,
+where *reads_file* is either a file in FASTA, FASTQ, FASTA.gz, FASTQ.gz format OR a file containing a list of file names, one per line, e.g.,
 
 	frag_1.fastq
 	frag_2.fastq
@@ -41,7 +41,7 @@ For Unitiger
 
 	python ../../bin/Unitiger/Unitiger_wrapper.py -r reads_file_list_of_files -o metrics_file
 
-where *reads_file_list_of_files* is a file containing a list of files as above (*not* a FASTA/Q(.gz) file).
+where *reads_file_list_of_files* is a file containing a list of file names as above (*not* a FASTA/Q(.gz) file).
 
 # Test run
 
