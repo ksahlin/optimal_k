@@ -322,6 +322,9 @@ int main(int argc, char** argv)
 		cout << "***    " << indexFileName + ".rlcsa.array" << endl;
 		cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
 
+		get_data_and_build_rlcsa_using_Bank(readFileName, indexFileName, N_THREADS);
+		return EXIT_SUCCESS;
+
 		if (EXIT_FAILURE == get_data_for_rlcsa_using_Bank(readFileName, data, char_count))
 		{
 			return EXIT_FAILURE;
@@ -347,14 +350,14 @@ int main(int argc, char** argv)
 			}
 			catch (exception& error)
 			{
-				cout << "*** ERROR: could not write the index to file" << endl;
-				std::cerr << "Error: " << error.what() << std::endl;
+				cout << "*** ERROR: could not write the index to file:" << endl;
+				std::cerr << "***    " << error.what() << std::endl;
 				return EXIT_FAILURE;
 			}	 		
 		}
 		catch (exception& error) 
 		{ // check if there was any error
-			std::cerr << "Error: " << error.what() << std::endl;
+			std::cerr << "*** ERROR: " << error.what() << std::endl;
 			return EXIT_FAILURE;
 		}
 		

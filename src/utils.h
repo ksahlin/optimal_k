@@ -15,6 +15,9 @@
 #include <zlib.h>
 
 #include "rlcsa/rlcsa.h"
+#include "rlcsa/rlcsa_builder.h"
+// #include "rlcsa/misc/utils.h"
+
 #include "minia/Bank.h"
 #include "OptionParser.h"
 
@@ -23,6 +26,8 @@ using namespace std;
 
 #define MIN(a,b) (a <= b) ? a : b
 #define MAX(a,b) (a <= b) ? b : a
+
+#define MEGABYTE 1000000
 
 inline char reverse_complement_char(char c)
 {
@@ -98,6 +103,11 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
 	uchar*& data, 
 	uint64_t& char_count
 	);
+
+int get_data_and_build_rlcsa_using_Bank(const string& readFileName, 
+    const string& indexFileName,
+    const uint N_THREADS
+    );
 
 // Check if a file is readable
 inline bool is_readable( const std::string & file ) 

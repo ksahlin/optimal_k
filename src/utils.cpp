@@ -133,7 +133,7 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
 	vector<string> reads;
 	char_count = 0;	
 
-	cout << "*** Created the Bank from the file(s) listed in " << readFileName << endl;
+	cout << "*** Initialized the Bank object from the file(s) listed in " << readFileName << endl;
 
 	// getting the size of the temporary data array
 	while( reads_bank->get_next_seq(&rseq,&readlen) )
@@ -156,8 +156,8 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
    	}
    	catch (exception& error) 
 	{
-		cout << "*** ERROR: could not allocate memory for the temporary data array" << endl;
-		std::cerr << "*** Error was: " << error.what() << std::endl;
+		cout << "*** ERROR: could not allocate memory for the temporary data array:" << endl;
+		std::cerr << "***    " << error.what() << std::endl;
 		return EXIT_FAILURE;
 	}
 
@@ -172,6 +172,78 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
     	i++;		
 	}
 	cout << "*** Successfully created the temporary data array" << endl;
+
+   	return EXIT_SUCCESS;
+}
+
+int get_data_and_build_rlcsa_using_Bank(const string& readFileName, 
+	const string& indexFileName,
+	const uint N_THREADS
+	)
+{
+	Bank *reads_bank = new Bank(const_cast<char*>(readFileName.c_str()));
+	int readlen;
+	char *read_seq;
+	string line;
+	char* data = NULL;
+	uint64_t char_count;	
+
+	cout << "*** Initialized the Bank object from the file(s) listed in " << readFileName << endl;
+
+	try
+   	{
+   		data = new char[101 * MEGABYTE];
+   	}
+   	catch (exception& error) 
+	{
+		cout << "*** ERROR: could not allocate memory for the temporary data array:" << endl;
+		std::cerr << "***    " << error.what() << std::endl;
+		return EXIT_FAILURE;
+	}
+
+	// Use a buffer of 320 megabytes.
+  	RLCSABuilder builder(32, 0, 320 * MEGABYTE, N_THREADS); 
+
+	// getting the size of the temporary data array
+	char_count = 0;
+	uint64_t n_insertions = 0;
+	while( reads_bank->get_next_seq(&read_seq,&readlen) )
+    {
+    	for (int i = 0; i < readlen; i++)
+    	{
+    		data[char_count] = std::toupper(read_seq[i]);
+    		char_count++;	
+    	}
+    	char_count++; // +1 for the \0 which will terminate each read in uchar array 'data'
+		
+		if (char_count > 100 * MEGABYTE)
+		{
+			// For each sequence:
+  			builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
+  			n_insertions++;
+  			cout << "*** "<< n_insertions << ": Inserted " << (double)char_count / MEGABYTE << "MB of sequence into the index" << endl;
+  			//cout << "\b\b\b\033[K" << (int)((double)current_read / n_reads * 100) << "%";
+  			char_count = 0;
+		}
+    }
+    delete reads_bank;
+    delete data;
+
+    // If successful, write the index to disk.
+	if (builder.isOk())
+	{
+		RLCSA* rlcsa = builder.getRLCSA();
+		rlcsa->writeTo(indexFileName);
+		rlcsa->printInfo();
+	 	rlcsa->reportSize(true);
+	 	cout << "*** Created the RLCSA index" << endl;
+		delete rlcsa;
+	}
+	else
+	{
+		cout << "*** ERROR: RLCSA was not be created" << endl;
+		return EXIT_FAILURE;
+	}
 
    	return EXIT_SUCCESS;
 }
