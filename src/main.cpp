@@ -341,7 +341,16 @@ int main(int argc, char** argv)
 	 		}
 	 		rlcsa_built.printInfo();
 	 		rlcsa_built.reportSize(true);
+	 		try
+			{
 	 		rlcsa_built.writeTo(indexFileName);	
+			}
+			catch (exception& error)
+			{
+				cout << "*** ERROR: could not write the index to file" << endl;
+				std::cerr << "Error: " << error.what() << std::endl;
+				return EXIT_FAILURE;
+			}	 		
 		}
 		catch (exception& error) 
 		{ // check if there was any error
