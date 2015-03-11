@@ -214,6 +214,8 @@ int get_data_and_build_rlcsa_using_Bank(const string& readFileName,
     		data[char_count] = std::toupper(read_seq[i]);
     		char_count++;	
     	}
+
+    	data[char_count] = '\0';
     	char_count++; // +1 for the \0 which will terminate each read in uchar array 'data'
 		
 		if (char_count > 100 * MEGABYTE)
