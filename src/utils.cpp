@@ -228,6 +228,17 @@ int get_data_and_build_rlcsa_using_Bank(const string& readFileName,
   			char_count = 0;
 		}
     }
+    // inserting the remaining sequence
+	if (char_count > 0)	
+	{
+		// For each sequence:
+		builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
+		n_insertions++;
+		cout << "*** "<< n_insertions << ": Inserted " << (double)char_count / MEGABYTE << "MB of sequence into the index" << endl;
+		//cout << "\b\b\b\033[K" << (int)((double)current_read / n_reads * 100) << "%";
+		char_count = 0;
+	}
+
     delete reads_bank;
     delete data;
 
