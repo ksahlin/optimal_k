@@ -43,12 +43,13 @@ int get_reads_using_Bank(const string readFileName,
 	vector<string>& reads
 	)
 {
-	Bank *Reads = new Bank(const_cast<char*>(readFileName.c_str()));
+	Bank *reads_bank = new Bank(const_cast<char*>(readFileName.c_str()));
 	int readlen;
 	char *rseq;
 	string line;
+	reads.reserve(reads_bank->estimate_nb_reads());
 
-	while( Reads->get_next_seq(&rseq,&readlen) )
+	while( reads_bank->get_next_seq(&rseq,&readlen) )
     {
     	line = rseq;
         make_upper_case(line);
@@ -57,7 +58,7 @@ int get_reads_using_Bank(const string readFileName,
 
 	cout << "*** The file(s) listed in " << readFileName << " contain(s) " << reads.size() << " reads." << endl;
 
-	delete Reads;
+	delete reads_bank;
 
    	return EXIT_SUCCESS;
 }
@@ -125,14 +126,17 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
 	uint64_t& char_count
 	)
 {
-	Bank *Reads = new Bank(const_cast<char*>(readFileName.c_str()));
+	Bank *reads_bank = new Bank(const_cast<char*>(readFileName.c_str()));
 	int readlen;
 	char *rseq;
 	string line;
 	vector<string> reads;
 	char_count = 0;	
 
-	while( Reads->get_next_seq(&rseq,&readlen) )
+	cout << "*** Created the Bank from the file(s) listed in " << readFileName << endl;
+
+	// getting the size of the temporary data array
+	while( reads_bank->get_next_seq(&rseq,&readlen) )
     {
     	line = rseq;
     	make_upper_case(line);
@@ -140,11 +144,22 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
     	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'
     }
 
+    delete reads_bank;
+
    	cout << "*** The file(s) listed in " << readFileName << " contain(s) " << reads.size() << " reads." << endl;
    	cout << "*** The temporary data array will have size " << (double)char_count/1000000000 << "GB." << endl;
 
    	uint64_t i = 0;
-	data = new uchar[char_count];
+   	try
+   	{
+   		data = new uchar[char_count];
+   	}
+   	catch(std::bad_alloc& exc)
+	{
+		cout << "*** ERROR: could not allocate memory for the temporary data array" << endl;
+  		return EXIT_FAILURE;
+	}
+
 	for (auto read : reads)
 	{
     	for (uint64_t j = 0; j < read.length(); j++)
@@ -155,8 +170,7 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
     	data[i] = '\0';
     	i++;		
 	}
-
-	delete Reads;
+	cout << "*** Successfully created the temporary data array" << endl;
 
    	return EXIT_SUCCESS;
 }

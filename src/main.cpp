@@ -289,8 +289,8 @@ int main(int argc, char** argv)
 
 	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("a file containing a list of FASTA/Q(.gz) file names, one per line (all reads need to have the same length)");
 	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
-	parser.add_option("-a", "--minabundance") .type("uint32_t") .dest("a") .action("store") .set_default(3) .help("try all abundances starting with this value (default: %default)");
-	parser.add_option("-A", "--maxabundance") .type("uint32_t") .dest("A") .action("store") .set_default(3) .help("try all abundances up to this value (default: %default)");
+	parser.add_option("-a", "--minabundance") .type("uint32_t") .dest("a") .action("store") .set_default(1) .help("try all abundances starting with this value (default: %default)");
+	parser.add_option("-A", "--maxabundance") .type("uint32_t") .dest("A") .action("store") .set_default(5) .help("try all abundances up to this value (default: %default)");
 	parser.add_option("-t", "--threads") .type("uint32_t") .dest("t") .action("store") .set_default(0) .help("number of threads; use 0 for all cores (default: %default)");
 	parser.add_option("-k", "--mink") .type("uint32_t") .dest("k") .action("store") .set_default(15) .help("try all kmer sizes starting with this value (default: %default)");
 	parser.add_option("-K", "--maxk") .type("uint32_t") .dest("K") .action("store") .set_default(0) .help("try all kmer sizes up to this value (default: read_length - 10)");
@@ -327,11 +327,13 @@ int main(int argc, char** argv)
 			return EXIT_FAILURE;
 		}
 		// Build RLCSA and report some information.
+		cout << "*** Now creating the index" << endl;
 		RLCSA rlcsa_built(data, char_count, 32, 0, N_THREADS, true);
  		data = 0; // The constructor deleted the data.
 
 		if ( !(rlcsa_built.isOk()) ) 
  		{
+ 			cout << "*** ERROR: could not create the index" << endl;
  			return EXIT_FAILURE;
  		}
  		rlcsa_built.printInfo();
