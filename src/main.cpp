@@ -330,12 +330,14 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
+	// compact_read cread = encode_string("AAA");
+	// return EXIT_SUCCESS;
 
 	// if we need to build the index
 	if (buildindex != "")
 	{
 		get_data_and_build_rlcsa_iterative(readFileName, buildindex, N_THREADS);
-		get_data_and_build_rlcsa_noniterative(readFileName, buildindex, N_THREADS);
+		// get_data_and_build_rlcsa_noniterative(readFileName, buildindex, N_THREADS);
 		cout << "*** SUCCESS: now run the program with --loadindex " << buildindex << endl;
 		return EXIT_SUCCESS;		
 	}

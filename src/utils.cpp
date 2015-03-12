@@ -233,7 +233,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 
 	try
    	{
-   		data = new char[101 * MEGABYTE];
+   		data = new char[4000 * MEGABYTE];
    	}
    	catch (exception& error) 
 	{
@@ -243,7 +243,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 	}
 
 	// Use a buffer of 320 megabytes.
-  	RLCSABuilder builder(32, 0, 320 * MEGABYTE, N_THREADS); 
+  	RLCSABuilder builder(32, 0, 3999 * MEGABYTE, N_THREADS); 
 
 	// getting the size of the temporary data array
 	char_count = 0;
@@ -259,12 +259,12 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
     	data[char_count] = '\0';
     	char_count++; // +1 for the \0 which will terminate each read in uchar array 'data'
 		
-		if (char_count > 100 * MEGABYTE)
+		if (char_count > 3999 * MEGABYTE)
 		{
 			// For each sequence:
   			builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
   			n_insertions++;
-  			cout << "*** "<< n_insertions << ": Inserted " << (double)char_count / MEGABYTE << "MB of sequence into the index" << endl;
+  			cout << "*** "<< n_insertions << ": Inserting " << (double)char_count / MEGABYTE << "MB of sequence into the index" << endl;
   			//cout << "\b\b\b\033[K" << (int)((double)current_read / n_reads * 100) << "%";
   			char_count = 0;
 		}
@@ -272,11 +272,10 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
     // inserting the remaining sequence
 	if (char_count > 0)	
 	{
+		cout << "*** "<< n_insertions << ": Inserting " << (double)char_count / MEGABYTE << "MB of sequence into the index" << endl;
 		// For each sequence:
 		builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
 		n_insertions++;
-		cout << "*** "<< n_insertions << ": Inserted " << (double)char_count / MEGABYTE << "MB of sequence into the index" << endl;
-		//cout << "\b\b\b\033[K" << (int)((double)current_read / n_reads * 100) << "%";
 		char_count = 0;
 	}
 
@@ -301,3 +300,4 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 
    	return EXIT_SUCCESS;
 }
+
