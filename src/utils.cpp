@@ -121,9 +121,9 @@ int get_reads_using_Bank(const string readFileName,
 //    	return EXIT_SUCCESS;
 // }
 
-int get_data_for_rlcsa_using_Bank(const string& readFileName, 
-	uchar*& data, 
-	uint64_t& char_count
+int get_data_and_build_rlcsa_noniterative(const string& readFileName, 
+	const string& indexFileName,
+	const uint N_THREADS
 	)
 {
 	Bank *reads_bank = new Bank(const_cast<char*>(readFileName.c_str()));
@@ -131,7 +131,12 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
 	char *rseq;
 	string line;
 	vector<string> reads;
-	char_count = 0;	
+	uint64_t char_count = 0;
+	uchar *data = NULL;
+
+	cout << "*** Building the RLCSA index on the reads and saving it to files:" << endl;
+	cout << "***    " << indexFileName + ".rlcsa.array" << endl;
+	cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
 
 	cout << "*** Initialized the Bank object from the file(s) listed in " << readFileName << endl;
 
@@ -173,10 +178,42 @@ int get_data_for_rlcsa_using_Bank(const string& readFileName,
 	}
 	cout << "*** Successfully created the temporary data array" << endl;
 
+	cout << "*** Now creating the index" << endl;
+
+	try
+	{
+		RLCSA rlcsa_built(data, char_count, 32, 0, N_THREADS, true);
+ 		data = 0; // The constructor deleted the data.
+
+		if ( !(rlcsa_built.isOk()) ) 
+ 		{
+ 			cout << "*** ERROR: could not create the index" << endl;
+ 			return EXIT_FAILURE;
+ 		}
+ 		rlcsa_built.printInfo();
+ 		rlcsa_built.reportSize(true);
+ 		try
+		{
+ 		rlcsa_built.writeTo(indexFileName);	
+		}
+		catch (exception& error)
+		{
+			cout << "*** ERROR: could not write the index to file:" << endl;
+			std::cerr << "***    " << error.what() << std::endl;
+			return EXIT_FAILURE;
+		}	 		
+	}
+	catch (exception& error) 
+	{ // check if there was any error
+		std::cerr << "*** ERROR: " << error.what() << std::endl;
+		return EXIT_FAILURE;
+	}
+
+
    	return EXIT_SUCCESS;
 }
 
-int get_data_and_build_rlcsa_using_Bank(const string& readFileName, 
+int get_data_and_build_rlcsa_iterative(const string& readFileName, 
 	const string& indexFileName,
 	const uint N_THREADS
 	)
@@ -187,6 +224,10 @@ int get_data_and_build_rlcsa_using_Bank(const string& readFileName,
 	string line;
 	char* data = NULL;
 	uint64_t char_count;	
+
+	cout << "*** Building the RLCSA index on the reads and saving it to files:" << endl;
+	cout << "***    " << indexFileName + ".rlcsa.array" << endl;
+	cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
 
 	cout << "*** Initialized the Bank object from the file(s) listed in " << readFileName << endl;
 

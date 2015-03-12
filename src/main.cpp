@@ -263,11 +263,8 @@ inline uint64_t get_sample_size_for_proportion(
 int main(int argc, char** argv)
 {
     uint32_t mink, maxk;
-    uint64_t char_count;
-    uchar *data = NULL;
-    string readFileName, outputFileName, indexFileName;
-    bool buildindex = false;
-	vector<string> reads;
+    string readFileName, outputFileName;
+    string buildindex, loadindex;
 	uint32_t min_abundance,max_abundance;
 	double relative_error; // maximum relative error 10% of our estimators
 
@@ -295,12 +292,13 @@ int main(int argc, char** argv)
 	parser.add_option("-k", "--mink") .type("uint32_t") .dest("k") .action("store") .set_default(15) .help("try all kmer sizes starting with this value (default: %default)");
 	parser.add_option("-K", "--maxk") .type("uint32_t") .dest("K") .action("store") .set_default(0) .help("try all kmer sizes up to this value (default: read_length - 10)");
 	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
-	parser.add_option("-b", "--buildindex") .action("store_true") .dest("buildindex") .help("force the index to be rebuilt, even though it exists");
+	parser.add_option("-b", "--buildindex"). type("string") .dest("buildindex") .action("store") .set_default("") .help("the filename where the index should be saved");
+	parser.add_option("-l", "--loadindex"). type("string") .dest("loadindex") .action("store") .set_default("") .help("the filename from where the index should be loaded");
 	optparse::Values& options = parser.parse_args(argc, argv);
 
-	buildindex = (options.get("buildindex") ? true : false);
+	buildindex = (string) options.get("buildindex");
+	loadindex = (string) options.get("loadindex");
 	readFileName = (string) options.get("r");
-	indexFileName = get_first_token(readFileName);
 	outputFileName = (string) options.get("o");
 	min_abundance = (uint32_t) options.get("a");
 	max_abundance = (uint32_t) options.get("A");
@@ -314,53 +312,32 @@ int main(int argc, char** argv)
 	}
 	relative_error = (double) options.get("e");
 
-
-	// if the index does not exist we need to build it
-	if ((not is_readable(indexFileName + ".rlcsa.array")) or (not is_readable(indexFileName + ".rlcsa.parameters")) or buildindex) 
+	if (readFileName == "")
 	{
-		cout << "*** Building the RLCSA index on the reads and saving it to files:" << endl;
-		cout << "***    " << indexFileName + ".rlcsa.array" << endl;
-		cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
+		cout << "*** ERROR: -r <read_file> must be given" << endl;	
+		return EXIT_FAILURE;
+	}
+	// checking if we have the index
+	if ((buildindex == "") and (loadindex == ""))
+	{
+		cout << "*** ERROR: either --buildindex <file_name> or --loadindex <file_name> must be given" << endl;
+		return EXIT_FAILURE;
+	}
+	// checking if we have the index
+	if ((buildindex != "") and (loadindex != ""))
+	{
+		cout << "*** ERROR: not both of --buildindex <file_name> or --loadindex <file_name> must be given" << endl;
+		return EXIT_FAILURE;
+	}
 
-		get_data_and_build_rlcsa_using_Bank(readFileName, indexFileName, N_THREADS);
-		return EXIT_SUCCESS;
 
-		if (EXIT_FAILURE == get_data_for_rlcsa_using_Bank(readFileName, data, char_count))
-		{
-			return EXIT_FAILURE;
-		}
-		// Build RLCSA and report some information.
-		cout << "*** Now creating the index" << endl;
-
-		try
-		{
-			RLCSA rlcsa_built(data, char_count, 32, 0, N_THREADS, true);
-	 		data = 0; // The constructor deleted the data.
-
-			if ( !(rlcsa_built.isOk()) ) 
-	 		{
-	 			cout << "*** ERROR: could not create the index" << endl;
-	 			return EXIT_FAILURE;
-	 		}
-	 		rlcsa_built.printInfo();
-	 		rlcsa_built.reportSize(true);
-	 		try
-			{
-	 		rlcsa_built.writeTo(indexFileName);	
-			}
-			catch (exception& error)
-			{
-				cout << "*** ERROR: could not write the index to file:" << endl;
-				std::cerr << "***    " << error.what() << std::endl;
-				return EXIT_FAILURE;
-			}	 		
-		}
-		catch (exception& error) 
-		{ // check if there was any error
-			std::cerr << "*** ERROR: " << error.what() << std::endl;
-			return EXIT_FAILURE;
-		}
-		
+	// if we need to build the index
+	if (buildindex != "")
+	{
+		get_data_and_build_rlcsa_iterative(readFileName, buildindex, N_THREADS);
+		get_data_and_build_rlcsa_noniterative(readFileName, buildindex, N_THREADS);
+		cout << "*** SUCCESS: now run the program with --loadindex " << buildindex << endl;
+		return EXIT_SUCCESS;		
 	}
 
 	if (outputFileName == "")
@@ -371,10 +348,10 @@ int main(int argc, char** argv)
 
 	// we need to load the index
 	cout << "*** Loading the RLCSA index for the reads from files: (force the index to be re-built with option -b|--buildindex)" << endl;
-	cout << "***    " << indexFileName + ".rlcsa.array" << endl;
-	cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
+	cout << "***    " << loadindex + ".rlcsa.array" << endl;
+	cout << "***    " << loadindex + ".rlcsa.parameters" << endl;
 
- 	const RLCSA* rlcsa = new RLCSA(indexFileName, false);
+ 	const RLCSA* rlcsa = new RLCSA(loadindex, false);
  	if (!(rlcsa->isOk())) 
  	{
  		return EXIT_FAILURE;
@@ -382,6 +359,7 @@ int main(int argc, char** argv)
  	// rlcsa->printInfo();
  	// rlcsa->reportSize(true);
 
+ 	vector<string> reads;
  	// we load the reads
  	if (EXIT_FAILURE == get_reads_using_Bank(readFileName, reads))
 	{

@@ -99,12 +99,12 @@ int get_reads_using_Bank(const string readFileName,
 //     uint64_t& char_count
 //     );
 
-int get_data_for_rlcsa_using_Bank(const string& readFileName, 
-	uchar*& data, 
-	uint64_t& char_count
-	);
+int get_data_and_build_rlcsa_noniterative(const string& readFileName, 
+    const string& indexFileName,
+    const uint N_THREADS
+    );
 
-int get_data_and_build_rlcsa_using_Bank(const string& readFileName, 
+int get_data_and_build_rlcsa_iterative(const string& readFileName, 
     const string& indexFileName,
     const uint N_THREADS
     );
