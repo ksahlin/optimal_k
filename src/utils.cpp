@@ -259,7 +259,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
     	data[char_count] = '\0';
     	char_count++; // +1 for the \0 which will terminate each read in uchar array 'data'
 		
-		if (char_count > 3999 * MEGABYTE)
+		if (char_count > 3998 * MEGABYTE)
 		{
 			// For each sequence:
   			builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
