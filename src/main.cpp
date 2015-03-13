@@ -53,7 +53,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	const uint32_t k,
 	const uint32_t min_abundance,
 	const uint32_t max_abundance,
-	const vector<string>& reads,
+	const vector<compact_read>& reads,
 	const vector<uint64_t>& sample_size_kmers,
 	const vector<uint64_t>& sample_size_unitigs,
 	vector<double> &n_uint32_ternal,
@@ -63,14 +63,14 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &e_size
 	)
 {
-	uint64_t total_kmers = reads.size() * (reads[0].length() - k + 1);
+	uint64_t total_kmers = reads.size() * (reads[0].length - k + 1);
 	uint64_t n_reads = reads.size();
 
 	// RANDOM GENERATOR
 	std::random_device rd;
 	std::default_random_engine generator(rd());
 	std::uniform_int_distribution<uint64_t> uniform_read_distribution(0,n_reads - 1);
-	std::uniform_int_distribution<int> uniform_pos_distribution(0,reads[0].length() - k);
+	std::uniform_int_distribution<int> uniform_pos_distribution(0,reads[0].length - k);
 
 	vector<double> n_sampled_nodes_weighted(max_abundance + 1, 0);
 
@@ -112,14 +112,13 @@ void sample_nodes(const RLCSA* rlcsa,
 			}	
 			
 			uint64_t read_index = uniform_read_distribution(generator);
-			string read = reads[read_index];
-			// // MAKE SURE THIS IS OK!
+			uint32_t pos = uniform_pos_distribution(generator);
+	        string sample = decode_substring(reads[read_index],pos,k);
+   			// // MAKE SURE THIS IS OK!
 			// if (rand() / (double)RAND_MAX < 0.5)
 			// {
-			// 	read = reverse_complement(read);
+			// 		sample = reverse_complement(sample);
 			// }
-			uint32_t pos = uniform_pos_distribution(generator);
-	        string sample = read.substr(pos,k);
 
 	        #pragma omp atomic
         	n_sampled_kmers++;	
@@ -267,6 +266,7 @@ int main(int argc, char** argv)
     string buildindex, loadindex;
 	uint32_t min_abundance,max_abundance;
 	double relative_error; // maximum relative error 10% of our estimators
+	bool lowermemory;
 
 	// command line argument parser
 	string usage = "\n  %prog OPTIONS";
@@ -294,8 +294,10 @@ int main(int argc, char** argv)
 	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
 	parser.add_option("-b", "--buildindex"). type("string") .dest("buildindex") .action("store") .set_default("") .help("the filename where the index should be saved");
 	parser.add_option("-l", "--loadindex"). type("string") .dest("loadindex") .action("store") .set_default("") .help("the filename from where the index should be loaded");
+	parser.add_option("-m", "--lowermemory") .dest("lowermemory") .action("store_true") .set_default(false) .help("force the index construction to use less RAM; this slows the construction");
 	optparse::Values& options = parser.parse_args(argc, argv);
 
+	lowermemory = (options.get("lowermemory") ? true : false);
 	buildindex = (string) options.get("buildindex");
 	loadindex = (string) options.get("loadindex");
 	readFileName = (string) options.get("r");
@@ -314,29 +316,36 @@ int main(int argc, char** argv)
 
 	if (readFileName == "")
 	{
-		cout << "*** ERROR: -r <read_file> must be given" << endl;	
+		cerr << "*** ERROR: -r <read_file> must be given" << endl;	
 		return EXIT_FAILURE;
 	}
 	// checking if we have the index
 	if ((buildindex == "") and (loadindex == ""))
 	{
-		cout << "*** ERROR: either --buildindex <file_name> or --loadindex <file_name> must be given" << endl;
+		cerr << "*** ERROR: either --buildindex <file_name> or --loadindex <file_name> must be given" << endl;
 		return EXIT_FAILURE;
 	}
 	// checking if we have the index
 	if ((buildindex != "") and (loadindex != ""))
 	{
-		cout << "*** ERROR: not both of --buildindex <file_name> or --loadindex <file_name> must be given" << endl;
+		cerr << "*** ERROR: not both of --buildindex <file_name> or --loadindex <file_name> must be given" << endl;
 		return EXIT_FAILURE;
 	}
 
-	// compact_read cread = encode_string("AAA");
+	// compact_read cread = encode_string("ACTTGGTACAT");
+	// cout << decode_substring(cread,4,5) << endl;
+	// cout << decode_substring(cread,4,6) << endl;
+	// cout << decode_substring(cread,0,5) << endl;
+	// cout << decode_substring(cread,0,11) << endl;
+	// cout << decode_substring(cread,1,6) << endl;
+	// cout << decode_substring(cread,0,8) << endl;
+	// cout << decode_substring(cread,0,9) << endl;
 	// return EXIT_SUCCESS;
 
 	// if we need to build the index
 	if (buildindex != "")
 	{
-		get_data_and_build_rlcsa_iterative(readFileName, buildindex, N_THREADS);
+		get_data_and_build_rlcsa_iterative(readFileName, buildindex, N_THREADS, lowermemory);
 		// get_data_and_build_rlcsa_noniterative(readFileName, buildindex, N_THREADS);
 		cout << "*** SUCCESS: now run the program with --loadindex " << buildindex << endl;
 		return EXIT_SUCCESS;		
@@ -344,10 +353,14 @@ int main(int argc, char** argv)
 
 	if (outputFileName == "")
 	{
-		cerr << "The argument -o|--outputfile is needed" << endl;
+		cerr << "*** ERROR: The argument -o|--outputfile is needed" << endl;
 		return EXIT_FAILURE;
 	}
 
+	if (lowermemory)
+	{
+		cerr << "*** Ignoring option --lowermemory because it works only when constructing the index" << endl;
+	}
 	// we need to load the index
 	cout << "*** Loading the RLCSA index for the reads from files: (force the index to be re-built with option -b|--buildindex)" << endl;
 	cout << "***    " << loadindex + ".rlcsa.array" << endl;
@@ -361,7 +374,7 @@ int main(int argc, char** argv)
  	// rlcsa->printInfo();
  	// rlcsa->reportSize(true);
 
- 	vector<string> reads;
+ 	vector<compact_read> reads;
  	// we load the reads
  	if (EXIT_FAILURE == get_reads_using_Bank(readFileName, reads))
 	{
@@ -377,7 +390,7 @@ int main(int argc, char** argv)
 
     if (maxk == 0)
     {
-    	maxk = reads[0].length() - 10;
+    	maxk = reads[0].length - 10;
     }
 
  	cout << "*** Writing results to files:" << endl;
@@ -394,8 +407,8 @@ int main(int argc, char** argv)
  		// getting the sample size
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
  		{
- 			uint64_t SS_n_nodes = get_sample_size_for_proportion(n_nodes[a] / (double)(reads.size() * (reads[0].length() - k + 1)), relative_error);
- 			uint64_t SS_n_unitigs = get_sample_size_for_proportion(n_unitigs[a] / (double)(reads.size() * (reads[0].length() - k + 1)), relative_error);
+ 			uint64_t SS_n_nodes = get_sample_size_for_proportion(n_nodes[a] / (double)(reads.size() * (reads[0].length - k + 1)), relative_error);
+ 			uint64_t SS_n_unitigs = get_sample_size_for_proportion(n_unitigs[a] / (double)(reads.size() * (reads[0].length - k + 1)), relative_error);
  			uint64_t SS_avg_nodes_unitig = get_sample_size_for_proportion(n_starts[a] / (double)(n_uint32_ternal[a] + n_starts[a]), 1 / (double)(1 + relative_error) - 1);
  			
  			// cout << "SS_n_nodes = " << SS_n_nodes << endl;

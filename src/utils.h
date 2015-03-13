@@ -17,11 +17,12 @@
 
 #include "rlcsa/rlcsa.h"
 #include "rlcsa/rlcsa_builder.h"
-// #include "rlcsa/misc/utils.h"
 #include "rlcsa/misc/definitions.h"
 
 #include "minia/Bank.h"
 #include "OptionParser.h"
+
+#include "lut.h"
 
 using namespace CSA;
 using namespace std;
@@ -29,12 +30,10 @@ using namespace std;
 #define MIN(a,b) (a <= b) ? a : b
 #define MAX(a,b) (a <= b) ? b : a
 
-// #define MEGABYTE 1000000
-
 struct compact_read 
 {
-    char *read; // the encoded read
-    uint32_t length; // the length of the original read
+    unsigned char *read; // the encoded read
+    uint16_t length; // the length of the original read
 };
 
 inline char reverse_complement_char(char c)
@@ -86,28 +85,21 @@ inline void make_upper_case(string& s)
 
 inline compact_read encode_string(const string& s)
 {
-    char LUT[256];
-    LUT['A'] = 0;
-    LUT['C'] = 1;
-    LUT['G'] = 2;
-    LUT['T'] = 3;
-    LUT['N'] = 4;
-
     compact_read cread;
-    cread.read = new char[(uint32_t)ceil(s.length()/3)];
+    cread.read = new unsigned char[(uint32_t)ceil(s.length()/3)];
     cread.length = s.length();
 
     char first, second, third;
     uint32_t cread_index = 0;
     for (uint32_t i = 0; i < s.length(); i = i + 3)
     {
-        first = LUT[(int)s[i]];
+        first = base_to_number[(int)s[i]];
         if (i + 1 < s.length())
         {
-            second = LUT[(int)s[i + 1]];
+            second = base_to_number[(int)s[i + 1]];
             if (i + 2 < s.length())
             {
-                third = LUT[(int)s[i + 2]];
+                third = base_to_number[(int)s[i + 2]];
             }
             else
             {
@@ -126,36 +118,41 @@ inline compact_read encode_string(const string& s)
     return cread;
 }
 
-// here:
-// inline string decode_substring(const compact_read& cread, uint32_t start, uint32_t length)
-// {
-//     char LUT[256];
-//     LUT['A'] = 0;
-//     LUT['C'] = 1;
-//     LUT['G'] = 2;
-//     LUT['T'] = 3;
-//     LUT['N'] = 4;
+inline string decode_substring(const compact_read& cread, const uint32_t &start, const uint32_t &length)
+{
 
-//     assert(start + length < cread.length );
+    // This conditions must be satisfied!!!
+    // assert(start + length <= cread.length);
+    // assert(length >= 3);
 
-//     string read = "";
-//     uint32_t read_index = 0;
-//     uint32_t cread_start = start / 3;  // i.e. floor(start / 3)
+    string read = "";
+    
+    uint32_t start_triplet = start / 3;  // i.e. floor(start / 3)
+    uint32_t end_triplet = (start + length - 1) / 3;  // i.e. floor((start + length - 1) / 3)
 
-//     char first, second, third;
-//     char temp;
+    // adding the characters from the first triplet
+    for (uint32_t i = start % 3; i < 3; i++)
+    {
+        read += number_to_basetriplet[cread.read[start_triplet]][i];
+    }
 
-//     for (uint32_t i = start; i <= ; i++)
-//     {
-//         temp = cread.read[i];
-//         third = temp / 5;
-//         second = temp / 5;
-//         first = temp / 5;
+    // adding all the characters from the middle triplets
+    for (uint32_t triplet = start_triplet + 1; triplet < end_triplet; triplet++)
+    {
+        for (uint32_t i = 0; i < 3; i++)
+        {
+            read += number_to_basetriplet[cread.read[triplet]][i];
+        }
+    }
 
-//     }
+    // adding the characters from the last triplet
+    for (uint32_t i = 0; i <= (start + length - 1) % 3; i++)
+    {
+        read += number_to_basetriplet[cread.read[end_triplet]][i];
+    }    
 
-//     return read;
-// }
+    return read;
+}
 
 inline string get_first_token(string s)
 {
@@ -172,7 +169,7 @@ inline string get_first_token(string s)
 // 	);
 
 int get_reads_using_Bank(const string readFileName, 
-    vector<string>& reads
+    vector<compact_read>& reads
     );
 
 // int get_data_for_rlcsa(const string& readFileName, 
@@ -187,7 +184,8 @@ int get_data_and_build_rlcsa_noniterative(const string& readFileName,
 
 int get_data_and_build_rlcsa_iterative(const string& readFileName, 
     const string& indexFileName,
-    const uint N_THREADS
+    const uint N_THREADS,
+    const bool lower_memory_construction
     );
 
 // Check if a file is readable
@@ -196,5 +194,8 @@ inline bool is_readable( const std::string & file )
     std::ifstream f( file.c_str() ); 
     return !f.fail(); 
 } 
+
+
+
 
 #endif // UTILS_H_INCLUDED

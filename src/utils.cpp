@@ -40,7 +40,7 @@
 // }
 
 int get_reads_using_Bank(const string readFileName, 
-	vector<string>& reads
+	vector<compact_read>& reads
 	)
 {
 	Bank *reads_bank = new Bank(const_cast<char*>(readFileName.c_str()));
@@ -53,7 +53,7 @@ int get_reads_using_Bank(const string readFileName,
     {
     	line = rseq;
         make_upper_case(line);
-        reads.push_back(line);
+        reads.push_back(encode_string(line));
     }
 
 	cout << "*** The file(s) listed in " << readFileName << " contain(s) " << reads.size() << " reads." << endl;
@@ -62,64 +62,6 @@ int get_reads_using_Bank(const string readFileName,
 
    	return EXIT_SUCCESS;
 }
-
-
-// int get_data_for_rlcsa(const string& readFileName, 
-// 	uchar*& data, 
-// 	uint64_t& char_count
-// 	)
-// {
-// 	std::istringstream ssFileName(readFileName);
-// 	string tokenFileName, line;
-// 	char_count = 0;
-// 	vector<string> reads;
-
-// 	while(getline(ssFileName, tokenFileName, ',')) 
-// 	{
-// 		try
-// 		{
-// 	    	ifstream readFile;
-// 			readFile.open(tokenFileName);
-
-// 			cout << "*** Reading from file '" << tokenFileName << "'" << endl;
-// 		   	// counting total number of reads and their length
-// 		   	while (getline(readFile , line)) // this is the comment line
-// 		   	{
-// 		    	getline(readFile , line); // the actual read
-// 		    	make_upper_case(line);
-// 		    	reads.push_back(line);
-// 		    	char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'
-// 		 		// reads.push_back(reverse_complement(line));
-// 		   		// char_count = char_count + (line.length() + 1); // +1 for the \0 which will terminate each read in uchar array 'data'   	
-// 		    	assert(getline(readFile , line)); // the +/- sign
-// 		    	assert(getline(readFile , line)); // the quality values
-// 		   	}
-// 		   	readFile.close();	
-// 		} catch (exception& error) 
-// 		{ // check if there was any error
-// 			std::cerr << "Error: " << error.what() << std::endl;
-// 			return EXIT_FAILURE;
-// 		}
-// 	}
-
-//    	cout << "*** Input file(s) " << readFileName << " contain(s) " << reads.size() << " reads." << endl;
-//    	cout << "*** The temporary data array will have size " << (double)char_count/1000000000 << "GB." << endl;
-
-//    	uint64_t i = 0;
-// 	data = new uchar[char_count];
-// 	for (auto read : reads)
-// 	{
-//     	for (uint64_t j = 0; j < read.length(); j++)
-//     	{
-//     		data[i] = (uchar)read[j];
-//     		i++;
-//     	}
-//     	data[i] = '\0';
-//     	i++;		
-// 	}
-
-//    	return EXIT_SUCCESS;
-// }
 
 int get_data_and_build_rlcsa_noniterative(const string& readFileName, 
 	const string& indexFileName,
@@ -215,15 +157,27 @@ int get_data_and_build_rlcsa_noniterative(const string& readFileName,
 
 int get_data_and_build_rlcsa_iterative(const string& readFileName, 
 	const string& indexFileName,
-	const uint N_THREADS
+	const uint N_THREADS,
+	const bool lower_memory_construction
 	)
 {
+	uint64_t DATA_SIZE;
+	if (lower_memory_construction)
+	{
+		DATA_SIZE = 1000;
+	}
+	else
+	{
+		DATA_SIZE = 3999;
+	}
+	uint64_t INSERT_SIZE = DATA_SIZE - 1;
+
 	Bank *reads_bank = new Bank(const_cast<char*>(readFileName.c_str()));
 	int readlen;
 	char *read_seq;
 	string line;
 	char* data = NULL;
-	uint64_t char_count;	
+	uint64_t char_count, seq_count;	
 
 	cout << "*** Building the RLCSA index on the reads and saving it to files:" << endl;
 	cout << "***    " << indexFileName + ".rlcsa.array" << endl;
@@ -233,49 +187,51 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 
 	try
    	{
-   		data = new char[4000 * MEGABYTE];
+   		data = new char[DATA_SIZE * MEGABYTE];
    	}
    	catch (exception& error) 
 	{
-		cout << "*** ERROR: could not allocate memory for the temporary data array:" << endl;
-		std::cerr << "***    " << error.what() << std::endl;
+		cerr << "*** ERROR: could not allocate memory for the temporary data array:" << endl;
+		cerr << "***    " << error.what() << std::endl;
 		return EXIT_FAILURE;
 	}
 
 	// Use a buffer of 320 megabytes.
-  	RLCSABuilder builder(32, 0, 3999 * MEGABYTE, N_THREADS); 
+  	RLCSABuilder builder(32, 0, DATA_SIZE * MEGABYTE, N_THREADS); 
 
 	// getting the size of the temporary data array
 	char_count = 0;
+	seq_count = 0;
 	uint64_t n_insertions = 0;
 	while( reads_bank->get_next_seq(&read_seq,&readlen) )
     {
     	for (int i = 0; i < readlen; i++)
     	{
     		data[char_count] = std::toupper(read_seq[i]);
-    		char_count++;	
+    		char_count++;
+    		seq_count++;
     	}
 
     	data[char_count] = '\0';
     	char_count++; // +1 for the \0 which will terminate each read in uchar array 'data'
 		
-		if (char_count > 3998 * MEGABYTE)
+		if (char_count > INSERT_SIZE * MEGABYTE)
 		{
 			// For each sequence:
   			builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
   			n_insertions++;
-  			cout << "*** "<< n_insertions << ": Inserting " << (double)char_count / MEGABYTE << "MB of sequence into the index" << endl;
-  			//cout << "\b\b\b\033[K" << (int)((double)current_read / n_reads * 100) << "%";
+  			cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the index" << endl;
   			char_count = 0;
+  			seq_count = 0;
 		}
     }
     // inserting the remaining sequence
-	if (char_count > 0)	
+	if (char_count > 1 * MEGABYTE)	
 	{
-		cout << "*** "<< n_insertions << ": Inserting " << (double)char_count / MEGABYTE << "MB of sequence into the index" << endl;
-		// For each sequence:
-		builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
 		n_insertions++;
+		cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the index" << endl;
+		// Insert the sequence:
+		builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
 		char_count = 0;
 	}
 
@@ -294,7 +250,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 	}
 	else
 	{
-		cout << "*** ERROR: RLCSA was not be created" << endl;
+		cerr << "*** ERROR: RLCSA was not be created" << endl;
 		return EXIT_FAILURE;
 	}
 
