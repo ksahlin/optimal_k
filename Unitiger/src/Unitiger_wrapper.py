@@ -1,6 +1,7 @@
 import argparse
 import subprocess
 import os
+import gzip
 
 # set input parameters
 parser = argparse.ArgumentParser(description="A wrapper for running Unitiger for more values of k and abundance. \n Ver. 1.0")
@@ -26,9 +27,15 @@ maxa = int(args.maxa)
 unitigerPath = str(os.path.realpath(__file__)).rpartition('/')[0] + "/Unitiger"
 
 if maxk == 0:
-	readFile = file(args.readFileName.split(",")[0], "r")
-	line = readFile.readline()
-	line = readFile.readline()
+	readFile = file(args.readFileName, "r")
+	filename = readFile.readline() # reading the first filename
+	filename = filename.strip()
+	if filename.endswith(".gz"):
+		firstReadFile = gzip.GzipFile(filename, "r")
+	else:
+		firstReadFile = file(filename, "r")
+	line = firstReadFile.readline()
+	line = firstReadFile.readline()		
 	maxk = len(line) - 10
 
 metricsFile = dict()

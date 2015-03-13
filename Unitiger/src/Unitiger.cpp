@@ -74,19 +74,15 @@ void make_upper_case(string& s)
 
 int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abundance, size_t nb_cores)
 {
-    //std::string readsGraph = reads.substr(0,reads.find_last_of(".")) + ".h5";
 
-    //std::string readsGraph = reads + ".h5";
-
-    string readsString;
+    string readsString = "";
     string line;
 
-    try
-    {
-        ifstream readFile;
-        readFile.open(reads);
+    ifstream readFile;
+    readFile.open(reads);
 
-        string readsString = "";
+    if (readFile.is_open())
+    {
         getline(readFile , line);
         readsString = line;
 
@@ -94,12 +90,12 @@ int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abun
         {
             readsString += "," + line;
         }
-        readFile.close();
+        readFile.close();            
     }
-    catch (exception& error) 
-    { // check if there was any error
-     std::cerr << "Error: " << error.what() << std::endl;
-     return EXIT_FAILURE;
+    else
+    {
+        cout << "Error: couldn't open file " << reads << endl;
+        return EXIT_FAILURE;
     }
 
     // Tokenize reads file (list of files separated by ,)
@@ -135,6 +131,7 @@ int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abun
     }
   
 	std::cout << graph.getInfo() << std::endl;
+
 
 	return EXIT_SUCCESS;
 }
