@@ -154,28 +154,12 @@ inline string decode_substring(const compact_read& cread, const uint32_t &start,
     return read;
 }
 
-inline string get_first_token(string s)
-{
-    istringstream ss(s);
-    string token;
-
-    getline(ss, token, ',');
-
-    return token;
-}
-
-// int get_reads(const string readFileName, 
-// 	vector<string>& reads
-// 	);
-
-int get_reads_using_Bank(const string readFileName, 
-    vector<compact_read>& reads
+int get_reads(const string readFileName, 
+    vector<compact_read>& reads,
+    uint64_t &reads_total_content,
+    uint32_t &reads_max_length,
+    uint32_t &reads_min_length
     );
-
-// int get_data_for_rlcsa(const string& readFileName, 
-//     uchar*& data, 
-//     uint64_t& char_count
-//     );
 
 int get_data_and_build_rlcsa_noniterative(const string& readFileName, 
     const string& indexFileName,

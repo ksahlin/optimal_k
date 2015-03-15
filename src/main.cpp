@@ -54,6 +54,8 @@ void sample_nodes(const RLCSA* rlcsa,
 	const uint32_t min_abundance,
 	const uint32_t max_abundance,
 	const vector<compact_read>& reads,
+	const uint64_t &reads_total_content,
+	const uint64_t &reads_max_length,
 	const vector<uint64_t>& sample_size_kmers,
 	const vector<uint64_t>& sample_size_unitigs,
 	vector<double> &n_uint32_ternal,
@@ -63,22 +65,29 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &e_size
 	)
 {
-	uint64_t total_kmers = reads.size() * (reads[0].length - k + 1);
+	//uint64_t total_kmers = reads.size() * (reads[0].length - k + 1);
+	uint64_t total_kmers = reads_total_content - (k - 1) * reads.size();
 	uint64_t n_reads = reads.size();
 
-	// RANDOM GENERATOR
-	std::random_device rd;
-	std::default_random_engine generator(rd());
-	std::uniform_int_distribution<uint64_t> uniform_read_distribution(0,n_reads - 1);
-	std::uniform_int_distribution<int> uniform_pos_distribution(0,reads[0].length - k);
+	// initializing the RANDOM GENERATOR
+	random_device rd;
+	default_random_engine generator(rd());
+	uniform_int_distribution<uint64_t> uniform_read_distribution(0,n_reads - 1);
+	vector< uniform_int_distribution<int> > uniform_pos_distribution(reads_max_length + 1);
+	for (uint32_t read_length = k; read_length <= reads_max_length; read_length++)
+	{
+		uniform_pos_distribution[read_length] = uniform_int_distribution<int>(0,read_length - k);
+	}
 
+	// initializing the vectors needed for counting
 	vector<double> n_sampled_nodes_weighted(max_abundance + 1, 0);
-
 	vector<double> n_uint32_ternal_local(max_abundance + 1, 0);
 	vector<double> n_starts_local(max_abundance + 1, 0);
 	vector<double> e_size_sum_length(max_abundance + 1, 0);
 	vector<double> e_size_sum_length_squared(max_abundance + 1, 0);
 
+
+	// initializing the variables controlling the sample size
 	uint64_t n_sampled_kmers = 0;
 	vector<uint64_t> n_sampled_nodes(max_abundance + 1, 0);
 	vector<uint64_t> n_sampled_unitigs(max_abundance + 1, 0);
@@ -109,11 +118,26 @@ void sample_nodes(const RLCSA* rlcsa,
 			{
 				#pragma omp critical
 				sampled_enough_kmers = true;
-			}	
-			
-			uint64_t read_index = uniform_read_distribution(generator);
-			uint32_t pos = uniform_pos_distribution(generator);
-	        string sample = decode_substring(reads[read_index],pos,k);
+			}
+			uint64_t read_index;
+			uint32_t pos;
+			string sample;
+
+			#pragma omp critical
+			{
+				read_index = uniform_read_distribution(generator);	
+			}
+			compact_read cread = reads[read_index];
+			if (cread.length < k)
+			{
+				continue;
+			}
+			#pragma omp critical
+			{
+				pos = uniform_pos_distribution[cread.length](generator);	
+			}
+	       	sample = decode_substring(cread,pos,k);
+
    			// // MAKE SURE THIS IS OK!
 			// if (rand() / (double)RAND_MAX < 0.5)
 			// {
@@ -284,7 +308,7 @@ int main(int argc, char** argv)
     	.description(desc)
     	.epilog(epilog);
 
-	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("a file containing a list of FASTA/Q(.gz) file names, one per line (all reads need to have the same length)");
+	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("a file containing a list of FASTA/Q(.gz) file names, one per line");
 	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
 	parser.add_option("-a", "--minabundance") .type("uint32_t") .dest("a") .action("store") .set_default(1) .help("try all abundances starting with this value (default: %default)");
 	parser.add_option("-A", "--maxabundance") .type("uint32_t") .dest("A") .action("store") .set_default(5) .help("try all abundances up to this value (default: %default)");
@@ -375,8 +399,10 @@ int main(int argc, char** argv)
  	// rlcsa->reportSize(true);
 
  	vector<compact_read> reads;
+ 	uint64_t reads_total_content;
+ 	uint32_t reads_max_length, reads_min_length;
  	// we load the reads
- 	if (EXIT_FAILURE == get_reads_using_Bank(readFileName, reads))
+ 	if (EXIT_FAILURE == get_reads(readFileName, reads, reads_total_content, reads_max_length, reads_min_length))
 	{
 		return EXIT_FAILURE;
 	}
@@ -390,7 +416,9 @@ int main(int argc, char** argv)
 
     if (maxk == 0)
     {
-    	maxk = reads[0].length - 10;
+    	// maxk = reads_max_length - 10;
+    	// maxk = (reads_total_content / reads.size()) - 10; // avg read length - 10
+    	maxk = reads_min_length - 10;
     }
 
  	cout << "*** Writing results to files:" << endl;
@@ -407,8 +435,9 @@ int main(int argc, char** argv)
  		// getting the sample size
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
  		{
- 			uint64_t SS_n_nodes = get_sample_size_for_proportion(n_nodes[a] / (double)(reads.size() * (reads[0].length - k + 1)), relative_error);
- 			uint64_t SS_n_unitigs = get_sample_size_for_proportion(n_unitigs[a] / (double)(reads.size() * (reads[0].length - k + 1)), relative_error);
+ 			uint64_t total_kmers = reads_total_content - (k - 1) * reads.size();
+ 			uint64_t SS_n_nodes = get_sample_size_for_proportion(n_nodes[a] / (double)(total_kmers), relative_error);
+ 			uint64_t SS_n_unitigs = get_sample_size_for_proportion(n_unitigs[a] / (double)(total_kmers), relative_error);
  			uint64_t SS_avg_nodes_unitig = get_sample_size_for_proportion(n_starts[a] / (double)(n_uint32_ternal[a] + n_starts[a]), 1 / (double)(1 + relative_error) - 1);
  			
  			// cout << "SS_n_nodes = " << SS_n_nodes << endl;
@@ -432,7 +461,7 @@ int main(int argc, char** argv)
  		}
 
  		// sampling
- 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, sample_size_kmers, sample_size_unitigs, n_uint32_ternal, n_starts, n_nodes, n_unitigs, e_size);	
+ 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, reads_total_content, reads_max_length, sample_size_kmers, sample_size_unitigs, n_uint32_ternal, n_starts, n_nodes, n_unitigs, e_size);	
 
  		// pruint32_ting the results
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)

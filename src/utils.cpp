@@ -39,8 +39,11 @@
 //    	return EXIT_SUCCESS;
 // }
 
-int get_reads_using_Bank(const string readFileName, 
-	vector<compact_read>& reads
+int get_reads(const string readFileName, 
+	vector<compact_read>& reads,
+	uint64_t &reads_total_content,
+	uint32_t &reads_max_length,
+	uint32_t &reads_min_length
 	)
 {
 	Bank *reads_bank = new Bank(const_cast<char*>(readFileName.c_str()));
@@ -48,11 +51,18 @@ int get_reads_using_Bank(const string readFileName,
 	char *rseq;
 	string line;
 	reads.reserve(reads_bank->estimate_nb_reads());
+	reads_total_content = 0;
+	reads_max_length = 0;
 
 	while( reads_bank->get_next_seq(&rseq,&readlen) )
     {
     	line = rseq;
         make_upper_case(line);
+        reads_total_content += line.length();
+        if (line.length() > reads_max_length)
+        {
+        	reads_max_length = line.length();
+        }
         reads.push_back(encode_string(line));
     }
 
@@ -217,10 +227,9 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 		
 		if (char_count > INSERT_SIZE * MEGABYTE)
 		{
-			// For each sequence:
+			n_insertions++;
+  			cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the RLCSA index" << endl;
   			builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
-  			n_insertions++;
-  			cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the index" << endl;
   			char_count = 0;
   			seq_count = 0;
 		}
@@ -229,7 +238,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 	if (char_count > 1 * MEGABYTE)	
 	{
 		n_insertions++;
-		cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the index" << endl;
+		cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the RLCSA index" << endl;
 		// Insert the sequence:
 		builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
 		char_count = 0;
