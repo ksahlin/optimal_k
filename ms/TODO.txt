@@ -33,15 +33,12 @@ Alex:
 - ask Jouni about dependence between buffer size and RAM usage and add max RAM as input parameter
 - keep track of how many nodes we sample and compare with the required sample size
 - maybe not keep the reads into RAM when sampling
-- Make Python wrapper print unitigs if --silent is not given
-
+- fix Unitiger on large datasets
 
 AGENDA:
-- Automatically choose highest kmer size (readlength - 10). For practical and time efficiency reasons.
-- Stop at some value of k
-- Derive an sample size estimate for E-size
+- Automatically choose highest kmer size OR stop at some value of k
 - [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
-- Discuss how E-size is estimated
+- Derive an sample size estimate for E-size
 
 PAPER:
 - improve discussion on sampling algorithms
