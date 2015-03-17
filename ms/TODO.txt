@@ -24,14 +24,24 @@ Kristoffer:
 		- Runtime
 		- Memory
 		- NG50, E-size, Size, Errors
+16 March ->
+- rerun the last sampling that failed
+
 
 Alex:
-- [FIXED: the only way was to write a wrapper: GATB has a problem with multiple values of k] Make optimal-k support several read files - i.e. fix bug.
-- [DONE: added the option -s] Make unitiger have an option not to print to file
-- [DONE: added the option -t] make unitiger run single thread (the graph construction)
-- [DONE] make all reads uppercase 
-- [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
-- [DONE] Write installation instructions in README.txt
-- [DONE] Automatically choose highest kmer size (readlength - 10). For practical and time efficiency reasons. ALSO now mink = 15
+16 March ->
+- ask Jouni about dependence between buffer size and RAM usage and add max RAM as input parameter
+- keep track of how many nodes we sample and compare with the required sample size
+- maybe not keep the reads into RAM when sampling
+- fix Unitiger on large datasets
 
-- Implement E-size estimate in cpp (for single abundance suffices)
+AGENDA:
+- Automatically choose highest kmer size OR stop at some value of k
+- [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
+- Derive an sample size estimate for E-size
+
+PAPER:
+- improve discussion on sampling algorithms
+- explain the idea behind getting all abundances at the same time
+- FIX notation for nb of unitigs and avg unitig length (when summing over start nodes)
+- See how the formulas hold for reverse complements
