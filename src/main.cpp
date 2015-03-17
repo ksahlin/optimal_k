@@ -56,9 +56,9 @@ void sample_nodes(const RLCSA* rlcsa,
 	const vector<compact_read>& reads,
 	const uint64_t &reads_total_content,
 	const uint64_t &reads_max_length,
-	const vector<uint64_t>& sample_size_kmers,
+	const vector<uint64_t>& sample_size_start_or_internal_nodes,
 	const vector<uint64_t>& sample_size_unitigs,
-	vector<double> &n_uint32_ternal,
+	vector<double> &n_internal,
 	vector<double> &n_starts,
 	vector<double> &n_nodes,
 	vector<double> &n_unitigs,
@@ -81,7 +81,7 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	// initializing the vectors needed for counting
 	vector<double> n_sampled_nodes_weighted(max_abundance + 1, 0);
-	vector<double> n_uint32_ternal_local(max_abundance + 1, 0);
+	vector<double> n_internal_local(max_abundance + 1, 0);
 	vector<double> n_starts_local(max_abundance + 1, 0);
 	vector<double> e_size_sum_length(max_abundance + 1, 0);
 	vector<double> e_size_sum_length_squared(max_abundance + 1, 0);
@@ -89,35 +89,35 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	// initializing the variables controlling the sample size
 	uint64_t n_sampled_kmers = 0;
-	vector<uint64_t> n_sampled_nodes(max_abundance + 1, 0);
+	vector<uint64_t> n_sampled_start_or_internal_nodes(max_abundance + 1, 0);
 	vector<uint64_t> n_sampled_unitigs(max_abundance + 1, 0);
-	bool sampled_enough_kmers = false;
+	bool sampled_enough_start_or_internal_nodes = false;
 	bool sampled_enough_unitigs = false;
 	
-	uint32_t a_w_max_ss_kmers = -1;
-	uint64_t max_sample_size_kmers = 0;
+	uint32_t a_w_max_ss_start_or_internal_nodes = -1;
+	uint64_t max_sample_size_start_or_internal_nodes = 0;
 	for (uint32_t a = min_abundance; a <= max_abundance; a++)
 	{
-		if (sample_size_kmers[a] >= max_sample_size_kmers)
+		if (sample_size_start_or_internal_nodes[a] >= max_sample_size_start_or_internal_nodes)
 		{
-			max_sample_size_kmers = sample_size_kmers[a];
-			a_w_max_ss_kmers = a;
+			max_sample_size_start_or_internal_nodes = sample_size_start_or_internal_nodes[a];
+			a_w_max_ss_start_or_internal_nodes = a;
 		}
 	}
 
 	uint32_t min_abundance_unitigs = min_abundance;
 	uint64_t n_total_sampled_unitigs = 0;
 	// omp_set_dynamic(0);
-	// shared(sampled_enough_kmers,sampled_enough_unitigs)
+	// shared(sampled_enough_start_or_internal_nodes,sampled_enough_unitigs)
 	#pragma omp parallel for num_threads(N_THREADS)
 	for (uint64_t i = 0; i < 100 * n_reads; i++)
 	{
-		if ((not sampled_enough_kmers) or (not sampled_enough_unitigs))
+		if ((not sampled_enough_start_or_internal_nodes) or (not sampled_enough_unitigs))
 		{
-			if (n_sampled_kmers >= sample_size_kmers[a_w_max_ss_kmers])
+			if (n_sampled_start_or_internal_nodes[a_w_max_ss_start_or_internal_nodes] >= sample_size_start_or_internal_nodes[a_w_max_ss_start_or_internal_nodes])
 			{
 				#pragma omp critical
-				sampled_enough_kmers = true;
+				sampled_enough_start_or_internal_nodes = true;
 			}
 			uint64_t read_index;
 			uint32_t pos;
@@ -207,12 +207,14 @@ void sample_nodes(const RLCSA* rlcsa,
         	{
         		#pragma omp atomic
        			n_sampled_nodes_weighted[a] += sample_weight;
+       			#pragma omp atomic
+           		n_sampled_start_or_internal_nodes[a]++;
 
         		// is uint32_ternal
     			if ((out_degree[a] == 1) and (in_degree[a] == 1)) 
             	{
             		#pragma omp atomic
-           			n_uint32_ternal_local[a] += sample_weight;
+           			n_internal_local[a] += sample_weight;
             	} 
             	else
             	// is start of some unitigs and not isolated
@@ -234,15 +236,15 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	cout << "Sampled " << n_total_sampled_unitigs << " unitigs " << endl;
 
-	if (not sampled_enough_kmers)
+	if (not sampled_enough_start_or_internal_nodes)
 	{
-		cout << "*** I could sample only " << n_sampled_kmers << " kmers out of " <<  sample_size_kmers[a_w_max_ss_kmers] << endl;
+		cout << "*** I could sample only " << n_sampled_start_or_internal_nodes[a_w_max_ss_start_or_internal_nodes] << " nodes out of " <<  sample_size_start_or_internal_nodes[a_w_max_ss_start_or_internal_nodes] << endl;
 		assert(false);
 	}
 
 	for (uint32_t a = min_abundance; a <= max_abundance; a++)
 	{
-		n_uint32_ternal[a] = n_uint32_ternal_local[a];
+		n_internal[a] = n_internal_local[a];
 		n_starts[a] = n_starts_local[a];
 		
 		assert(n_sampled_kmers > 0);
@@ -271,13 +273,13 @@ inline uint64_t get_sample_size_for_proportion(
 	double err)
 {
 	// MAKE SURE THIS IS OK
-	if (p < 0.01)
+	if (p < 0.001)
 	{
-		p = 0.01;
+		p = 0.001;
 	}
-	if (p > 0.99)
+	if (p > 0.999)
 	{
-		p = 0.99;
+		p = 0.999;
 	}
     double absolute_err = p * err;
     return abs((double)(TWOSIDED95P_QUANTILE / absolute_err) * (double)(TWOSIDED95P_QUANTILE / absolute_err) * (double)(1 - p) * (double)p);
@@ -408,17 +410,18 @@ int main(int argc, char** argv)
 	}
 
  	// these vectors get re-written for each value of k
- 	vector<uint64_t> sample_size_kmers(max_abundance + 1, 0);
+ 	vector<uint64_t> sample_size_start_or_internal_nodes(max_abundance + 1, 0);
  	vector<uint64_t> sample_size_unitigs(max_abundance + 1, MAX_SAMPLE_SIZE_UNITIGS);
- 	vector<double> n_uint32_ternal(max_abundance + 1,1), n_starts(max_abundance + 1,1);
+ 	vector<double> n_internal(max_abundance + 1,1), n_starts(max_abundance + 1,1);
  	vector<double> n_nodes(max_abundance + 1,1), n_unitigs(max_abundance + 1,1);
  	vector<double> e_size(max_abundance + 1,1);
 
     if (maxk == 0)
     {
     	// maxk = reads_max_length - 10;
-    	// maxk = (reads_total_content / reads.size()) - 10; // avg read length - 10
-    	maxk = reads_min_length - 10;
+    	// maxk = reads_min_length - 10;
+    	maxk = (reads_total_content / reads.size()) - 10; // avg read length - 10
+    	cout << "*** Setting the maximum kmer size to " << maxk << " (average read length - 10)" << endl;
     }
 
  	cout << "*** Writing results to files:" << endl;
@@ -427,7 +430,7 @@ int main(int argc, char** argv)
     {
     	cout << "***    " << outputFileName + ".mink" + int_to_string(mink) + ".maxk" + int_to_string(maxk) + ".a" + int_to_string(a) + ".metrics.csv" << endl;
     	outputFile[a].open((outputFileName + ".mink" + int_to_string(mink) + ".maxk" + int_to_string(maxk) + ".a" + int_to_string(a) + ".metrics.csv").c_str());
-    	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_uint32_ternal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
+    	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
     } 
 
  	for (uint32_t k = mink; k <= maxk; k++)
@@ -438,16 +441,16 @@ int main(int argc, char** argv)
  			uint64_t total_kmers = reads_total_content - (k - 1) * reads.size();
  			uint64_t SS_n_nodes = get_sample_size_for_proportion(n_nodes[a] / (double)(total_kmers), relative_error);
  			uint64_t SS_n_unitigs = get_sample_size_for_proportion(n_unitigs[a] / (double)(total_kmers), relative_error);
- 			uint64_t SS_avg_nodes_unitig = get_sample_size_for_proportion(n_starts[a] / (double)(n_uint32_ternal[a] + n_starts[a]), 1 / (double)(1 + relative_error) - 1);
+ 			uint64_t SS_n_start_or_internal_nodes = get_sample_size_for_proportion(n_starts[a] / (double)(n_internal[a] + n_starts[a]), 1 / (double)(1 + relative_error) - 1);
  			
- 			// cout << "SS_n_nodes = " << SS_n_nodes << endl;
+ 			// cout << "SS_n_start_or_internal_nodes = " << SS_n_start_or_internal_nodes << endl;
  			// cout << "SS_n_unitigs = " << SS_n_unitigs << endl;
- 			// cout << "ratio = " << n_starts[a] / (double)(n_uint32_ternal[a] + n_starts[a]) << endl;
+ 			// cout << "ratio = " << n_starts[a] / (double)(n_internal[a] + n_starts[a]) << endl;
  			// cout << "SS_avg_nodes_unitig = " << SS_avg_nodes_unitig << endl;
 
  			uint64_t max_sample_size = MAX(SS_n_nodes,SS_n_unitigs);
- 			max_sample_size = MAX(max_sample_size,SS_avg_nodes_unitig);
- 			sample_size_kmers[a] = max_sample_size;
+ 			max_sample_size = MAX(max_sample_size,SS_n_start_or_internal_nodes);
+ 			sample_size_start_or_internal_nodes[a] = max_sample_size;
  			if (k == mink)
  			{
 				sample_size_unitigs[a] = MAX_SAMPLE_SIZE_UNITIGS;
@@ -457,17 +460,16 @@ int main(int argc, char** argv)
  				sample_size_unitigs[a] = MIN(RATIO_SAMPLE_SIZE_UNITIGS * n_nodes[a], MAX_SAMPLE_SIZE_UNITIGS);
  				sample_size_unitigs[a] = MAX(sample_size_unitigs[a],MIN_SAMPLE_SIZE_UNITIGS);	
  			}
- 			
  		}
 
  		// sampling
- 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, reads_total_content, reads_max_length, sample_size_kmers, sample_size_unitigs, n_uint32_ternal, n_starts, n_nodes, n_unitigs, e_size);	
+ 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, reads_total_content, reads_max_length, sample_size_start_or_internal_nodes, sample_size_unitigs, n_internal, n_starts, n_nodes, n_unitigs, e_size);	
 
  		// pruint32_ting the results
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
  		{
  			assert(n_starts[a] > 0);
-			double avg_nodes_unitig = n_uint32_ternal[a] / (double)n_starts[a];
+			double avg_nodes_unitig = n_internal[a] / (double)n_starts[a];
 
 	 		outputFile[a] << k << ",";
 	 		outputFile[a] << a << ",";
@@ -475,13 +477,13 @@ int main(int argc, char** argv)
 	 		outputFile[a] << ".,"; // number of edges
 	 		outputFile[a] << avg_nodes_unitig << ","; // average number of uint32_ternal nodes in unitigs
 			outputFile[a] << avg_nodes_unitig + k + 1 << ","; // average length of unitigs
-			outputFile[a] << sample_size_kmers[a] << ","; // estimated sample size for kmers
+			outputFile[a] << sample_size_start_or_internal_nodes[a] << ","; // estimated sample size for kmers
 			outputFile[a] << n_unitigs[a] << ","; // number of unitigs
 			outputFile[a] << e_size[a]; // e-size
 			outputFile[a] << endl; 
 			//outputFile[a].flush();
 
-	 		cout << k << " " << a << " avg internal nodes=" << (uint64_t)avg_nodes_unitig << " avg length=" << (uint64_t)avg_nodes_unitig + k + 1 << " n_nodes=" << (uint64_t)n_nodes[a] << " n_unitigs=" << (uint64_t)n_unitigs[a] << " e_size=" << e_size[a] << " ess=" << (uint64_t)sample_size_kmers[a] << endl;
+	 		cout << k << " " << a << " avg internal nodes=" << (uint64_t)avg_nodes_unitig << " avg length=" << (uint64_t)avg_nodes_unitig + k + 1 << " n_nodes=" << (uint64_t)n_nodes[a] << " n_unitigs=" << (uint64_t)n_unitigs[a] << " e_size=" << e_size[a] << " ess=" << (uint64_t)sample_size_start_or_internal_nodes[a] << endl;
 	 		cout.flush();
  		}
  	}

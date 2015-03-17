@@ -16,6 +16,7 @@ group.add_argument("-A", dest="maxa", help="max A", default=5)
 group.add_argument("-k", dest="mink", help="min k", default=15)
 group.add_argument("-K", dest="maxk", help="max k", default=0)
 group.add_argument("-t", dest="threads", help="number of threads (0 = all cores)", default = 0)
+group.add_argument("-s", dest="silent", action="store_true", help="add this to suppress writing unitigs to file", default = False)
 
 args = parser.parse_args()
 
@@ -23,6 +24,11 @@ mink = int(args.mink)
 maxk = int(args.maxk)
 mina = int(args.mina)
 maxa = int(args.maxa)
+
+
+silentFlag = ""
+if args.silent:
+	silentFlag = " --silent "
 
 unitigerPath = str(os.path.realpath(__file__)).rpartition('/')[0] + "/Unitiger"
 
@@ -47,8 +53,9 @@ for a in range(mina, maxa + 1):
 
 for k in range(mink, maxk + 1):
 	for a in range(mina, maxa + 1):
-		print "RUNNING: " + unitigerPath + " -r " + args.readFileName + " -o " + args.outputFileName + " -k " + str(k) + " -a " + str(a) + " -t " + str(args.threads) + " -s "
-		subprocess.call(unitigerPath + " -r " + args.readFileName + " -o " + args.outputFileName + " -k " + str(k) + " -a " + str(a) + " -t " + str(args.threads) + " -s ", shell=True)
+		command = unitigerPath + " -r " + args.readFileName + " -o " + args.outputFileName + " -k " + str(k) + " -a " + str(a) + " -t " + str(args.threads) + silentFlag
+		print "RUNNING: " + command
+		subprocess.call(command, shell=True)
 		
 		currentMetricsFile = file(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".metrics.csv" , "r")
 		lines = currentMetricsFile.readlines()
