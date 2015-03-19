@@ -52,7 +52,20 @@ int get_reads(const string readFileName,
 	int readlen;
 	char *rseq;
 	string line;
-	reads.reserve(reads_bank->estimate_nb_reads());
+	uint64_t estimated_nb_reads = reads_bank->estimate_nb_reads();
+
+   	try
+   	{
+   		reads.reserve(estimated_nb_reads);
+   	}
+   	catch (exception& error) 
+	{
+		cout << "*** ERROR: could not allocate memory for storing reads:" << endl;
+		cout << "***    " << error.what() << std::endl;
+		return EXIT_FAILURE;
+	}
+	cout << "*** Reserved memory for " << reads.capacity() << " reads " << endl;
+	
 	reads_total_content = 0;
 	reads_max_length = 0;
 	reads_min_length = 1000000;
@@ -63,7 +76,6 @@ int get_reads(const string readFileName,
     	line = rseq;
         // not needed because the encoding make the read uppercase
         //make_upper_case(line);
-
         reads_total_content += line.length();
         reads_number++;
         if (line.length() > reads_max_length)

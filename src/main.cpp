@@ -404,13 +404,6 @@ int main(int argc, char** argv)
 	cout << "***    " << loadindex + ".rlcsa.array" << endl;
 	cout << "***    " << loadindex + ".rlcsa.parameters" << endl;
 
- 	const RLCSA* rlcsa = new RLCSA(loadindex, false);
- 	if (!(rlcsa->isOk())) 
- 	{
- 		return EXIT_FAILURE;
- 	}
- 	// rlcsa->printInfo();
- 	// rlcsa->reportSize(true);
 
  	vector<compact_read> reads;
  	uint64_t reads_total_content, reads_number;
@@ -420,6 +413,17 @@ int main(int argc, char** argv)
 	{
 		return EXIT_FAILURE;
 	}
+	
+
+ 	const RLCSA* rlcsa = new RLCSA(loadindex, false);
+ 	if (!(rlcsa->isOk())) 
+ 	{
+ 		return EXIT_FAILURE;
+ 	}
+ 	// rlcsa->printInfo();
+ 	// rlcsa->reportSize(true);
+
+
 
  	// these vectors get re-written for each value of k
  	vector<uint64_t> sample_size_start_or_internal_nodes(max_abundance + 1, 0);

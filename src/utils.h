@@ -83,53 +83,24 @@ inline void make_upper_case(string& s)
     }
 }
 
-inline compact_read encode_string(const string& s)
-{
-    compact_read cread;
-    cread.read = new unsigned char[(uint32_t)ceil(s.length()/3)];
-    cread.length = s.length();
-
-    char first, second, third;
-    uint32_t cread_index = 0;
-    for (uint32_t i = 0; i < s.length(); i = i + 3)
-    {
-        first = base_to_number[(int)s[i]];
-        if (i + 1 < s.length())
-        {
-            second = base_to_number[(int)s[i + 1]];
-            if (i + 2 < s.length())
-            {
-                third = base_to_number[(int)s[i + 2]];
-            }
-            else
-            {
-                third = 0;
-            }
-        }
-        else
-        {
-            second = 0;
-            third = 0;
-        }
-        cread.read[cread_index] = 25 * first + 5 * second + third;
-        cread_index++; 
-    }
-
-    return cread;
-}
-
 inline string decode_substring(const compact_read& cread, const uint32_t &start, uint32_t length)
 {
+    string read = "";
+    if (start >= cread.length)
+    {
+        return read;
+    }
+
     if (length > cread.length - start)
     {
         length = cread.length - start;
     }
 
-    string read = "";
     if (length == 0)
     {
         return read;
     }
+
 
     
     uint32_t start_triplet = start / 3;  // i.e. floor(start / 3)
@@ -163,6 +134,56 @@ inline string decode_substring(const compact_read& cread, const uint32_t &start,
 
     return read;
 }
+
+inline compact_read encode_string(const string& s)
+{
+    compact_read cread;
+    cread.length = s.length();
+    if (cread.length == 0)
+    {
+        return cread;
+    }
+    try
+    {
+        cread.read = new unsigned char[(uint32_t)ceil((double)s.length()/3)];
+    } 
+    catch (exception& error) 
+    {
+        cout << "*** ERROR: could not allocate memory for storing the read: " << s << endl;
+        cout << "***    " << error.what() << std::endl;
+        assert(false);
+    }
+
+    char first, second, third;
+    uint32_t cread_index = 0;
+    for (uint32_t i = 0; i < s.length(); i = i + 3)
+    {
+        first = base_to_number[(int)s[i]];
+        if (i + 1 < s.length())
+        {
+            second = base_to_number[(int)s[i + 1]];
+            if (i + 2 < s.length())
+            {
+                third = base_to_number[(int)s[i + 2]];
+            }
+            else
+            {
+                third = 0;
+            }
+        }
+        else
+        {
+            second = 0;
+            third = 0;
+        }
+        cread.read[cread_index] = 25 * first + 5 * second + third;
+        cread_index++; 
+    }
+
+    return cread;
+}
+
+
 
 int get_reads(const string readFileName, 
     vector<compact_read>& reads,
