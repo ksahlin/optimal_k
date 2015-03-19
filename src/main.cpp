@@ -403,16 +403,6 @@ int main(int argc, char** argv)
 	cout << "*** Loading the RLCSA index for the reads from files: (force the index to be re-built with option -b|--buildindex)" << endl;
 	cout << "***    " << loadindex + ".rlcsa.array" << endl;
 	cout << "***    " << loadindex + ".rlcsa.parameters" << endl;
-
-
- 	vector<compact_read> reads;
- 	uint64_t reads_total_content, reads_number;
- 	uint32_t reads_max_length, reads_min_length;
- 	// we load the reads
- 	if (EXIT_FAILURE == get_reads(readFileName, reads, reads_total_content, reads_number, reads_max_length, reads_min_length))
-	{
-		return EXIT_FAILURE;
-	}
 	
 
  	const RLCSA* rlcsa = new RLCSA(loadindex, false);
@@ -422,8 +412,16 @@ int main(int argc, char** argv)
  	}
  	// rlcsa->printInfo();
  	// rlcsa->reportSize(true);
+ 	cout << "*** Loaded the RLCSA index " << endl;
 
-
+ 	vector<compact_read> reads;
+ 	uint64_t reads_total_content, reads_number;
+ 	uint32_t reads_max_length, reads_min_length;
+ 	// we load the reads
+ 	if (EXIT_FAILURE == get_reads(readFileName, reads, reads_total_content, reads_number, reads_max_length, reads_min_length))
+	{
+		return EXIT_FAILURE;
+	}
 
  	// these vectors get re-written for each value of k
  	vector<uint64_t> sample_size_start_or_internal_nodes(max_abundance + 1, 0);
