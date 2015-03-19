@@ -29,6 +29,9 @@
 \renewcommand{\ge}{\geqslant}
 \renewcommand{\leq}{\leqslant}
 \renewcommand{\le}{\leqslant}
+\newcommand{\Var}{\text{Var}}
+\newcommand{\Cov}{\text{Cov}}
+\newcommand{\E}{\text{E}}
 
 
 %%% BEGIN DOCUMENT
@@ -273,6 +276,32 @@ Moreover, if we want to estimate $f = 1/p$ with a given relative error $\varepsi
 % subsection application_to_sampling_db_graphs (end)
 
 % section methods (end)
+
+\subsection{New sampling}
+
+Let $Y$ be a random variable, from a distribution with finite mean $\mu$ and finite non-zero variance $\sigma^2$. By the Central Limit Theorem, the $100(1-\alpha)\%$ two-sided confidence interval of $\mu$ approaches 
+\[\left[\overline{y} - z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}} , \overline{y} + z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}}\right] \]
+as the number of samples $m$ increases. In the above, $\frac{\sigma}{\sqrt{m}}$ is the standard deviation of sample mean $\overline{y}$, and $z_{\frac{\alpha}{2}}$ denotes the $\alpha/2$ quantile from the normal distribution.
+
+In order to guarantee a relative error $\epsilon$ of 
+
+Let now $x_1,\dots,x_N$ denote the lengths of all unitigs in $\DB$. Suppose that the distribution of unitig lengths in $\DB$ follows an unknown distribution $f(x)$, and let $X$ be random variable over $f(x)$.
+
+Observe that the definition (\ref{eq:esize}) can be equivalently written as 
+
+\[\esize(\U) = \frac{N \sum_{i = 1}^{N} x_i^2\frac{1}{N}}{N\sum_{i = 1}^{N} x_i\frac{1}{N}} = \frac{\E[X^2]}{\E[X]}.\]
+
+To estimate the E-size, we will sample unitig lengths $x$ and obtain estimates $\overline{x}$ and $\overline{x^2}$ of $\E[X]$ and $\E[X^2]$, respectively. Recall that a sample estimate is itself a random variable. Thus, in order to get a confidence interval of the E-size, we need to find the sample standard deviation of $\overline{x^2}/\overline{x}$, which we denote by $s_{\text{E-size}}$. Then, applying the Central Limit Theorem, we obtain the desired confidence interval of E-size as 
+\[\left[\overline{y} - z_{\frac{\alpha}{2}}s_{\text{E-size}} , \overline{y} + z_{\frac{\alpha}{2}}s_{\text{E-size}}\right]. \]
+
+
+
+
+
+If ... is ..., then the first order Taylor expansion gives a good estimation of $s_{\text{E-size}}^2$ \cite{Benaroya:2005aa}:
+
+\[s_{\text{E-size}}^2 = \Var\left[\frac{\overline{x^2}}{\overline{x}}\right] \approx \frac{\Var\left[\overline{x^2}\right]}{\E\left[\overline{x}\right]^2} -2\frac{\E\left[\overline{x^2}\right]}{\E\left[\overline{x}\right]^3}\Cov\left[\overline{x^2},\overline{x}\right] + \frac{E\left[\overline{x^2}\right]^2}{E\left[\overline{x}\right]^4}\Var\left[\overline{x}\right].\] 
+
 
 \section{Results and discussion} % (fold)
 \label{sec:results_and_discussion}
