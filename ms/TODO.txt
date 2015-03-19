@@ -30,8 +30,8 @@ Kristoffer:
 
 Alex:
 16 March ->
-- ask Jouni about dependence between buffer size and RAM usage and add max RAM as input parameter
-- keep track of how many nodes we sample and compare with the required sample size
+- [DONE] ask Jouni about dependence between buffer size and RAM usage and add max RAM as input parameter
+- [DONE: now I make sure we sample enough start or internal nodes, because the number of kmers samples is at least as high] keep track of how many nodes we sample and compare with the required sample size
 - maybe not keep the reads into RAM when sampling
 - fix Unitiger on large datasets
 
@@ -39,6 +39,7 @@ AGENDA:
 - Automatically choose highest kmer size OR stop at some value of k
 - [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
 - Derive an sample size estimate for E-size
+- maybe drop estimation for 
 
 PAPER:
 - improve discussion on sampling algorithms
