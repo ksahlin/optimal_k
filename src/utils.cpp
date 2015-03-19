@@ -42,10 +42,12 @@
 int get_reads(const string readFileName, 
 	vector<compact_read>& reads,
 	uint64_t &reads_total_content,
+	uint64_t &reads_number,
 	uint32_t &reads_max_length,
 	uint32_t &reads_min_length
 	)
 {
+	double start_reading = readTimer();
 	Bank *reads_bank = new Bank(const_cast<char*>(readFileName.c_str()));
 	int readlen;
 	char *rseq;
@@ -53,20 +55,30 @@ int get_reads(const string readFileName,
 	reads.reserve(reads_bank->estimate_nb_reads());
 	reads_total_content = 0;
 	reads_max_length = 0;
+	reads_min_length = 1000000;
+	reads_number = 0;
 
 	while( reads_bank->get_next_seq(&rseq,&readlen) )
     {
     	line = rseq;
-        make_upper_case(line);
+        // not needed because the encoding make the read uppercase
+        //make_upper_case(line);
+
         reads_total_content += line.length();
+        reads_number++;
         if (line.length() > reads_max_length)
         {
         	reads_max_length = line.length();
         }
+        if (line.length() < reads_min_length)
+        {
+        	reads_min_length = line.length();
+        }
         reads.push_back(encode_string(line));
     }
 
-	cout << "*** The file(s) listed in " << readFileName << " contain(s) " << reads.size() << " reads." << endl;
+	cout << "*** The file(s) listed in " << readFileName << " contain(s) " << reads_number << " reads" << endl;
+	cout << "*** They were read in " << readTimer() - start_reading << " seconds" << endl;
 
 	delete reads_bank;
 

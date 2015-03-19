@@ -55,6 +55,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	const uint32_t max_abundance,
 	const vector<compact_read>& reads,
 	const uint64_t &reads_total_content,
+	const uint64_t &reads_number,
 	const uint64_t &reads_max_length,
 	const vector<uint64_t>& sample_size_start_or_internal_nodes,
 	const vector<uint64_t>& sample_size_unitigs,
@@ -65,9 +66,9 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &e_size
 	)
 {
-	//uint64_t total_kmers = reads.size() * (reads[0].length - k + 1);
-	uint64_t total_kmers = reads_total_content - (k - 1) * reads.size();
-	uint64_t n_reads = reads.size();
+	//uint64_t total_kmers = reads_number * (reads[0].length - k + 1);
+	uint64_t total_kmers = reads_total_content - (k - 1) * reads_number;
+	uint64_t n_reads = reads_number;
 
 	// initializing the RANDOM GENERATOR
 	random_device rd;
@@ -210,7 +211,7 @@ void sample_nodes(const RLCSA* rlcsa,
        			#pragma omp atomic
            		n_sampled_start_or_internal_nodes[a]++;
 
-        		// is uint32_ternal
+        		// is internal
     			if ((out_degree[a] == 1) and (in_degree[a] == 1)) 
             	{
             		#pragma omp atomic
@@ -359,6 +360,15 @@ int main(int argc, char** argv)
 	}
 
 	// compact_read cread = encode_string("ACTTGGTACAT");
+	// for (uint32_t pos = 0; pos < 11; pos++)
+	// {
+	// 	cout << "pos = " << pos << endl;
+	// 	for (uint32_t length = 0; length <= 11; length++)
+	// 	{
+	// 		cout << length << ": " << decode_substring(cread,pos,length) << endl;
+	// 	}
+	// }
+		
 	// cout << decode_substring(cread,4,5) << endl;
 	// cout << decode_substring(cread,4,6) << endl;
 	// cout << decode_substring(cread,0,5) << endl;
@@ -366,6 +376,8 @@ int main(int argc, char** argv)
 	// cout << decode_substring(cread,1,6) << endl;
 	// cout << decode_substring(cread,0,8) << endl;
 	// cout << decode_substring(cread,0,9) << endl;
+	// cout << decode_substring(cread,0,11) << endl;
+	// // cout << decode_substring(cread,3,11) << endl;
 	// return EXIT_SUCCESS;
 
 	// if we need to build the index
@@ -401,10 +413,10 @@ int main(int argc, char** argv)
  	// rlcsa->reportSize(true);
 
  	vector<compact_read> reads;
- 	uint64_t reads_total_content;
+ 	uint64_t reads_total_content, reads_number;
  	uint32_t reads_max_length, reads_min_length;
  	// we load the reads
- 	if (EXIT_FAILURE == get_reads(readFileName, reads, reads_total_content, reads_max_length, reads_min_length))
+ 	if (EXIT_FAILURE == get_reads(readFileName, reads, reads_total_content, reads_number, reads_max_length, reads_min_length))
 	{
 		return EXIT_FAILURE;
 	}
@@ -413,14 +425,16 @@ int main(int argc, char** argv)
  	vector<uint64_t> sample_size_start_or_internal_nodes(max_abundance + 1, 0);
  	vector<uint64_t> sample_size_unitigs(max_abundance + 1, MAX_SAMPLE_SIZE_UNITIGS);
  	vector<double> n_internal(max_abundance + 1,1), n_starts(max_abundance + 1,1);
- 	vector<double> n_nodes(max_abundance + 1,1), n_unitigs(max_abundance + 1,1);
+
+ 	uint64_t total_kmers_for_mink = reads_total_content - (mink - 1) * reads_number;
+ 	vector<double> n_nodes(max_abundance + 1, total_kmers_for_mink / 2), n_unitigs(max_abundance + 1, total_kmers_for_mink / 2);
  	vector<double> e_size(max_abundance + 1,1);
 
     if (maxk == 0)
     {
     	// maxk = reads_max_length - 10;
     	// maxk = reads_min_length - 10;
-    	maxk = (reads_total_content / reads.size()) - 10; // avg read length - 10
+    	maxk = (reads_total_content / reads_number) - 10; // avg read length - 10
     	cout << "*** Setting the maximum kmer size to " << maxk << " (average read length - 10)" << endl;
     }
 
@@ -438,15 +452,15 @@ int main(int argc, char** argv)
  		// getting the sample size
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
  		{
- 			uint64_t total_kmers = reads_total_content - (k - 1) * reads.size();
+ 			uint64_t total_kmers = reads_total_content - (k - 1) * reads_number;
  			uint64_t SS_n_nodes = get_sample_size_for_proportion(n_nodes[a] / (double)(total_kmers), relative_error);
  			uint64_t SS_n_unitigs = get_sample_size_for_proportion(n_unitigs[a] / (double)(total_kmers), relative_error);
  			uint64_t SS_n_start_or_internal_nodes = get_sample_size_for_proportion(n_starts[a] / (double)(n_internal[a] + n_starts[a]), 1 / (double)(1 + relative_error) - 1);
  			
- 			// cout << "SS_n_start_or_internal_nodes = " << SS_n_start_or_internal_nodes << endl;
+ 			// cout << "SS_n_nodes = " << SS_n_nodes << endl;
  			// cout << "SS_n_unitigs = " << SS_n_unitigs << endl;
  			// cout << "ratio = " << n_starts[a] / (double)(n_internal[a] + n_starts[a]) << endl;
- 			// cout << "SS_avg_nodes_unitig = " << SS_avg_nodes_unitig << endl;
+ 			// cout << "SS_n_start_or_internal_nodes = " << SS_n_start_or_internal_nodes << endl;
 
  			uint64_t max_sample_size = MAX(SS_n_nodes,SS_n_unitigs);
  			max_sample_size = MAX(max_sample_size,SS_n_start_or_internal_nodes);
@@ -463,7 +477,7 @@ int main(int argc, char** argv)
  		}
 
  		// sampling
- 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, reads_total_content, reads_max_length, sample_size_start_or_internal_nodes, sample_size_unitigs, n_internal, n_starts, n_nodes, n_unitigs, e_size);	
+ 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, reads_total_content, reads_number, reads_max_length, sample_size_start_or_internal_nodes, sample_size_unitigs, n_internal, n_starts, n_nodes, n_unitigs, e_size);	
 
  		// pruint32_ting the results
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
@@ -475,7 +489,7 @@ int main(int argc, char** argv)
 	 		outputFile[a] << a << ",";
 	 		outputFile[a] << (uint64_t)n_nodes[a] << ","; // number of nodes
 	 		outputFile[a] << ".,"; // number of edges
-	 		outputFile[a] << avg_nodes_unitig << ","; // average number of uint32_ternal nodes in unitigs
+	 		outputFile[a] << avg_nodes_unitig << ","; // average number of internal nodes in unitigs
 			outputFile[a] << avg_nodes_unitig + k + 1 << ","; // average length of unitigs
 			outputFile[a] << sample_size_start_or_internal_nodes[a] << ","; // estimated sample size for kmers
 			outputFile[a] << n_unitigs[a] << ","; // number of unitigs

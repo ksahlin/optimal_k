@@ -118,20 +118,26 @@ inline compact_read encode_string(const string& s)
     return cread;
 }
 
-inline string decode_substring(const compact_read& cread, const uint32_t &start, const uint32_t &length)
+inline string decode_substring(const compact_read& cread, const uint32_t &start, uint32_t length)
 {
-
-    // This conditions must be satisfied!!!
-    // assert(start + length <= cread.length);
-    // assert(length >= 3);
+    if (length > cread.length - start)
+    {
+        length = cread.length - start;
+    }
 
     string read = "";
+    if (length == 0)
+    {
+        return read;
+    }
+
     
     uint32_t start_triplet = start / 3;  // i.e. floor(start / 3)
     uint32_t end_triplet = (start + length - 1) / 3;  // i.e. floor((start + length - 1) / 3)
 
     // adding the characters from the first triplet
-    for (uint32_t i = start % 3; i < 3; i++)
+    uint32_t start_triplet_range = MIN(3,length + (start % 3));
+    for (uint32_t i = start % 3; i < start_triplet_range; i++)
     {
         read += number_to_basetriplet[cread.read[start_triplet]][i];
     }
@@ -146,10 +152,14 @@ inline string decode_substring(const compact_read& cread, const uint32_t &start,
     }
 
     // adding the characters from the last triplet
-    for (uint32_t i = 0; i <= (start + length - 1) % 3; i++)
+    if (end_triplet > start_triplet)
     {
-        read += number_to_basetriplet[cread.read[end_triplet]][i];
-    }    
+        for (uint32_t i = 0; i <= (start + length - 1) % 3; i++)
+        {
+            read += number_to_basetriplet[cread.read[end_triplet]][i];
+        }    
+    }
+        
 
     return read;
 }
@@ -157,6 +167,7 @@ inline string decode_substring(const compact_read& cread, const uint32_t &start,
 int get_reads(const string readFileName, 
     vector<compact_read>& reads,
     uint64_t &reads_total_content,
+    uint64_t &reads_number,
     uint32_t &reads_max_length,
     uint32_t &reads_min_length
     );
