@@ -4,20 +4,42 @@
 \newlabel{sec:introduction}{{2}{1}}
 \@writefile{toc}{\contentsline {section}{\numberline {3}Methods}{1}}
 \newlabel{sec:methods}{{3}{1}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Sampling algorithms}{2}}
-\newlabel{sub:algorithm}{{3.1}{2}}
-\newlabel{eqn:avg_internal}{{1}{3}}
+\citation{DBLP:conf/wabi/MedvedevGMB07}
+\citation{Kececioglu:1992aa}
+\citation{DBLP:journals/bioinformatics/DrezenRCDLPL14}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Basic notions and algorithmics building blocks}{2}}
+\providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
+\newlabel{alg:out-degrees}{{1}{2}}
+\@writefile{loa}{\contentsline {algocf}{\numberline {1}{\ignorespaces Computing the out-degrees $\delta ^+_{k,a}(x)$ of a $k$-mer $x$, for all abundances $a \in [A_1,A_2]$; {\sf  RLCSA}\ is the index over the reads.\relax }}{2}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Sampling algorithms}{2}}
+\newlabel{sub:algorithm}{{3.2}{2}}
+\newlabel{alg:graph-nodes}{{2}{3}}
+\@writefile{loa}{\contentsline {algocf}{\numberline {2}{\ignorespaces Computing the estimate $\mathaccentV {hat}05E{p}_{k,a}$ needed for the number of $k$-mers in the de Bruijn graph $\mathsf  {DB}_{k,a}$, for all $a \in [A_1,A_2]$. The input is also a multiset $\{x_1,\dots  ,x_m\}$ of $k$-mers from $\mathsf  {K}_k$.\relax }}{3}}
+\newlabel{eqn:number-of-unitigs}{{1}{4}}
+\newlabel{eqn:avg_internal}{{2}{4}}
+\newlabel{eqn:number-of-unary-nodes}{{3}{4}}
 \citation{Salzberg2011}
-\newlabel{eq:esize}{{2}{4}}
-\newlabel{eqn:e-size}{{3}{4}}
-\newlabel{sec:sampling-accuracy}{{3.2}{5}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Sampling accuracy}{5}}
-\newlabel{eqn:sample-size}{{4}{5}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}New sampling}{5}}
+\newlabel{eq:esize}{{4}{5}}
+\newlabel{eqn:e-size}{{5}{5}}
+\newlabel{eqn:e-size}{{6}{6}}
+\newlabel{alg:extending-unitig}{{3}{6}}
+\@writefile{loa}{\contentsline {algocf}{\numberline {3}{\ignorespaces Extending a unitig.\relax }}{6}}
+\newlabel{sec:sampling-accuracy}{{3.3}{6}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Sampling accuracy}{6}}
+\newlabel{alg:sampling-for-esize}{{4}{7}}
+\@writefile{loa}{\contentsline {algocf}{\numberline {4}{\ignorespaces A $k$-mer $x$ and an out-neighbor $y$ of $x$. The output is the The estimate $\mathaccentV {hat}05E{p}_{k,a}$ needed for the number of $k$-mers in the de Bruijn graph $\mathsf  {DB}_{k,a}$, for all $a \in [A_1,A_2]$. The input is also a multiset $\{x_1,\dots  ,x_m\}$ of $k$-mers from $\mathsf  {K}_k$.\relax }}{7}}
+\newlabel{eqn:sample-size}{{7}{7}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.4}New sampling}{7}}
 \citation{Benaroya:2005aa}
 \bibstyle{plain}
 \bibdata{refs}
-\@writefile{toc}{\contentsline {section}{\numberline {4}Results and discussion}{6}}
-\newlabel{sec:results_and_discussion}{{4}{6}}
-\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusions}{6}}
-\newlabel{sec:conclusions}{{5}{6}}
+\bibcite{Benaroya:2005aa}{1}
+\bibcite{DBLP:journals/almob/ChikhiR13}{2}
+\bibcite{DBLP:journals/bioinformatics/DrezenRCDLPL14}{3}
+\bibcite{Kececioglu:1992aa}{4}
+\bibcite{DBLP:conf/wabi/MedvedevGMB07}{5}
+\bibcite{Salzberg2011}{6}
+\@writefile{toc}{\contentsline {section}{\numberline {4}Results and discussion}{8}}
+\newlabel{sec:results_and_discussion}{{4}{8}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Conclusions}{8}}
+\newlabel{sec:conclusions}{{5}{8}}
