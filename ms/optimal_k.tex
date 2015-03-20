@@ -10,6 +10,7 @@
 \usepackage{graphicx}
 \usepackage{amsmath}
 \usepackage{amssymb}
+\usepackage[ruled,vlined]{algorithm2e}
 
 \newcommand{\Lemma}[1]{Lemma~\ref{#1}}
 \newcommand{\kristoffer}[1]{{\color{red}{#1}}}
@@ -24,6 +25,9 @@
 \newcommand{\K}{\mathsf{K}}
 \newcommand{\abu}{\alpha}
 \newcommand{\esize}{{\sf E_{size}}}
+\newcommand{\isstart}{{\sf isStart}_{k,a}}
+\newcommand{\isunary}{{\sf isUnary}_{k,a}}
+\newcommand{\RLCSA}{{\sf RLCSA}}
 \newcommand{\st}{\:|\:}
 \renewcommand{\geq}{\geqslant}
 \renewcommand{\ge}{\geqslant}
@@ -56,21 +60,52 @@ We provide a method (optimal\_k) to estimate average unitig length, N50 and E-si
 
 A unitig of a graph is a maximal unary path. In the contig assembly phase, popular genome assemblers report a unitig decomposition of the assembly graph, after some artifacts have been been dealt with, like tip removal and bubble popping.
 
+
+
 \section{Methods} % (fold)
 \label{sec:methods}
 
 The general idea is to provide the user with metrics such as unitigs N50 and E-Size and average number of genomic vertices in a DBG  for all possible k-mer sizes and abundances. \kristoffer{ We implement a FM-index data structure described in cite XX. This allows us to query a k-mer, its in and out neighbors in O() time. }  We furthermore derive formulas for how much we need to sample in order to reach a given accuracy on all our estimates. 
 
-\noindent \textbf{Notation.} We assume that the input consists of a set $R$ of $n$ reads of length $r$. We denote by $\K_k$, the multiset of all $k$-mers in the reads; observe that $|\K_k| = n(r-k+1)$. Moreover, we denote by $\DB$, the de Bruijn graph with vertices of length $k$ and \emph{minimum abundance} $a$. That is, the set of vertices of $\DB$ is the set of all $k$-mers in the reads which occur at least $a$ times in $R$, and two vertices of $\DB$ are connected by an arc if they have a suffix-prefix overlap of length $k-1$. Let $V(\DB)$ denote the set of vertices of $\DB$. For all $v \in V(\DB)$, let $\abu(v)$ denote the abundance of $k$-mer $v$. We denote by $\dplus(v)$ the number of out-neighbors of $v$ in $\DB$, and by $\dminus(v)$ the number of in-neighbors of $v$ in $\DB$. These values can be obtained by queries to the index built on the set $R$. 
+\alex{Say that one of the main ideas is to do weighted sampling.}
 
-A node $v$ of $\DB$ is called \emph{unary} if $\dminus(v) = \dplus(v) = 1$, and it is called \emph{isolated} if $\dminus(v) = \dplus(v) = 0$. A path in $\DB$ is called a \emph{unitig} if all its internal vertices are unary, and its two extremities are not. When clear from the context, we will also use the term unitig to denote the string spelled by a unitig path in $\DB$. 
+\alex{Say that we compute for all abundances at the same time.}
+
+\alex{Say that we can query every sampled $k$-mer in parallel.}
+
+\subsection{Basic notions and algorithmics building blocks}
+
+We assume that the input consists of a set $R$ of $n$ reads. We denote by $\K_k$ the multiset of all $k$-mers in the reads, and by $|\K_k|$ its length. For example, if all reads have the same length $r$, then $|\K_k| = n(r-k+1)$. Moreover, we denote by $\DB$ the de Bruijn graph with vertices of length $k$ and \emph{minimum abundance} $a$. That is, the set of vertices of $\DB$ is the set of all $k$-mers in the reads which occur at least $a$ times in $R$, and two vertices of $\DB$ are connected by an arc if they have a suffix-prefix overlap of length $k-1$. Let $V(\DB)$ denote the set of vertices of $\DB$. For all $x \in \K_k$, let $\abu(x)$ denote the abundance of $k$-mer $x$ in $R$. We also denote by $\mathbb{I}(x,a)$ an indicator variable equal to $1$ if the $\abu(x) \geq a$, and to $0$ otherwise.
+
+We denote by $\dplus(v)$ the number of out-neighbors of $v$ in $\DB$, and by $\dminus(v)$ the number of in-neighbors of $v$ in $\DB$. A  node $v$ of $\DB$ is called \emph{unary} if $\dminus(v) = \dplus(v) = 1$. We will also use a boolean $\isunary(v)$ equal to true if and only if $x$ is a unary node in $\DB$. If $\dminus(v) = \dplus(v) = 0$ then we say that $v$ is an \emph{isolated} node. A path in $\DB$ is called a \emph{unitig} if all its internal vertices are unary, and its two extremities are not. When clear from the context, we will also use the term unitig to denote the \emph{string} spelled by a unitig path in $\DB$. 
 %Given a unitig $w = (v_1,v_2,\dots,v_t)$ of $\DB$, we denote by $|w|_n$ the number of nodes of $w$, i.e., $|w|_n = t$, and by $|w|_s$ the length of the string spelled by $w$, that is, $|w|_s = k + t - 1$.
 
-\alex{Talk about reverse complements in dB graphs: a k-mer and its reverse complement are bundled into the same node and the abundances are added up. Say how we deal with this case in practice.}
+Throughout the paper, for clarity we will use to the above conceptually clean definitions of de Bruijn graph. We should point out that in practice also reverse complements need to be taken into account. There are different ways of representing this information, but a widely accepted notion is the one of bi-directed de Bruijn graph \cite{DBLP:conf/wabi/MedvedevGMB07}. The first application of bidirected graph for modeling DNA molecules was proposed in \cite{Kececioglu:1992aa}, and appear in popular works such as~\cite{DBLP:journals/bioinformatics/DrezenRCDLPL14}. 
 
-\alex{Give pseudo-code of how we get the in/out degrees for all abundances.}
+As mentioned, we index all reads as separate sequences in the RLCSA data structure. Given a pattern $x$ of length $k$, this index can return the total number of occurrences of $x$ in all of the indexed sequences, in time $O(k)$. Equivalently, given $x$ we can obtain $\alpha(x)$ in $O(k)$ time. Similarly, we can compute $\dplus(x)$ by querying the index for the four possible out-neighbors of $x$, namely $x[2..k]\mathtt{A}$ and $x[2..k]\mathtt{C}$, $x[2..k]\mathtt{G}$, $x[2..k]\mathtt{T}$, and for each of them compute their abundance. If this is greater than $a$, then it is a node in $\DB$.
 
-\alex{Say that one of the main ideas is to do weighted sampling.}
+A crucial difference with respect to building a de Bruijn graph for every value of $k$ and $a$ is the following one: for a given value of $k$, we can compute the desired estimates for all values of $a$ at the same time, from the same queries to the index. This is possible thanks to the fact that a $k$-mer $x$ is a node in all graphs $\DB$ with $a \leq \abu(x)$. See Algorithm~\ref{alg:out-degrees} for a snippet of pseudo-code on how to compute the out-degrees of $x$ for all values of $a$, by just four queries to the index.
+
+\begin{algorithm}[h]
+\caption{Computing the out-degrees $\dplus(x)$ of a $k$-mer $x$, for all abundances $a \in [A_1,A_2]$; \RLCSA\ is the index over the reads.\label{alg:out-degrees}}
+
+\For{$a = A_1$ {\rm\bf to} $A_2$}
+{
+	$\dplus(x) = 0$\;
+}
+
+\ForEach{$b \in \{\mathtt{A}, \mathtt{C}, \mathtt{G}, \mathtt{T}\}$}
+{
+	$y = x[2..k]b$\;
+	$\abu(y) = \RLCSA.count(y)$\;
+	\For{$a = A_1$ {\rm\bf to} $\min(\abu(y),A_2)$}
+	{
+		$\dplus(x) = \dplus(x) + 1$\;
+	}
+}
+
+\Return $\dplus(x)$.
+\end{algorithm}
 
 \subsection{Sampling algorithms} % (fold)
 \label{sub:algorithm}
@@ -78,7 +113,7 @@ A node $v$ of $\DB$ is called \emph{unary} if $\dminus(v) = \dplus(v) = 1$, and 
 %\subparagraph{Estimating the number of nodes of a DBG} % (fold)
 %\label{subp:estimating_the_number_of_nodes_in_a_db_graph}
 
-\noindent \textbf{Estimating the number of nodes of a dBG.} Let $V(\DB)$ denote the set of vertices of $\DB$, and let $\mathbb{I}(x,a)$ be an indicator variable returning $1$ if the $k$-mer $x$ has abundance at least $a$ in $R$, and $0$ otherwise. We can write
+\noindent \textbf{Estimating the number of nodes of a dBG.} We can write
 
 \[|V(\DB)| = \sum_{x \in \K_k} \frac{1}{\abu(x)}\mathbb{I}(x,a).\]
 Since $V(\DB)$ is a subset of the multiset $\K_k$, we can consider the proportion 
@@ -93,61 +128,96 @@ Since $V(\DB)$ is a subset of the multiset $\K_k$, we can consider the proportio
 We can estimate $p_{k,a}$ by sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, and taking
 \[\hat{p}_{k,a} := \frac{\sum_{i = 1}^m \frac{1}{\abu(x_i)}\mathbb{I}(x_i, a)}{m}.\]
 
-Therefore, we also get an estimate of $X_{k,a} := |V(\DB)|$ as $\hat{X}_{k,a} = \hat{p}_{k,a}|\K_k| = \hat{p}_{k,a} n(r-k+1)$. Notice that if we sample all k-mers, we get $\hat{X}_{k,a} = \frac{|V(\DB)|}{|\K_k|}|\K_k| = |V(\DB)|$. In section~\ref{sec:sampling-accuracy} we will discuss how many samples $m$ we need to accurately estimate $\hat{X}_{k,a}$.
+Therefore, we also get an estimate of $X_{k,a} := |V(\DB)|$ as $\hat{X}_{k,a} = \hat{p}_{k,a}|\K_k|$. Notice that if we sample all $k$-mers, we get $\hat{X}_{k,a} = \frac{|V(\DB)|}{|\K_k|}|\K_k| = |V(\DB)|$. Analogously to Algorithm~\ref{alg:out-degrees}, we can implement this procedure for all given abundances with just $m$ queries to the \RLCSA index: see Algorithm~\ref{alg:graph-nodes} for a pseudo-code.
 
 %By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{X}$ within a certain confidence interval.
 
-\alex{Say that we can implement this for all abundances}
+\begin{algorithm}[h]
+\caption{Computing the estimate $\hat{p}_{k,a}$ needed for the number of $k$-mers in the de Bruijn graph $\DB$, for all $a \in [A_1,A_2]$. The input is also a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$.\label{alg:graph-nodes}}
+
+\For{$a = A_1$ {\rm\bf to} $A_2$}
+{
+	$sum[a] = 0$\;
+}
+
+\For{$i = 1$ {\rm\bf to} $m$}
+{
+	$\abu(x_i) = \RLCSA.count(x_i)$\;
+	\For{$a = A_1$ {\rm\bf to} $\min(\abu(x_i),A_2)$}
+	{
+		$sum[a] = sum[a] + 1 / \abu(x_i)$\;
+	}
+}
+
+\For{$a = A_1$ {\rm\bf to} $A_2$}
+{
+	$\hat{p}_{k,a} = sum[a]/m$\;
+}
+
+\Return $\hat{p}_{k,a}$, for all $a \in [A_1,A_2]$.
+\end{algorithm}
+
+
+\alex{In Section~\ref{sec:sampling-accuracy} we will discuss how many samples $m$ we need to accurately estimate $\hat{X}_{k,a}$.}
+
 
 \medskip
-\noindent \textbf{Estimating the number of unitigs of a dBG.} Let $\U$ denote the set of all unitigs of $\DB$. We now derive a simple combinatorial expression for $|\U|$, which is key in the sampling phase. Let $\ST$ denote the set of start nodes of the unitigs of $\DB$, that is, 
+\noindent \textbf{Estimating the number of unitigs of a dBG.} Let $\U$ denote the set of all unitigs of $\DB$. We now derive a simple combinatorial expression for $|\U|$, which is key in the sampling phase. Let $\ST$ denote the set of start nodes of the unitigs of $\DB$, and for any $x \in \K_k$, let the boolean variable $\isstart(x)$ be defined as 
 \begin{align*}
-\ST := \{v \in V(\DB) \:&|\: \dplus(v) \geq 2 \text{ or } \\
-& (\dplus(v) = 1 \text{ and } \dminus(v) \neq 1) \text{ or} \\
-& (\dplus(v) = 0 \text{ and } \dminus(v) = 0)\}.
+\isstart(x) := & \dplus(x) \geq 2 \text{ or } \\
+& (\dplus(x) = 1 \text{ and } \dminus(x) \neq 1) \text{ or} \\
+& (\dplus(x) = 0 \text{ and } \dminus(x) = 0).
 \end{align*}
+
+Using this definition, we can write 
+\[\ST := \{x \in \K_k \st \mathbb{I}(x,a) = 1  \text{ and } \isstart(v)\}.\]
+
 Since every node $v$ in $\ST$ is either an isolated node, or it is a start node of a different unitig, starting with $v$ and then continuing to each of its out-neighbors, we can write
 \[|\U| = \sum_{v \in \ST} \max(1,\dplus(v)).\]
 
-As above, we can obtain this number by summing over all $k$-mers in the reads:
+As before, we can obtain this number by summing over all $k$-mers in the reads:
 
-\[|\U| = \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right).\]
-% subparagraph estimating_the_number_of_nodes_in_a_db_graph (end)
+\begin{equation}
+|\U| = \sum_{\begin{subarray}{c} x \in \K_k \text{ such that } \\ \isstart(x) \end{subarray} } \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right).
+\label{eqn:number-of-unitigs}
+\end{equation}
+Consider the ratio $q_{k,a}$ between the number of unitigs and all $k$-mers in the reads 
+\[q_{k,a} := \frac{|\U|}{|\K_k|}.\]
+Observe that $q_{k,a} \in [0,1]$ since every unitig contains at least one $k$-mer, thus $|\U| \leq |\K_k|$. We can analogously estimate $q_{k,a}$ as above, after sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, as
+\[\hat{q}_{k,a} := \frac{1}{m}\displaystyle\sum_{\begin{subarray}{c}i \in [1,m] \text{ such that } \\ \isstart(x_i)\end{subarray}} \max\left(\frac{1}{\abu(x_i)}\mathbb{I}(x_i,a),\frac{1}{\abu(x_i)}\mathbb{I}(x_i,a)\dplus(x_i)\right).\]
 
-We consider the ratio between the number of unitigs and all $k$-mers in the reads
-\[q_{k,a} := \frac{|\U|}{|\K_k|} = \frac{\sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}{|\K_k|}.\]
-Observe that $q_{k,a} \in [0,1]$ since every unitig contains at least one $k$-mer, thus $|\U| \leq |\K_k|$. We can analogously estimate it, after sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, as
-\[\hat{q}_{k,a} := \frac{\sum_{i = 1}^{m} \max\left(\frac{1}{\abu(x_i)}\mathbb{I}(x,a),\frac{1}{\abu(x_i)}\mathbb{I}(x_i,a)\dplus(x_i)\right)}{m}.\]
+The estimate of $Y_{k,a} := |\U|$ is then $\hat{Y}_{k,a} = \hat{q}_{k,a}|\K_k|$. Similarly to $X_{k,a}$, sampling all $k$-mers will give $\hat{Y}_{k,a} = |\U|$. As in Algorithm~\ref{alg:graph-nodes}, for a given value of $k$, we can compute all values $\hat{q}_{k,a}$ for all abundances $a$ in a given interval $[A_1,A_2]$ at the same time.
 
-The estimate of $Y := |\U|$ is then $\hat{Y} = \hat{q}_{k,a}|\K_k| = \hat{q}_{k,a}n(r-k+1)$. Similarly to $X_{k,a}$, sampling all k-mers will give $\hat{Y} = |\U|$. In section~\ref{sec:sampling-accuracy}, we discuss how many samples $m$ we need to accurately estimate $\hat{Y}$.
-\alex{say we can implement this for all abundances.}
+\alex{In Section~\ref{sec:sampling-accuracy}, we discuss how many samples $m$ we need to accurately estimate $\hat{Y}$.}
 
 \medskip
 \noindent\textbf{Estimating the average length of the unitigs of a dBG.} We are now interested in determining the average length of the strings spelled by the unitigs of $\DB$. 
 
 Denote by the \emph{truncated length} of a unitig $w = (v_1,v_2,\dots,v_t)$ the number of its internal vertices plus its start vertex. We first estimate the average truncated lengths of the unitigs of $\DB$, and then obtain the average unitig string length by summing $k$.\footnote{This assumes, in order to simplify the presentation, that the dBG has no isolated nodes, which are unitigs with $0$ internal nodes and truncated length $1$, but spell strings of length $k$. However, isolated nodes can be easily accounted for as separate case in all the formulas.} Working with the truncated unitig lengths allows us to easily estimate the required sample size.
 
-Let $\UN$ denote the set of unary nodes of $\DB$; notice that $\UN \cap \ST = \emptyset$. The average truncated length of the unitigs is obtained as 
+Let $\UN$ denote the set of unary nodes of $\DB$. The average truncated length of the unitigs is obtained as 
 \begin{equation}
- Z_{k,a} := \frac{|\UN \cup \ST|}{|\ST|}.
+ Z_{k,a} := \frac{|\U| + |\UN|}{|\U|}.
 \label{eqn:avg_internal}
 \end{equation}
 
 As above, we can write
-\[|\UN| = \sum_{\begin{subarray}{c} x \in \K_k \text{ with } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a).\]
+\begin{equation}
+|\UN| = \sum_{\begin{subarray}{c} x \in \K_k \text{ such that } \\ \isunary(x) \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a).
+\label{eqn:number-of-unary-nodes}
+\end{equation}
 
-We consider the proportion
+We consider the following proportion $r_{k,a}$, which is the inverse of (\ref{eqn:avg_internal}), and plug in equations (\ref{eqn:number-of-unitigs}) for expressing of $|\U|$ and (\ref{eqn:number-of-unary-nodes}) for expressing $|\UN|$:
 \begin{align*}
-r_{k,a} & := \frac{|\ST|}{|\UN \cup \ST|} = \\ 
-& = \frac{\sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}{\sum_{\begin{subarray}{c} x \in \K_k \text{ with } \\ \dplus(x) = \dminus(x) = 1 \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a) + \sum_{x \in \K_k} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}\in [0,1].\\
+r_{k,a} & := \frac{|\U|}{|\U| + |\UN|} = \\ 
+& = \frac{\displaystyle\sum_{\begin{subarray}{c} x \in \K_k \text{ such that }\\ \isstart(x) \end{subarray}} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right)}{\displaystyle\sum_{\begin{subarray}{c} x \in \K_k \text{ such that }\\ \isstart(x) \end{subarray}} \max\left(\frac{1}{\abu(x)}\mathbb{I}(x,a),\frac{1}{\abu(x)}\mathbb{I}(x,a)\dplus(x)\right) + \sum_{\begin{subarray}{c} x \in \K_k \text{ such that } \\ \isunary(x)  \end{subarray}} \frac{1}{\abu(x)}\mathbb{I}(x,a)}\in [0,1].\\
 \end{align*}
 
 We obtain an estimate $\hat{r}_{k,a}$ of $r_{k,a}$ by sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers in $\K_k$ with abundance at least $a$ (that is, for which the indicator variable $\mathbb{I}(x_i,a)$ is 1):
-\[\hat{r}_{k,a} := \frac{\sum_{i=1}^{m} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}{\sum_{\begin{subarray}{c} i \in [1,m] \text{ with } \\ \dplus(x_i) = \dminus(x_i) = 1 \end{subarray}} \frac{1}{\abu(x_i)} + \sum_{i=1}^{m} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}.\]
+\[\hat{r}_{k,a} := \frac{\displaystyle\sum_{\begin{subarray}{c} i \in [1,m] \text{ such that } \\ \isstart(x_i) \end{subarray}} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}{\displaystyle \sum_{\begin{subarray}{c} i \in [1,m] \text{ such that } \\ \isstart(x_i) \end{subarray}} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right) + \sum_{\begin{subarray}{c} i \in [1,m] \text{ such that } \\ \isunary(x_i) \end{subarray}} \frac{1}{\abu(x_i)}}.\]
 An estimate $\hat{Z}_{k,a}$ for the quantity from (\ref{eqn:avg_internal}) is then obtained as $1/\hat{r}_{k,a}$. 
 
-Similarly to $X_{k,a}$ and $Y_{k,a}$, sampling all k-mers will give $\hat{Z}_{k,a} = Z_{k,a}$. We discuss how many samples $m$ we need to accurately estimate $\hat{Z}$ in section ~\ref{sec:sampling-accuracy}.
-\alex{say we can implement this for all abundances.}
+Similarly to $X_{k,a}$ and $Y_{k,a}$, sampling all k-mers will give $\hat{Z}_{k,a} = Z_{k,a}$. As in Algorithm~\ref{alg:graph-nodes}, for a given value of $k$, we can compute all values $\hat{r}_{k,a}$ for all abundances $a$ in a given interval $[A_1,A_2]$ at the same time. \alex{We discuss how many samples $m$ we need to accurately estimate $\hat{Z}$ in Section~\ref{sec:sampling-accuracy}.}
 
 %\subparagraph{Estimating the average number of nodes in a DBG} % (fold)
 %\label{subp:estimating_the_average_number_of_nodes_in_a_dbg}
@@ -157,34 +227,108 @@ Similarly to $X_{k,a}$ and $Y_{k,a}$, sampling all k-mers will give $\hat{Z}_{k,
 %\label{subp:estimating_the_e_size}
 
 \medskip
-\noindent\textbf{Estimating the E-size of the unitigs of a dBG.} The E-size of the set $\U$ of unitig strings of $\DB$ is defined as the expected length of the unitig strings of $\DB$ \cite{Salzberg2011}. That is, the expected contig length covering any position on the genome. Formally, 
+\noindent\textbf{Estimating the E-size of the unitigs of a dBG.} The E-size of the set $\U$ of unitig strings of $\DB$ is defined as the expected length of the unitig strings of $\DB$, \alex{under the assumption that each unitig has probability proportional to its length} \cite{Salzberg2011}. This can also be interpreted as the expected unitig length covering any position on the genome. Formally, 
 
 \begin{equation}
 \label{eq:esize}
 \esize(\U) := \sum_{w \in \U}|w|P(w) = \sum_{w \in \U} |w|\frac{|w|}{\sum_{w' \in \U}|w'|} = \frac{\sum_{w \in \U}|w|^2}{\sum_{w \in \U}|w|},	
 \end{equation}
-where $|w|$ denotes the length of the string spelled by the unitig $w$ and $P(w)$ the probability of sampling a position on the genome covered by $w$. The genome is taken to be the concatenation of all unitigs, so $P(w)=\frac{|w|}{|G|}$, where $|G|$ is the genome length. We also denote the number of nodes of a unitig $w$ as $||w||$.
+where $|w|$ denotes the length of the string spelled by the unitig $w$ and $P(w)$ the probability of sampling a position on the genome covered by $w$. The genome is taken here to be the concatenation of all unitigs, so $P(w)=\frac{|w|}{|G|}$, where $|G|$ is the genome length. We also denote the number of nodes of a unitig $w$ as $||w||$.
 
 In order to derive an unbiased sampling procedure of $\esize(\U)$, it is important to notice two points in Equation~\ref{eq:esize}.
 \begin{itemize}
 	\item The length of $w$ determines how likely it is to sample $w$, \emph{i.e.} $P(w_1)>P(w_2)$ if $w_1>w_2$
-	\item The abundance of the nodes in $w$ is not accounted for. 
+	\item The abundance of the nodes in $w$ is contributing to the E-size. 
 \end{itemize}
 Since we will be sampling $k$-mers and their abundance determines how likely it is that we sample each of them, we need to weight each unitig samples from a $k$-mer with the average abundance of the unitig.
 
 %In order to derive an estimate for the E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, the main issue here is that we need to normalize it \alex{with the expected number of times of sampling each unitig. [IS THIS STILL CORRECT?]} \kristoffer{The text is correct at least, are you reffering to that?}
 %By sampling k-mers at random, we may sample a unitig several times. However, the above formula for E-size contains each unitig once, we therefore introduce sampling weights to normalize
 
-Our sampling procedure produces a multiset $W$ of unitigs of $\DB$. We choose a $k$-mer $x \in \K_k$ at random. If $x$ is a node of $\DB$, we output all the unitigs containing $x$. These unitigs can be obtained by traversing the graph along the in-/out-neighbors of $x$, after taking into account whether $x$ is a unary node of $\DB$ or not. 
+\alex{OLD:} Our sampling procedure produces a multiset $W$ of unitigs of $\DB$. We choose a $k$-mer $x \in \K_k$ at random. If $x$ is a node of $\DB$, we output all the unitigs containing $x$. These unitigs can be obtained by traversing the graph along the in-/out-neighbors of $x$, after taking into account whether $x$ is a unary node of $\DB$ or not. 
 
-Suppose that the above procedure samples every node of $\DB$ exactly once, and that $\overline{W}$ is the resulting multiset of unitigs. Then, each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \sum_{i = 1}^{t}\alpha(v_i)$ times in $\overline{W}$. However, since not all abundances are equal, we need to remove the bias from over- or under-sampling $k$-mers due to the abundance difference. Observe that if all $k$-mers of $\DB$ had the same abundance $a$, $w$ would appear $ta$ times in $\overline{W}$. Therefore, we can equivalently express the E-size of the set $\U$ by normalizing the probability of $w$ with $a||w||/\abu(w)$. This gives the following expression:
+Suppose that the above procedure samples every node of $\DB$ exactly once, and that $\overline{W}$ is the resulting multiset of unitigs. Then, each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \sum_{i = 1}^{t}\alpha(v_i)$ times in $\overline{W}$. However, since not all abundances are equal, we need to remove the bias from over- or under-sampling $k$-mers due to the abundance difference. Therefore, we can equivalently express the E-size of the set $\U$ by normalizing the probability of $w$ with $1/\abu(w)$. This gives the following expression:
 \begin{equation}
-\esize(\U) = \sum_{w \in \overline{W}} |w| \frac{|w|\frac{a||w||}{\alpha(w)}}{\sum_{w \in \overline{W}}|w|\frac{a||w||}{\alpha(w)}} = \sum_{w \in \overline{W}} |w| \frac{|w|\frac{||w||}{\alpha(w)}}{\sum_{w \in \overline{W}}|w|\frac{||w||}{\alpha(w)}}.
+\esize(\U) = \sum_{w \in \overline{W}} |w| \frac{|w|\frac{1}{\alpha(w)}}{\sum_{w' \in \overline{W}}|w'|\frac{1}{\alpha(w')}} = \frac{\sum_{w \in \overline{W}}\frac{|w|^2}{\alpha(w)}}{\sum_{w \in \overline{W}}\frac{|w|}{\alpha(w)}}.
 \label{eqn:e-size}
 \end{equation}
 
 However, we cannot afford to sample all $k$-mers in $\K_k$. By sampling only a subset of $k$-mers we obtain the multiset $W = \{w_1,\dots,w_m\}$ of unitigs, the above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
-\[\hat{{\sf E}}_{\sf size} := \sum_{i = 1}^{m} |w_i| \frac{|w_i|\frac{||w_i||}{\alpha(w)}}{\sum_{j=1}^{m}|w_j|\frac{||w_j||}{\alpha(w_j)}}.\]
+\[\hat{{\sf E}}_{\sf size} := \frac{\sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}}.\]
+
+\alex{NEW:} Our sampling procedure produces a multiset $W$ of unitigs of $\DB$. We choose a $k$-mer $x \in \K_k$ at random. If $x$ is a start node of some unitig of $\DB$ (that is, $\isstart(x)$ holds), then we output all the unitigs starting at $x$. These unitigs can be obtained by traversing the graph by following each of the out-neighbors of $x$, and can be obtained for all abundances at the same time. In Algorithm~\ref{alg:sampling-for-esize} we give a pseudo-code of this procedure. 
+
+Since not all start node abundances are equal, we need to remove the bias in over- or under-sampling unitigs. Observe that if every start node $\DB$ is sampled exactly once, then each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\abu(w) := \abu(v_1)$ times in the output $W_{all}$ of the sampling procedure. Therefore, we can equivalently express the E-size of the set $\U$ by normalizing the probability of $w$ with $1/\abu(w)$. This gives the following expression:
+\begin{equation}
+\esize(\U) = \sum_{w \in W_{all}} |w| \frac{|w|\frac{1}{\alpha(w)}}{\sum_{w' \in W_{all}}|w'|\frac{1}{\alpha(w')}} = \frac{\sum_{w \in W_{all}}\frac{|w|^2}{\alpha(w)}}{\sum_{w \in W_{all}}\frac{|w|}{\alpha(w)}}.
+\label{eqn:e-size}
+\end{equation}
+
+However, we cannot afford to sample all $k$-mers in $\K_k$. By sampling only a subset of $k$-mers, we obtain a multiset $W = \{w_1,\dots,w_m\}$ of unitigs, and the above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
+\[\hat{{\sf E}}_{\sf size} := \frac{\sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}}.\]
+
+\begin{algorithm}[h]
+\caption{Extending a unitig.\label{alg:extending-unitig}}
+
+\SetKwBlock{extend}{{\sf extend}$(x,y,A_1,A_2)$}{end}
+
+\extend{
+\If{$A_1 > A_2$}
+{
+	\Return $\emptyset$;
+}
+}
+\end{algorithm}
+
+\begin{algorithm}[h]
+\caption{A $k$-mer $x$ and an out-neighbor $y$ of $x$. The output is the The estimate $\hat{p}_{k,a}$ needed for the number of $k$-mers in the de Bruijn graph $\DB$, for all $a \in [A_1,A_2]$. The input is also a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$.\label{alg:sampling-for-esize}}
+
+
+\For{$a = A_1$ {\rm\bf to} $A_2$}
+{
+	$length[a] = \emptyset$\;
+	$\abu[a] = \emptyset$\;
+}
+
+$\abu(x) = \RLCSA.count(x)$\;
+\tcp{\small We compute the set of abundances for which $x$ is a start node}
+$start = \emptyset$\;
+\For{$a = A_1$ {\rm\bf to} $A_2$}
+{
+	\If{$\isstart(x)$}
+	{
+		$start.append(a)$\;
+	}
+}
+\tcp{\small We extract the min and max abundance in $start$}
+$min_a = \min(start)$\;
+$max_a = \max(start)$\;
+
+\If{$start \neq \emptyset$}
+{
+	\tcp{\small For each possible out-neighbor $y$ of $x$}
+    \ForEach{$b \in \{\mathtt{A}, \mathtt{C}, \mathtt{G}, \mathtt{T}\}$}
+    {
+    	$y = x[2..k]b$\;
+    	$\abu(y) = \RLCSA.count(y)$\;
+		\tcp{\small We try extending the unitig starting with $x,y$ as long as there is an abundance for which it is unary}
+    	$extension\_length = {\sf extend}(x,y,min\_a, \min(\abu(y),max\_a))$\;
+	
+    	\ForEach{$a \in start$}
+    	{
+			\If{$min\_a \leq a \leq \min(\abu(y),max\_a)$}
+			{
+				$\abu[a].append(\abu(y))$\;
+				$length[a].append(extension\_length[a])$
+			}
+			
+    		
+    	}
+    }
+}
+\Return $(length[a],\abu[a])$, for all $a \in [A_1,A_2]$.
+\end{algorithm}
+
 
 \alex{Say that here we cannot guarantee a sampling accuracy (if so).}
 \kristoffer{I think maybe we could derive something here, gonna thing about it. However notice that we cannot bound any error with certainty in all of our estimates (see my change to ``accuratly estimate'' instead of ``bound error''). Because we can always end up with a counter example that: one isolated node has a bazilion in abundance and the rest of the k-mers only have, say, one in abundance. We would only sample the isolated one and therefore end up with an estimate that is completely off. However, what we CAN say is that if we resample we can reproduce our results with a given accuracy (definition of confidence interval). Also, it seems to work in practice :) (statistics is not a  ``without doubt''-science like math). }
@@ -283,7 +427,7 @@ Let $Y$ be a random variable, from a distribution with finite mean $\mu$ and fin
 \[\left[\overline{y} - z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}} , \overline{y} + z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}}\right] \]
 as the number of samples $m$ increases. In the above, $\frac{\sigma}{\sqrt{m}}$ is the standard deviation of sample mean $\overline{y}$, and $z_{\frac{\alpha}{2}}$ denotes the $\alpha/2$ quantile from the normal distribution.
 
-In order to guarantee a relative error $\epsilon$ of 
+In order to guarantee a relative error $\varepsilon$ of 
 
 Let now $x_1,\dots,x_N$ denote the lengths of all unitigs in $\DB$. Suppose that the distribution of unitig lengths in $\DB$ follows an unknown distribution $f(x)$, and let $X$ be random variable over $f(x)$.
 

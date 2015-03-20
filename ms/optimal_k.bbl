@@ -1,0 +1,41 @@
+\begin{thebibliography}{1}
+
+\bibitem{Benaroya:2005aa}
+Haym Benaroya, Seon~Mi Han, and Mark Nagurka.
+\newblock {\em Probability Models in Engineering and Science}.
+\newblock CRC Press, 2005.
+
+\bibitem{DBLP:journals/almob/ChikhiR13}
+Rayan Chikhi and Guillaume Rizk.
+\newblock Space-efficient and exact de bruijn graph representation based on a
+  bloom filter.
+\newblock {\em Algorithms for Molecular Biology}, 8:22, 2013.
+
+\bibitem{DBLP:journals/bioinformatics/DrezenRCDLPL14}
+Erwan Drezen, Guillaume Rizk, Rayan Chikhi, Charles Deltel, Claire Lemaitre,
+  Pierre Peterlongo, and Dominique Lavenier.
+\newblock {GATB:} genome assembly {\&} analysis tool box.
+\newblock {\em Bioinformatics}, 30(20):2959--2961, 2014.
+
+\bibitem{Kececioglu:1992aa}
+John~Dimitri Kececioglu.
+\newblock {\em Exact and approximation algorithms for DNA sequence recon}.
+\newblock PhD thesis, Tucson, AZ, USA, 1992.
+
+\bibitem{DBLP:conf/wabi/MedvedevGMB07}
+Paul Medvedev, Konstantinos Georgiou, Gene Myers, and Michael Brudno.
+\newblock Computability of models for sequence assembly.
+\newblock In Raffaele Giancarlo and Sridhar Hannenhalli, editors, {\em
+  Algorithms in Bioinformatics, 7th International Workshop, {WABI} 2007,
+  Philadelphia, PA, USA, September 8-9, 2007, Proceedings}, volume 4645 of {\em
+  Lecture Notes in Computer Science}, pages 289--301. Springer, 2007.
+
+\bibitem{Salzberg2011}
+S.~L. Salzberg, a.~M. Phillippy, a.~V. Zimin, D.~Puiu, T.~Magoc, S.~Koren,
+  T.~Treangen, M.~C. Schatz, a.~L. Delcher, M.~Roberts, G.~Marcais, M.~Pop, and
+  J.~a. Yorke.
+\newblock {GAGE: A critical evaluation of genome assemblies and assembly
+  algorithms}.
+\newblock {\em Genome Research}, 22(3):557--567, December 2012.
+
+\end{thebibliography}
