@@ -199,7 +199,6 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 		return EXIT_FAILURE;
 	}
 
-	// Use a buffer of 320 megabytes.
   	RLCSABuilder builder(32, 0, DATA_SIZE * MEGABYTE, N_THREADS); 
 
 	// getting the size of the temporary data array
@@ -228,7 +227,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 		}
     }
     // inserting the remaining sequence
-	if (char_count > 1 * MEGABYTE)	
+	if (char_count > 2 * MEGABYTE)	
 	{
 		n_insertions++;
 		cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the RLCSA index" << endl;
@@ -237,22 +236,24 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 		char_count = 0;
 	}
 
-    delete reads_bank;
-    delete data;
+	cout << "*** Now trying to write the index to disk" << endl;
+
+    // delete reads_bank;
+    // delete[] data;
 
     // If successful, write the index to disk.
 	if (builder.isOk())
 	{
 		RLCSA* rlcsa = builder.getRLCSA();
-		rlcsa->writeTo(indexFileName);
 		rlcsa->printInfo();
 	 	rlcsa->reportSize(true);
-	 	cout << "*** Created the RLCSA index" << endl;
-		delete rlcsa;
+		rlcsa->writeTo(indexFileName);
+	 	cout << "*** Created the RLCSA index and saved it to disk" << endl;
+		// delete rlcsa;
 	}
 	else
 	{
-		cerr << "*** ERROR: RLCSA was not be created" << endl;
+		cerr << "*** ERROR: the RLCSA index could not be created" << endl;
 		return EXIT_FAILURE;
 	}
 
