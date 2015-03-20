@@ -511,5 +511,7 @@ int main(int argc, char** argv)
  		outputFile[a].close();	
  	}
 
+ 	delete rlcsa;
+
 	return EXIT_SUCCESS;
 }

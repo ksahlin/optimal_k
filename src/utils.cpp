@@ -238,8 +238,8 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 
 	cout << "*** Now trying to write the index to disk" << endl;
 
-    // delete reads_bank;
-    // delete[] data;
+    delete reads_bank;
+    delete[] data;
 
     // If successful, write the index to disk.
 	if (builder.isOk())
@@ -249,7 +249,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 	 	rlcsa->reportSize(true);
 		rlcsa->writeTo(indexFileName);
 	 	cout << "*** Created the RLCSA index and saved it to disk" << endl;
-		// delete rlcsa;
+		delete rlcsa;
 	}
 	else
 	{
