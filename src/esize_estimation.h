@@ -374,7 +374,7 @@ inline void get_unitig_stats_SMART(const string& node,
 	}
 	// ALREADY INITIALIZED IN THE CALLING FUNCTION: u_length[a].clear(); for all al
 	vector< vector<string> > in_neighbors(max_abundance + 1), out_neighbors(max_abundance + 1);
-	vector<uint32_t> out_abundances;
+	vector<uint32_t> out_abundances, abundances_for_which_node_is_start;
 	get_in_out_neighbors_with_abundances(node, rlcsa, min_abundance, max_abundance, in_neighbors, out_neighbors, out_abundances);
 
 	uint32_t min_abundance_for_which_node_is_start = max_abundance + 1;
@@ -385,6 +385,7 @@ inline void get_unitig_stats_SMART(const string& node,
 		// if is truly start of some unitig
 		if ((out_neighbors[a].size() > 1) or ((out_neighbors[a].size() == 1) and (in_neighbors[a].size() != 1)))
 		{
+			abundances_for_which_node_is_start.push_back(a);
 			if (a < min_abundance_for_which_node_is_start)
 			{
 				min_abundance_for_which_node_is_start = a;
@@ -400,6 +401,8 @@ inline void get_unitig_stats_SMART(const string& node,
 			u_length[a].push_back(1);
 		}
 	}
+
+	// checking that indeed the 
 
 	// if there is some abundance for which 
 	// node is the start node of some unitig
@@ -420,9 +423,13 @@ inline void get_unitig_stats_SMART(const string& node,
 			}
 			extend_unitig_from_node_SMART(neighbor, rlcsa, min_abundance_for_which_node_is_start, for_limit, extended_length);
 
-			for (uint32_t a = min_abundance_for_which_node_is_start; a <= for_limit; a++)
+			for (auto a : abundances_for_which_node_is_start)
 			{
-				u_length[a].push_back(1 + extended_length[a]);	
+				if (a > for_limit)
+				{
+					break;
+				}
+				u_length[a].push_back(1 + extended_length[a]);
 			}
 			nbr_idx++;
 		}
