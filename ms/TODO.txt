@@ -31,9 +31,8 @@ Kristoffer:
 Alex:
 16 March ->
 - [DONE] ask Jouni about dependence between buffer size and RAM usage and add max RAM as input parameter
-- [DONE: now I make sure we sample enough start or internal nodes, because the number of kmers samples is at least as high] keep track of how many nodes we sample and compare with the required sample size
-- maybe not keep the reads into RAM when sampling
-- fix Unitiger on large datasets
+- [DONE: Now we thin the reads at 0.5] maybe not keep the reads into RAM when sampling. TODO: keep as many as the peak memory during construction allows
+- [?] fix Unitiger on large datasets
 
 AGENDA:
 - Automatically choose highest kmer size OR stop at some value of k
