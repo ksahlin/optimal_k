@@ -1,44 +1,6 @@
 
 #include "utils.h"
 
-// int get_reads(const string readFileName, 
-// 	vector<string>& reads
-// 	)
-// {
-// 	std::istringstream ssFileName(readFileName);
-// 	string tokenFileName, line;
-
-// 	while(getline(ssFileName, tokenFileName, ',')) 
-// 	{
-// 		try 
-// 		{
-// 			ifstream readFile;
-// 			readFile.open(tokenFileName);
-
-// 			cout << "*** Reading from file '" << tokenFileName << "'" << endl;
-// 		   	while (getline(readFile , line)) // this is the comment line
-// 		   	{
-// 		    	getline(readFile , line); // the actual read
-// 		    	make_upper_case(line);
-// 		    	reads.push_back(line);
-// 		    	//reads.push_back(reverse_complement(line));
-// 		    	assert(getline(readFile , line)); // the +/- sign
-// 		    	assert(getline(readFile , line)); // the quality values
-// 		   	}
-// 		   	readFile.close();
-
-// 		} catch (exception& error) 
-// 		{ // check if there was any error
-// 			std::cerr << "Error: " << error.what() << std::endl;
-// 			return EXIT_FAILURE;
-// 		}
-// 	}
-
-// 	cout << "*** Input file(s) contain(s) " << reads.size() << " reads." << endl;
-
-//    	return EXIT_SUCCESS;
-// }
-
 int get_reads(const string readFileName, 
 	vector<compact_read>& reads,
 	uint64_t &reads_total_content,
@@ -54,9 +16,13 @@ int get_reads(const string readFileName,
 	string line;
 	uint64_t estimated_nb_reads = reads_bank->estimate_nb_reads();
 
+	random_device rd;
+	default_random_engine generator(rd());
+	uniform_real_distribution<double> uniform_read_distribution(0.0,1.0);
+
    	try
    	{
-   		reads.reserve(estimated_nb_reads);
+   		reads.reserve(estimated_nb_reads * READ_PROPORTION);
    	}
    	catch (exception& error) 
 	{
@@ -64,7 +30,7 @@ int get_reads(const string readFileName,
 		cout << "***    " << error.what() << std::endl;
 		return EXIT_FAILURE;
 	}
-	cout << "*** Reserved memory for " << reads.capacity() << " reads " << endl;
+	cout << "*** Reserved memory for a sample of " << reads.capacity() << " reads " << endl;
 	
 	reads_total_content = 0;
 	reads_max_length = 0;
@@ -86,7 +52,10 @@ int get_reads(const string readFileName,
         {
         	reads_min_length = line.length();
         }
-        reads.push_back(encode_string(line));
+        if (uniform_read_distribution(generator) < READ_PROPORTION)
+    	{
+    		reads.push_back(encode_string(line));	
+    	}
     }
 
 	cout << "*** The file(s) listed in " << readFileName << " contain(s) " << reads_number << " reads" << endl;

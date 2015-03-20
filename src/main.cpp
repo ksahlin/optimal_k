@@ -66,14 +66,16 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &e_size
 	)
 {
-	//uint64_t total_kmers = reads_number * (reads[0].length - k + 1);
 	uint64_t total_kmers = reads_total_content - (k - 1) * reads_number;
-	uint64_t n_reads = reads_number;
+	//uint64_t n_reads = reads_number;
+	uint64_t n_sampled_reads = reads.size();
 
 	// initializing the RANDOM GENERATOR
 	random_device rd;
 	default_random_engine generator(rd());
-	uniform_int_distribution<uint64_t> uniform_read_distribution(0,n_reads - 1);
+	//////
+	uniform_int_distribution<uint64_t> uniform_read_distribution(0,n_sampled_reads - 1);
+	//////
 	vector< uniform_int_distribution<int> > uniform_pos_distribution(reads_max_length + 1);
 	for (uint32_t read_length = k; read_length <= reads_max_length; read_length++)
 	{
@@ -111,7 +113,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	// omp_set_dynamic(0);
 	// shared(sampled_enough_start_or_internal_nodes,sampled_enough_unitigs)
 	#pragma omp parallel for num_threads(N_THREADS)
-	for (uint64_t i = 0; i < 100 * n_reads; i++)
+	for (uint64_t i = 0; i < 100 * n_sampled_reads; i++)
 	{
 		if ((not sampled_enough_start_or_internal_nodes) or (not sampled_enough_unitigs))
 		{
