@@ -446,8 +446,8 @@ int main(int argc, char** argv)
     vector<ofstream> outputFile(max_abundance + 1);
     for (uint32_t a = min_abundance; a <= max_abundance; a++)
     {
-    	cout << "***    " << outputFileName + ".mink" + int_to_string(mink) + ".maxk" + int_to_string(maxk) + ".a" + int_to_string(a) + ".metrics.csv" << endl;
-    	outputFile[a].open((outputFileName + ".mink" + int_to_string(mink) + ".maxk" + int_to_string(maxk) + ".a" + int_to_string(a) + ".metrics.csv").c_str());
+    	cout << "***    " << outputFileName + ".a" + int_to_string(a) + ".csv" << endl;
+    	outputFile[a].open((outputFileName + ".a" + int_to_string(a) + ".csv").c_str());
     	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
     } 
 
@@ -496,7 +496,7 @@ int main(int argc, char** argv)
 	 		outputFile[a] << avg_nodes_unitig << ","; // average number of internal nodes in unitigs
 			outputFile[a] << avg_nodes_unitig + k + 1 << ","; // average length of unitigs
 			outputFile[a] << sample_size_start_or_internal_nodes[a] << ","; // estimated sample size for kmers
-			outputFile[a] << n_unitigs[a] << ","; // number of unitigs
+			outputFile[a] << (uint64_t)n_unitigs[a] << ","; // number of unitigs
 			outputFile[a] << e_size[a]; // e-size
 			outputFile[a] << endl; 
 			//outputFile[a].flush();

@@ -14,7 +14,7 @@ group = parser.add_argument_group("Optional arguments")
 group.add_argument("-a", dest="mina", help="min a", default=1)
 group.add_argument("-A", dest="maxa", help="max A", default=5)
 group.add_argument("-k", dest="mink", help="min k", default=15)
-group.add_argument("-K", dest="maxk", help="max k", default=0)
+group.add_argument("-K", dest="maxk", help="max k (0 for length_of_first_read  - 10)", default=0)
 group.add_argument("-t", dest="threads", help="number of threads (0 = all cores)", default = 0)
 group.add_argument("-s", dest="silent", action="store_true", help="add this to suppress writing unitigs to file", default = False)
 
@@ -48,7 +48,7 @@ metricsFile = dict()
 writtenHeader = dict()
 
 for a in range(mina, maxa + 1):
-	metricsFile[a] = file(args.outputFileName + ".mink" + str(mink) + ".maxk" + str(maxk) + ".a" + str(a) + ".metrics.csv" , "w")
+	metricsFile[a] = file(args.outputFileName + ".a" + str(a) + ".csv" , "w")
 	writtenHeader[a] = False
 
 for k in range(mink, maxk + 1):
@@ -57,7 +57,7 @@ for k in range(mink, maxk + 1):
 		print "RUNNING: " + command
 		subprocess.call(command, shell=True)
 		
-		currentMetricsFile = file(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".metrics.csv" , "r")
+		currentMetricsFile = file(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".csv" , "r")
 		lines = currentMetricsFile.readlines()
 		if not writtenHeader[a]:
 			metricsFile[a].write(lines[0])
@@ -66,7 +66,7 @@ for k in range(mink, maxk + 1):
 		metricsFile[a].flush()
 		currentMetricsFile.close()
 		
-		os.remove(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".metrics.csv")
+		os.remove(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".csv")
 
 for a in range(mina, maxa + 1):
 	metricsFile[a].close()

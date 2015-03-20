@@ -452,7 +452,7 @@ int main (int argc, char* argv[])
 
     ofstream metricsFile;
 
-    metricsFile.open((outputFileName + ".k" + int_to_string(k) + ".a" + int_to_string(abundance) + ".metrics.csv").c_str());
+    metricsFile.open((outputFileName + ".k" + int_to_string(k) + ".a" + int_to_string(abundance) + ".csv").c_str());
     metricsFile << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
     
     unordered_set<string> unitigs;
