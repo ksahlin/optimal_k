@@ -314,7 +314,7 @@ $start = \emptyset$\;
 \Return $length[a]$, for all $a \in [A_1,A_2]$.
 \end{algorithm}
 
-\begin{algorithm}[h]
+\begin{algorithm}[b]
 \caption{Extending a unitig. The input is a $k$-mer $y$ and an interval $[A_1,A_2]$ such that $\abu(y) \in [A_1,A_2]$, and the output is, for every $a \in [A_1,A_2]$, the length of the longest path starting with $y$ such that all of its nodes, except for the last, are unary in $\DB$. \label{alg:extending-unitig}}
 
 \SetKwBlock{extend}{{\bf extendUnitig}$(y,A_1,A_2)$}{end}
@@ -445,28 +445,33 @@ Moreover, if we want to estimate $f = 1/p$ with a given relative error $\varepsi
 
 \subsection{New sampling}
 
-Let $Y$ be a random variable, from a distribution with finite mean $\mu$ and finite non-zero variance $\sigma^2$. By the Central Limit Theorem, the $100(1-\alpha)\%$ two-sided confidence interval of $\mu$ approaches 
-\[\left[\overline{y} - z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}} , \overline{y} + z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}}\right] \]
-as the number of samples $m$ increases. In the above, $\frac{\sigma}{\sqrt{m}}$ is the standard deviation of sample mean $\overline{y}$, and $z_{\frac{\alpha}{2}}$ denotes the $\alpha/2$ quantile from the normal distribution.
+Let $Y$ be a random variable, from a distribution with finite mean $\mu$ and finite non-zero variance $\sigma^2$. By the Central Limit Theorem, the $100(1-\alpha)\%$ two-sided confidence interval of the sample mean $\overline{y}$ approaches 
+\[\left[\overline{y} - z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}} \;, \; \overline{y} + z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}}\right] \]
+as the number of samples $m$ increases. In the above, $z_{\frac{\alpha}{2}}$ denotes the $\alpha/2$ quantile from the normal distribution. Notice that $\sigma$ is the standard deviation of the random variable $Y$, while $\frac{\sigma}{\sqrt{m}}$ is the standard deviation of $\overline{y}$, since $\overline{y}$ is also a random variable varying from one sample to another. It is important to point out that below we will focus primarily on the distributions of sample statistics.
 
-In order to guarantee a relative error $\varepsilon$ of 
+In order to guarantee a relative error $\varepsilon$ of ...
 
-Let now $x_1,\dots,x_N$ denote the lengths of all unitigs in $\DB$. Suppose that the distribution of unitig lengths in $\DB$ follows an unknown distribution $f(x)$, and let $X$ be random variable over $f(x)$.
+If $x \in \mathbb{N}$, then the string lengths of all unitigs in $\DB$ induces a distribution $f(x)$, and let $X$ be random variable over $f(x)$. From the definition (\ref{eq:esize}), we get
 
-Observe that the definition (\ref{eq:esize}) can be equivalently written as 
+\[\esize(\U) = \frac{\sum_{w \in \U}|w|^2}{\sum_{w \in \U}|w|} = \frac{\sum_{x \in \mathbb{N}} x^2 f(x)}{\sum_{x \in \mathbb{N}} xf(x)} =  \frac{\E[X^2]}{\E[X]}.\]
 
-\[\esize(\U) = \frac{N \sum_{i = 1}^{N} x_i^2\frac{1}{N}}{N\sum_{i = 1}^{N} x_i\frac{1}{N}} = \frac{\E[X^2]}{\E[X]}.\]
+To estimate the E-size, we will sample unitig string lengths $x_1,x_2,\dots,x_m$, and obtain estimates $\overline{x} := 1/m\sum_{i=1}^{m} x_i$ of $E[X]$ and $\overline{x^2} := 1/m\sum_{i=1}^{m} x_i^2$ of $\E[X^2]$. Recall that these two estimates are random variables themselves, since for a different sample we will get different estimates. For a given sample size $m$, let $X^1_{m}$ and $X^2_{m}$ be random variables over the sample distribution of $\overline{x}$ and of $\overline{x^2}$, respectively. Let also $Y_m$ be the random variable defined as $X^2_m/X^1_m$. Since $\E[Y_m] = \esize(\U)$ (which holds for any given unbiased estimator), we can report the sample estimate $\overline{y}$ for $Y_m$ as our estimate for the E-size. 
 
-To estimate the E-size, we will sample unitig lengths $x$ and obtain estimates $\overline{x}$ and $\overline{x^2}$ of $\E[X]$ and $\E[X^2]$, respectively. Recall that a sample estimate is itself a random variable. Thus, in order to get a confidence interval of the E-size, we need to find the sample standard deviation of $\overline{x^2}/\overline{x}$, which we denote by $s_{\text{E-size}}$. Then, applying the Central Limit Theorem, we obtain the desired confidence interval of E-size as 
-\[\left[\overline{y} - z_{\frac{\alpha}{2}}s_{\text{E-size}} , \overline{y} + z_{\frac{\alpha}{2}}s_{\text{E-size}}\right]. \]
+In order to get a confidence interval of $\overline{y}$, we need to derive the standard deviation of $Y_m$, which we denote by $\sigma_{Y_m}$. If ... is ..., then the first order Taylor expansion gives a good estimation of $\sigma_{Y_m}^2$ \cite{Benaroya:2005aa}:
+\[\sigma_{Y_m}^2 = \Var\left[Y_m\right] = \Var\left[\frac{X^2_m}{X^1_m}\right] \approx \frac{\Var\left[X^2_m\right]}{\E\left[X^1_m\right]^2} -2\frac{\E\left[X^2_m\right]}{\E\left[X^1_m\right]^3}\Cov\left[X^2_m,X^1_m\right] + \frac{E\left[X^2_m\right]^2}{E\left[X^1_m\right]^4}\Var\left[X^1_m\right].\] 
 
+The expressions in the above formula will be estimated by the following formulas:
+\begin{itemize}
+\item $\E[X^1_m]$ as $\overline{x}$, and $\E[X^2_m]$ as $\overline{x^2}$;
+\item $\Var[X^1_m]$ as $1/(m-1) \sum_{i = 1}^{m} (x_i - \overline{x})^2$, and $\Var[X^2_m]$ as $1/(m-1) \sum_{i = 1}^{m} (x_i^2 - \overline{x^2})^2$;
+\item $\Cov[X^2_m,X^1_m]$ as $1/(m-1) \sum_{i=1}^{m} (x_i - \overline{x})(x_i^2 - \overline{x^2})$. 
 
+%$\E[X^2_mZ^1_m] - \E[Z^2_m]\E[Z^1_m]$, which we estimate as $\left(\sum_{i=1}^{m} x_i^3\right) - \overline{x}\cdot \overline{x^2}$. This comes from the fact that the samples are independently and identically distributed and thus it holds that 
+%\[\Cov[\overline{x^2},\overline{x}] = \Cov\left[\frac{1}{m}\sum_{i=1}^{m} x^2_i, \frac{1}{m}\sum_{i=1}^{m} x_i\right] = \frac{1}{m^2}\sum_{i= 1}^{m}\Cov\left[x^2_i,x_i\right] = \frac{\Cov\left[X^2,X\right]}{m}\]
+\end{itemize}
 
-
-
-If ... is ..., then the first order Taylor expansion gives a good estimation of $s_{\text{E-size}}^2$ \cite{Benaroya:2005aa}:
-
-\[s_{\text{E-size}}^2 = \Var\left[\frac{\overline{x^2}}{\overline{x}}\right] \approx \frac{\Var\left[\overline{x^2}\right]}{\E\left[\overline{x}\right]^2} -2\frac{\E\left[\overline{x^2}\right]}{\E\left[\overline{x}\right]^3}\Cov\left[\overline{x^2},\overline{x}\right] + \frac{E\left[\overline{x^2}\right]^2}{E\left[\overline{x}\right]^4}\Var\left[\overline{x}\right].\] 
+To summarize, from the samples $x_1,\dots, x_n$ we are able to approximate the variance of our E-size estimate. Then, applying the Central Limit Theorem as above, we obtain a confidence interval for our E-size estimate $\overline{y}$ as 
+\[\left[\overline{y} - z_{\frac{\alpha}{2}}\sigma_{Y^m} \;,\; \overline{y} + z_{\frac{\alpha}{2}}\sigma_{Y^m}\right]. \]
 
 
 \section{Results and discussion} % (fold)
