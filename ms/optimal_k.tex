@@ -41,7 +41,7 @@
 %%% BEGIN DOCUMENT
 \begin{document}
 
-\title{Optimal\_k - DB-graph inference by accurate sampling \\Fast and accurate selection of parameters for genome assembly (by sampling)} 
+\title{Optimal\_k - DB-graph inference by accurate sampling \\(Fast and accurate) selection of parameters for genome assembly (by sampling) \\ Sampling the genomic assembly landscape \\ AssemblyAdvisor - insights on genomic content and assembly quality of sequencing libraries} 
 \author{}
 \date{} % delete this line to display the current date
 \maketitle
@@ -256,7 +256,7 @@ Suppose that the above procedure samples every node of $\DB$ exactly once, and t
 However, we cannot afford to sample all $k$-mers in $\K_k$. By sampling only a subset of $k$-mers we obtain the multiset $W = \{w_1,\dots,w_m\}$ of unitigs, the above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
 \[\hat{{\sf E}}_{\sf size} := \frac{\sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}}.\]
 
-\alex{NEW:} Our sampling procedure produces a multiset $W$ of unitigs of $\DB$. We choose a $k$-mer $x \in \K_k$ at random. If $x$ is a start node of some unitig of $\DB$ (that is, $\isstart(x)$ holds), then we output all the unitigs starting at $x$. These unitigs can be obtained by traversing the graph by following each of the out-neighbors of $x$, and can be obtained for all abundances at the same time. In Algorithm~\ref{alg:sampling-for-esize} we give a pseudo-code of this procedure. 
+\alex{NEW:} Our sampling procedure produces a multiset $W$ of unitigs of $\DB$. We choose a $k$-mer $x \in \K_k$ at random. If $x$ is a start node of some unitig of $\DB$ (that is, $\isstart(x)$ holds), then we output all the unitigs starting at $x$. These unitigs can be obtained by traversing the graph by following each of the out-neighbors of $x$, and can be obtained for all abundances at the same time. In Algorithms~\ref{alg:sampling-for-esize} and~\ref{alg:extending-unitig} we give a pseudo-code of this procedure. 
 
 Since not all start node abundances are equal, we need to remove the bias in over- or under-sampling unitigs. Observe that if every start node $\DB$ is sampled exactly once, then each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\abu(w) := \abu(v_1)$ times in the output $W_{all}$ of the sampling procedure. Therefore, we can equivalently express the E-size of the set $\U$ by normalizing the probability of $w$ with $1/\abu(w)$. This gives the following expression:
 \begin{equation}
@@ -268,26 +268,12 @@ However, we cannot afford to sample all $k$-mers in $\K_k$. By sampling only a s
 \[\hat{{\sf E}}_{\sf size} := \frac{\sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}}.\]
 
 \begin{algorithm}[h]
-\caption{Extending a unitig.\label{alg:extending-unitig}}
-
-\SetKwBlock{extend}{{\sf extend}$(x,y,A_1,A_2)$}{end}
-
-\extend{
-\If{$A_1 > A_2$}
-{
-	\Return $\emptyset$;
-}
-}
-\end{algorithm}
-
-\begin{algorithm}[h]
-\caption{A $k$-mer $x$ and an out-neighbor $y$ of $x$. The output is the The estimate $\hat{p}_{k,a}$ needed for the number of $k$-mers in the de Bruijn graph $\DB$, for all $a \in [A_1,A_2]$. The input is also a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$.\label{alg:sampling-for-esize}}
+\caption{Computing the lengths of all unitigs starting at a $k$-mer $x$ in $\DB$, for all abundances in an interval $[A_1,A_2]$. The output is an array $length$ of lists such that $length[a]$ is the list of lengths of all unitigs starting at $x$ in $\DB$, for all $a \in [A_1,A_2]$. The sub-routine {\bf extendUnitig}$(y,A_1,A_2)$ is described in Algorithm~\ref{alg:extending-unitig}.\label{alg:sampling-for-esize}}
 
 
 \For{$a = A_1$ {\rm\bf to} $A_2$}
 {
 	$length[a] = \emptyset$\;
-	$\abu[a] = \emptyset$\;
 }
 
 $\abu(x) = \RLCSA.count(x)$\;
@@ -295,38 +281,74 @@ $\abu(x) = \RLCSA.count(x)$\;
 $start = \emptyset$\;
 \For{$a = A_1$ {\rm\bf to} $A_2$}
 {
-	\If{$\isstart(x)$}
+	\If{$\isstart(x)$ {\bf and} $a \leq \abu(x)$}
 	{
 		$start.append(a)$\;
 	}
 }
-\tcp{\small We extract the min and max abundance in $start$}
-$min_a = \min(start)$\;
-$max_a = \max(start)$\;
-
 \If{$start \neq \emptyset$}
 {
+	\tcp{\small We extract the min and max abundance in the set $start$}
+	$min_a = \min(start)$\;
+	$max_a = \max(start)$\;
+
 	\tcp{\small For each possible out-neighbor $y$ of $x$}
     \ForEach{$b \in \{\mathtt{A}, \mathtt{C}, \mathtt{G}, \mathtt{T}\}$}
     {
     	$y = x[2..k]b$\;
     	$\abu(y) = \RLCSA.count(y)$\;
-		\tcp{\small We try extending the unitig starting with $x,y$ as long as there is an abundance for which it is unary}
-    	$extension\_length = {\sf extend}(x,y,min\_a, \min(\abu(y),max\_a))$\;
+		\tcp{\small We try extending the path starting with $x,y$ if $y$ exists in the graph and as long as there is an abundance for which this path is unary}
+    	$extension\_length = {\bf extendUnitig}(y,min\_a, \min(\abu(y),max\_a))$\;
 	
     	\ForEach{$a \in start$}
     	{
-			\If{$min\_a \leq a \leq \min(\abu(y),max\_a)$}
+			\If{$a \leq \min(\abu(y),max\_a)$}
 			{
-				$\abu[a].append(\abu(y))$\;
-				$length[a].append(extension\_length[a])$
+				$length[a].append(1 + extension\_length[a])$
 			}
 			
     		
     	}
     }
 }
-\Return $(length[a],\abu[a])$, for all $a \in [A_1,A_2]$.
+\Return $length[a]$, for all $a \in [A_1,A_2]$.
+\end{algorithm}
+
+\begin{algorithm}[h]
+\caption{Extending a unitig. The input is a $k$-mer $y$ and an interval $[A_1,A_2]$ such that $\abu(y) \in [A_1,A_2]$, and the output is, for every $a \in [A_1,A_2]$, the length of the longest path starting with $y$ such that all of its nodes, except for the last, are unary in $\DB$. \label{alg:extending-unitig}}
+
+\SetKwBlock{extend}{{\bf extendUnitig}$(y,A_1,A_2)$}{end}
+
+\extend{
+
+\For{$a = A_1$ {\rm\bf to} $A_2$}
+{
+	$length[a] = 0$\;
+}
+$A_1' = A_1$; $A_2' = A_2$\;
+\While{$A_1' \leq A_2'$}
+{
+	$advanced = {\bf false}$\;
+	\For{$a = A_1'$ {\rm\bf to} $A_2'$}
+	{
+		$length[a] = length[a] + 1$\;
+		\If{$\isunary(y)$ {\bf and} $({\rm \bf not}\ advanced)$}
+		{
+			update $y$ so that it equals its unique out-neighbor\;
+			$advanced = {\bf true}$\;
+		}
+		\If{$\dplus(y) = 0$}
+		{
+			$A_2' = a - 1$;
+		}
+		\If{$\dplus(y) > 1$ {\bf or} $\dminus(y) > 1$}
+		{
+			$A_1' = a + 1$\;
+		}
+	}
+}
+\Return $length[a]$, for all $a \in [A_1,A_2]$.
+}
 \end{algorithm}
 
 
