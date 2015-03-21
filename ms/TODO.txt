@@ -3,6 +3,10 @@ BOTH:
 - Write introduction
 
 Kristoffer:
+- Implement paralellizaton of jobs on uppmax with snakemake
+- Implement (separate) analysis of optimal-k vs unitiger (separate snakefile)
+- Implement Velvet into pipeline
+
 - Results:
 	- Methods:
 		- optimal_k
@@ -13,6 +17,7 @@ Kristoffer:
 		- rhodo
 		- human (chr14)
 		- plasmid
+		- spruce
 
 	- Assemblers:
 		- Unitiger
@@ -24,9 +29,6 @@ Kristoffer:
 		- Runtime
 		- Memory
 		- NG50, E-size, Size, Errors
-16 March ->
-- rerun the last sampling that failed
-
 
 Alex:
 16 March ->
