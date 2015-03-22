@@ -128,7 +128,7 @@ Since $V(\DB)$ is a subset of the multiset $\K_k$, we can consider the proportio
 We can estimate $p_{k,a}$ by sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, and taking
 \[\hat{p}_{k,a} := \frac{\sum_{i = 1}^m \frac{1}{\abu(x_i)}\mathbb{I}(x_i, a)}{m}.\]
 
-Therefore, we also get an estimate of $X_{k,a} := |V(\DB)|$ as $\hat{X}_{k,a} = \hat{p}_{k,a}|\K_k|$. Notice that if we sample all $k$-mers, we get $\hat{X}_{k,a} = \frac{|V(\DB)|}{|\K_k|}|\K_k| = |V(\DB)|$. Analogously to Algorithm~\ref{alg:out-degrees}, we can implement this procedure for all given abundances with just $m$ queries to the \RLCSA index: see Algorithm~\ref{alg:graph-nodes} for a pseudo-code.
+Therefore, we also get an estimate of $X_{k,a} := |V(\DB)|$ as $\hat{X}_{k,a} = \hat{p}_{k,a}|\K_k|$. Notice that if we sample all $k$-mers, we get $\hat{X}_{k,a} = \frac{|V(\DB)|}{|\K_k|}|\K_k| = |V(\DB)|$. Analogously to Algorithm~\ref{alg:out-degrees}, we can implement this procedure for all given abundances with just $m$ queries to the \RLCSA index: see Algorithm~\ref{alg:graph-nodes} for a pseudo-code. In Section~\ref{sec:sampling-accuracy} we will discuss how many samples $m$ we need to accurately estimate $X_{k,a}$.
 
 %By the observations in Sec.~\ref{sec:sampling-accuracy}, we immediately get how many samples $m$ we need in order to bound the relative error of $\hat{X}$ within a certain confidence interval.
 
@@ -158,7 +158,7 @@ Therefore, we also get an estimate of $X_{k,a} := |V(\DB)|$ as $\hat{X}_{k,a} = 
 \end{algorithm}
 
 
-\alex{In Section~\ref{sec:sampling-accuracy} we will discuss how many samples $m$ we need to accurately estimate $\hat{X}_{k,a}$.}
+
 
 
 \medskip
@@ -186,9 +186,7 @@ Consider the ratio $q_{k,a}$ between the number of unitigs and all $k$-mers in t
 Observe that $q_{k,a} \in [0,1]$ since every unitig contains at least one $k$-mer, thus $|\U| \leq |\K_k|$. We can analogously estimate $q_{k,a}$ as above, after sampling a multiset $\{x_1,\dots,x_m\}$ of $k$-mers from $\K_k$, as
 \[\hat{q}_{k,a} := \frac{1}{m}\displaystyle\sum_{\begin{subarray}{c}i \in [1,m] \text{ such that } \\ \isstart(x_i)\end{subarray}} \max\left(\frac{1}{\abu(x_i)}\mathbb{I}(x_i,a),\frac{1}{\abu(x_i)}\mathbb{I}(x_i,a)\dplus(x_i)\right).\]
 
-The estimate of $Y_{k,a} := |\U|$ is then $\hat{Y}_{k,a} = \hat{q}_{k,a}|\K_k|$. Similarly to $X_{k,a}$, sampling all $k$-mers will give $\hat{Y}_{k,a} = |\U|$. As in Algorithm~\ref{alg:graph-nodes}, for a given value of $k$, we can compute all values $\hat{q}_{k,a}$ for all abundances $a$ in a given interval $[A_1,A_2]$ at the same time.
-
-\alex{In Section~\ref{sec:sampling-accuracy}, we discuss how many samples $m$ we need to accurately estimate $\hat{Y}$.}
+The estimate of $Y_{k,a} := |\U|$ is then $\hat{Y}_{k,a} = \hat{q}_{k,a}|\K_k|$. Similarly to $X_{k,a}$, sampling all $k$-mers will give $\hat{Y}_{k,a} = |\U|$. As in Algorithm~\ref{alg:graph-nodes}, for a given value of $k$, we can compute all values $\hat{q}_{k,a}$ for all abundances $a$ in a given interval $[A_1,A_2]$ at the same time. In Section~\ref{sec:sampling-accuracy}, we discuss how many samples $m$ we need to accurately estimate $Y_{k,a}$.
 
 \medskip
 \noindent\textbf{Estimating the average length of the unitigs of a dBG.} We are now interested in determining the average length of the strings spelled by the unitigs of $\DB$. 
@@ -217,7 +215,7 @@ We obtain an estimate $\hat{r}_{k,a}$ of $r_{k,a}$ by sampling a multiset $\{x_1
 \[\hat{r}_{k,a} := \frac{\displaystyle\sum_{\begin{subarray}{c} i \in [1,m] \text{ such that } \\ \isstart(x_i) \end{subarray}} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right)}{\displaystyle \sum_{\begin{subarray}{c} i \in [1,m] \text{ such that } \\ \isstart(x_i) \end{subarray}} \max\left(\frac{1}{\abu(x_i)},\frac{1}{\abu(x_i)}\dplus(x_i)\right) + \sum_{\begin{subarray}{c} i \in [1,m] \text{ such that } \\ \isunary(x_i) \end{subarray}} \frac{1}{\abu(x_i)}}.\]
 An estimate $\hat{Z}_{k,a}$ for the quantity from (\ref{eqn:avg_internal}) is then obtained as $1/\hat{r}_{k,a}$. 
 
-Similarly to $X_{k,a}$ and $Y_{k,a}$, sampling all k-mers will give $\hat{Z}_{k,a} = Z_{k,a}$. As in Algorithm~\ref{alg:graph-nodes}, for a given value of $k$, we can compute all values $\hat{r}_{k,a}$ for all abundances $a$ in a given interval $[A_1,A_2]$ at the same time. \alex{We discuss how many samples $m$ we need to accurately estimate $\hat{Z}$ in Section~\ref{sec:sampling-accuracy}.}
+Similarly to $X_{k,a}$ and $Y_{k,a}$, sampling all k-mers will give $\hat{Z}_{k,a} = Z_{k,a}$. As in Algorithm~\ref{alg:graph-nodes}, for a given value of $k$, we can compute all values $\hat{r}_{k,a}$ for all abundances $a$ in a given interval $[A_1,A_2]$ at the same time. We discuss how many samples $m$ we need to accurately estimate $Z_{k,a}$ in Section~\ref{sec:sampling-accuracy}.
 
 %\subparagraph{Estimating the average number of nodes in a DBG} % (fold)
 %\label{subp:estimating_the_average_number_of_nodes_in_a_dbg}
@@ -227,45 +225,39 @@ Similarly to $X_{k,a}$ and $Y_{k,a}$, sampling all k-mers will give $\hat{Z}_{k,
 %\label{subp:estimating_the_e_size}
 
 \medskip
-\noindent\textbf{Estimating the E-size of the unitigs of a dBG.} The E-size of the set $\U$ of unitig strings of $\DB$ is defined as the expected length of the unitig strings of $\DB$, \alex{under the assumption that each unitig has probability proportional to its length} \cite{Salzberg2011}. This can also be interpreted as the expected unitig length covering any position on the assembled genome, obtained as the concatenation of all unitigs. Formally, 
+\noindent\textbf{Estimating the E-size of the unitigs of a dBG.} The E-size \cite{Salzberg2011} of the set $\U$ of unitig strings of $\DB$ is defined as the expected length of the unitig strings of $\DB$. More precisely, this is the expected unitig string length covering any position on the concatenation of all string unitigs. Formally, 
+
 
 \begin{equation}
 \label{eq:esize}
 \esize(\U) := \sum_{w \in \U}|w|P(w) = \sum_{w \in \U} |w|\frac{|w|}{\sum_{w' \in \U}|w'|} = \frac{\sum_{w \in \U}|w|^2}{\sum_{w \in \U}|w|},	
 \end{equation}
-where $|w|$ denotes the length of the string spelled by the unitig $w$ and $P(w)$ the probability of sampling a position on the genome covered by $w$. Since the genome is taken here to be the concatenation of all unitigs, so $P(w)=\frac{|w|}{|G|}$, where $|G|$ is the genome length.
+where $|w|$ denotes the length of the string spelled by the unitig $w$ and $P(w)$ the probability of sampling a position in the concatenation of all unitigs. 
+
+In an ideal setting, if the set of unitigs partitions the genome, the E-size corresponds to the expected unitig length covering any position of the genome. In a de novo assembly this might not be true, due to unsequenced regions, allele splitting and overlapping unitig ends. However, the variation of E-size across different assemblies of a given genome is an informative metric of the assembly contiguity~\cite{Salzberg2011}. 
 
 In order to derive an unbiased sampling procedure of $\esize(\U)$, it is important to notice two points in Equation~\ref{eq:esize}.
 \begin{itemize}
-	\item The length of $w$ determines how likely it is to sample $w$, \emph{i.e.} $P(w_1)>P(w_2)$ if $w_1>w_2$
-	\item The abundance of the nodes in $w$ is contributing to the E-size. 
+	\item The length of $w$ determines how likely it is to sample $w$, \emph{i.e.} $P(w_1)>P(w_2)$ if $w_1>w_2$.
+	\item The E-size metric is independent of the $k$-mers abundances of unitigs. 
 \end{itemize}
 Since we will be sampling $k$-mers and their abundance determines how likely it is that we sample each of them, we need to weight each sampled unitig by its abundance in the sample.
 
 %In order to derive an estimate for the E-size, we will construct a sampling procedure which may sample a unitig more than once. Since the above formula contains each unitig once, the main issue here is that we need to normalize it \alex{with the expected number of times of sampling each unitig. [IS THIS STILL CORRECT?]} \kristoffer{The text is correct at least, are you reffering to that?}
 %By sampling k-mers at random, we may sample a unitig several times. However, the above formula for E-size contains each unitig once, we therefore introduce sampling weights to normalize
 
-\alex{OLD:} Our sampling procedure produces a multiset $W$ of unitigs of $\DB$. We choose a $k$-mer $x \in \K_k$ at random. If $x$ is a node of $\DB$, we output all the unitigs containing $x$. These unitigs can be obtained by traversing the graph along the in-/out-neighbors of $x$, after taking into account whether $x$ is a unary node of $\DB$ or not. 
+Our sampling procedure produces a multiset $W$ of unitigs of $\DB$, as follows. We choose a $k$-mer $x \in \K_k$ at random. If $x$ is a start node of some unitig of $\DB$ (that is, $\isstart(x)$ holds), then we output all the unitigs starting at $x$. These unitigs can be obtained by traversing the graph by following each of the out-neighbors of $x$ as long as the traversed path is unary. With the RLCSA data structure, we are able to organize this visit so that we obtain the unitigs for all abundances simultaneously. In Algorithms~\ref{alg:sampling-for-esize} and~\ref{alg:extending-unitig} we give pseudo-codes of this procedure. 
 
-Suppose that the above procedure samples every node of $\DB$ exactly once, and that $\overline{W}$ is the resulting multiset of unitigs. Then, each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\alpha(w) := \sum_{i = 1}^{t}\alpha(v_i)$ times in $\overline{W}$. However, since not all abundances are equal, we need to remove the bias from over- or under-sampling $k$-mers due to the abundance difference. Therefore, we can equivalently express the E-size of the set $\U$ by normalizing the probability of $w$ with $1/\abu(w)$. This gives the following expression:
-\begin{equation}
-\esize(\U) = \sum_{w \in \overline{W}} |w| \frac{|w|\frac{1}{\alpha(w)}}{\sum_{w' \in \overline{W}}|w'|\frac{1}{\alpha(w')}} = \frac{\sum_{w \in \overline{W}}\frac{|w|^2}{\alpha(w)}}{\sum_{w \in \overline{W}}\frac{|w|}{\alpha(w)}}.
-\label{eqn:e-size}
-\end{equation}
-
-However, we cannot afford to sample all $k$-mers in $\K_k$. By sampling only a subset of $k$-mers we obtain the multiset $W = \{w_1,\dots,w_m\}$ of unitigs, the above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
-\[\hat{{\sf E}}_{\sf size} := \frac{\sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}}.\]
-
-\alex{NEW:} Our sampling procedure produces a multiset $W$ of unitigs of $\DB$, as follows. We choose a $k$-mer $x \in \K_k$ at random. If $x$ is a start node of some unitig of $\DB$ (that is, $\isstart(x)$ holds), then we output all the unitigs starting at $x$. These unitigs can be obtained by traversing the graph by following each of the out-neighbors of $x$, and can be obtained for all abundances at the same time. In Algorithms~\ref{alg:sampling-for-esize} and~\ref{alg:extending-unitig} we give a pseudo-code of this procedure. 
-
-Since not all start node abundances are equal, we need to remove the bias in over- or under-sampling unitigs. Observe that if every start node $\DB$ is sampled exactly once and $W_{all}$ denotes the corresponding output, then each unitig $w := (v_1,v_2,\dots,v_t)$ of $\DB$ appears $\abu(w) := \abu(v_1)$ times in $W_{all}$. Therefore, we can equivalently express the E-size of the set $\U$ by normalizing the probability of $w$ with $1/\abu(w)$. This gives the following expression:
+Since not all start node abundances are equal, we need to remove the bias in over- or under-sampling unitigs. Given a unitig $w = (v_1,v_2,\dots,v_t)$ of $\U$, let $\abu(w) := \abu(v_1)$. Observe that if every $k$-mer of $\K_k$ is sampled exactly once and $W_{all}$ denotes the resulting multiset of sampled unitigs, then each unitig $w$ of $\U$ appears $\abu(w)$ times in $W_{all}$. Therefore, we can express the E-size of the set $\U$ by normalizing the probability of $w$ with $1/\abu(w)$. This gives the following equivalent expression for the E-size:
 \begin{equation}
 \esize(\U) = \sum_{w \in W_{all}} |w| \frac{|w|\frac{1}{\alpha(w)}}{\sum_{w' \in W_{all}}|w'|\frac{1}{\alpha(w')}} = \frac{\sum_{w \in W_{all}}\frac{|w|^2}{\alpha(w)}}{\sum_{w \in W_{all}}\frac{|w|}{\alpha(w)}}.
 \label{eqn:e-size}
 \end{equation}
 
-However, we cannot afford to sample all $k$-mers in $\K_k$. By sampling only a subset of $k$-mers, we obtain a multiset $W = \{w_1,\dots,w_m\}$ of unitigs, and the above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
+Since we cannot afford to sample all $k$-mers in $\K_k$, we sample a random subset of them, which produces a multiset $W = \{w_1,\dots,w_m\}$ of unitigs. The above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
 \[\hat{{\sf E}}_{\sf size} := \frac{\sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}}.\]
+In Section~\ref{sec:sampling-accuracy} we discuss how may unitigs we need to sample to accurately estimate the E-size.
+
 
 \begin{algorithm}[h]
 \caption{Computing the lengths of all unitigs starting at a $k$-mer $x$ in $\DB$, for all abundances in an interval $[A_1,A_2]$. The output is an array $length$ of lists such that $length[a]$ is the list of lengths of all unitigs starting at $x$ in $\DB$, for all $a \in [A_1,A_2]$. The sub-routine {\bf extendUnitig}$(y,A_1,A_2)$ is described in Algorithm~\ref{alg:extending-unitig}.\label{alg:sampling-for-esize}}
@@ -352,8 +344,7 @@ $A_1' = A_1$; $A_2' = A_2$\;
 \end{algorithm}
 
 
-\alex{Say that here we cannot guarantee a sampling accuracy (if so).}
-\kristoffer{I think maybe we could derive something here, gonna thing about it. However notice that we cannot bound any error with certainty in all of our estimates (see my change to ``accuratly estimate'' instead of ``bound error''). Because we can always end up with a counter example that: one isolated node has a bazilion in abundance and the rest of the k-mers only have, say, one in abundance. We would only sample the isolated one and therefore end up with an estimate that is completely off. However, what we CAN say is that if we resample we can reproduce our results with a given accuracy (definition of confidence interval). Also, it seems to work in practice :) (statistics is not a  ``without doubt''-science like math). }
+
 %Consider the following procedure which produces a multiset containing the set $\U$ of all unitigs of $\DB$. For all $k$-mers $x$ in the multiset $\K_k$ do:
 %\begin{itemize}
 %\item if $x$ is a unary node of $\DB$, that is $|N^-(x)| = |N^+(x)| = 1$, then we traverse $\DB$ starting from $x$ and following out-neighbors, until seeing a non-unary node. Then, we traverse $\DB$ starting from $x$ backwards by following in-neighbors, until seeing a non-unary node. The concatenation of these paths is the unitig we report for $x$.
@@ -366,21 +357,6 @@ $A_1' = A_1$; $A_2' = A_2$\;
 
 % subsection algorithm (end)
 
-\subsection{Sampling accuracy\label{sec:sampling-accuracy}}
-
-Suppose that we have a set partitioned as $A \cup B$, and we need to estimate the proportion $p = |A| / (|A| + |B|) \in [0,1]$. Suppose that we sample $m$ elements of $A \cup B$ and for each of them record whether they belong to $A$ or to $B$, and then divide these two counts by $m$, obtaining in this way an estimate $\hat{p}$ of $p$. It is a standard result that the $100(1-\alpha)\%$ confidence interval of $\hat{p}$ is
-\[\left[\hat{p} - z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{m}} , \hat{p} + z_{\frac{\alpha}{2}}\sqrt{\frac{\hat{p}(1-\hat{p})}{m}}\right] \]
-where $z_{\frac{\alpha}{2}}$ is the $\alpha/2$ quantile from the normal distribution. For a given relative error $\varepsilon$, we want to choose the sample size $n$ such that the $100(1-\alpha)\%$ confidence interval of $\hat{p}$ has a margin of error no more than $E := \varepsilon p$. By standard means, we obtain
-\begin{equation}
-	m \geq \left(\frac{z_{\frac{\alpha}{2}}}{E}\right)^2\hat{p}(1-\hat{p}).
-	\label{eqn:sample-size}
-\end{equation}
-Notice that in the relation (\ref{eqn:sample-size}) above, both $p$ and $\hat{p}$ are not known at the start of the sampling, when the value of $m$ needs to be chosen. 
-
-\alex{In our case, we choose $p$ and $\hat{p}$ ...  }
-
-Moreover, if we want to estimate $f = 1/p$ with a given relative error $\varepsilon'$, then we can estimate it as $\hat{f} = 1/\hat{p}$. In this case, we need to set the relative error $\varepsilon$ of $\hat{p}$ as $\varepsilon = 1/(1+\varepsilon') - 1$. 
-\kristoffer{I stop here with the note that I have to clarify the last part in this section (i.e f=1/p) a bit. Also, we need to illustrate how it works in practice (inital estimate, then updating sample size as we go for a fixed epsilon= say 0.05)}
 %The observation $\hat{p}$ tell how many samples $m$ we need as a relation on $\varepsilon = 1/(1+\varepsilon') - 1$.
 
 %\subparagraph{Sample proportion} % (fold)
@@ -450,14 +426,12 @@ Let $Y$ be a random variable, from a distribution with finite mean $\mu$ and fin
 as the number of samples $m$ increases. In the above, $z_{\frac{\alpha}{2}}$ denotes the $\alpha/2$ quantile from the normal distribution. Notice that $\sigma$ is the standard deviation of the random variable $Y$, while $\frac{\sigma}{\sqrt{m}}$ is the standard deviation of $\overline{y}$, since $\overline{y}$ is also a random variable varying from one sample to another. Below we will focus primarily on the distributions of sample statistics.
 
 \medskip
-\noindent\textbf{Sampling accuracy of a proportion}. Our sampling procedure for the number of nodes of $\DB$ and number of unitigs can be interpreted as sampling from a set partitioned as $A \cup B$, and estimating the proportion $p = |A| / (|A| + |B|) \in [0,1]$. Observe that this induces a binomial distribution with mean $\mu = p$ and standard deviation $ \sigma = \sqrt{p(1-p)}$. 
-
-By the above, we have that the $100(1-\alpha)\%$ confidence interval of the sample estimate $\overline{p}_m$ of $p$, obtained from $m$ samples, is
+\noindent\textbf{Sampling accuracy of a proportion}. Our sampling procedure for the number of nodes and the number of unitigs of $\DB$ can be interpreted as sampling from a population partitioned as $A \cup B$, and estimating the proportion $p = |A| / (|A| + |B|) \in [0,1]$. Observe that this corresponds to binomial data with a proportion $p$, and population standard deviation $\sigma = \sqrt{p(1-p)}$. By the above, we have that the $100(1-\alpha)\%$ confidence interval of the sample estimate $\overline{p}_m$ of $p$, obtained from $m$ samples, is
 \[\left[\overline{p}_m - z_{\frac{\alpha}{2}}\sqrt{\frac{p(1-p)}{m}} , \overline{p}_m + z_{\frac{\alpha}{2}}\sqrt{\frac{p(1-p)}{m}}\right]. \]
 
-At every step $m$ of the sampling procedure, we compute the sample estimate $\overline{p}_m$ and we estimate the standard deviation $\sigma$ as $\sqrt{\overline{p}_m(1-\overline{p}_m)}$. If $z_{\frac{\alpha}{2}}\sqrt{\frac{p(1-p)}{m}} / \overline{p}_m$ is less than a relative error $\varepsilon \in [0,1]$ given as input accuracy parameter, then we stop and report $\overline{p}_m$ as estimate for $p$; otherwise we increase the sample size $m$.
+We compute the sample estimate $\overline{p}_m$ and we estimate the standard deviation $\sigma$ as $\hat{\sigma} := \sqrt{\overline{p}_m(1-\overline{p}_m)}$. If the margin of error $z_{\frac{\alpha}{2}}\hat{\sigma}$ is less than $\varepsilon \overline{p}_m$, where $\varepsilon \in [0,1]$ is an input accuracy parameter, we stop and report $\overline{p}_m$ as estimate for $p$; otherwise we increase the sample size $m$.
 
-The sampling procedure for the average unitig length in $\DB$ requires estimating the inverse of a proportion, $q = 1/p$, where $p \in [0,1]$. If $\varepsilon'$ is an input accuracy parameter for $q$, then we can estimate $q$ as $\overline{q} = 1/\overline{p}$, where $\overline{p}$ is the estimate of $p$ obtained as above, with accuracy parameter $\varepsilon = 1/(1+\varepsilon') - 1$. 
+The sampling procedure for the average unitig length in $\DB$ requires estimating the inverse of a proportion, $q = 1/p$, where $p \in [0,1]$. We estimate $q$ as $\hat{q} := 1/\overline{p}$, where $\overline{p}$ is obtained as above. If $\varepsilon'$ is an input accuracy parameter for $q$, then we require that $\overline{p}$ has accuracy $\varepsilon = 1/(1+\varepsilon') - 1$. \kristoffer{I stop here with the note that I have to clarify the last part in this section (i.e f=1/p) a bit. Also, we need to illustrate how it works in practice (inital estimate, then updating sample size as we go for a fixed epsilon= say 0.05)}
 
 
 \medskip
@@ -467,10 +441,10 @@ The sampling procedure for the average unitig length in $\DB$ requires estimatin
 
 To estimate the E-size, we will sample unitig string lengths $x_1,x_2,\dots,x_m$, and obtain estimates $\overline{x}_m := \sum_{i=1}^{m} x_i/m$ of $E[X]$ and $\overline{x^2}_m := \sum_{i=1}^{m} x_i^2/m$ of $\E[X^2]$. Recall that these two estimates are random variables themselves, since for a different sample we will get different estimates. For a given sample size $m$, let $X^1_{m}$ and $X^2_{m}$ be random variables over the sample distribution of $\overline{x}_m$ and of $\overline{x^2}_m$, respectively. Let also $Y_m$ be the random variable defined as $X^2_m/X^1_m$. Since $\E[Y_m] = \esize(\U)$ (which holds for any given unbiased estimator), we can report the sample estimate $\overline{y}_m$ for $Y_m$ as our estimate for the E-size. 
 
-In order to get a confidence interval of $\overline{y}_m$, we need to derive the standard deviation of $Y_m$, which we denote by $\sigma_{Y_m}$. If ... is ..., then the first order Taylor expansion gives a good estimation of $\sigma_{Y_m}^2$ \cite{Benaroya:2005aa}:
+In order to get a confidence interval of $\overline{y}_m$, we need to derive the standard deviation of $Y_m$, which we denote by $\sigma_{Y_m}$. \kristoffer{If ... is ..., then the first order Taylor expansion} gives a good estimation of $\sigma_{Y_m}^2$ \cite{Benaroya:2005aa}:
 \[\sigma_{Y_m}^2 = \Var\left[Y_m\right] = \Var\left[\frac{X^2_m}{X^1_m}\right] \approx \frac{\Var\left[X^2_m\right]}{\E\left[X^1_m\right]^2} -2\frac{\E\left[X^2_m\right]}{\E\left[X^1_m\right]^3}\Cov\left[X^2_m,X^1_m\right] + \frac{E\left[X^2_m\right]^2}{E\left[X^1_m\right]^4}\Var\left[X^1_m\right].\] 
 
-We estimate $\sigma_{Y_m}$ by $\overline{\sigma}_{Y_m}$, obtained by estimating the expressions in the above formula as:
+We estimate $\sigma_{Y_m}$ by $\hat{\sigma}_{Y_m}$, obtained by estimating the expressions in the above formula as:
 \begin{itemize}
 \item $\E[X^1_m]$ as $\overline{x}_m$, and $\E[X^2_m]$ as $\overline{x^2}_m$;
 \item $\Var[X^1_m]$ as $1/(m-1) \sum_{i = 1}^{m} (x_i - \overline{x}_m)^2$, and $\Var[X^2_m]$ as $1/(m-1) \sum_{i = 1}^{m} (x_i^2 - \overline{x^2}_m)^2$;
@@ -480,9 +454,9 @@ We estimate $\sigma_{Y_m}$ by $\overline{\sigma}_{Y_m}$, obtained by estimating 
 %\[\Cov[\overline{x^2},\overline{x}] = \Cov\left[\frac{1}{m}\sum_{i=1}^{m} x^2_i, \frac{1}{m}\sum_{i=1}^{m} x_i\right] = \frac{1}{m^2}\sum_{i= 1}^{m}\Cov\left[x^2_i,x_i\right] = \frac{\Cov\left[X^2,X\right]}{m}\]
 \end{itemize}
 
-To summarize, we sample unitigs as described in the previous section and obtain samples $x_1,\dots, x_m$. By the above, we are able to approximate with $\overline{\sigma}_{Y_m}$ the standard deviation $\sigma_{Y_m}$ of our E-size estimate $\overline{y}_m$. Applying the Central Limit Theorem, we obtain a confidence interval for our E-size estimate $\overline{y}_m$ as 
-\[\left[\overline{y}_m - z_{\frac{\alpha}{2}}\sigma_{Y^m} \;,\; \overline{y}_m + z_{\frac{\alpha}{2}}\sigma_{Y^m}\right]. \]
-If $z_{\frac{\alpha}{2}}\overline{\sigma}_{Y_m} / \overline{y}_m$ is less than a relative error $\varepsilon \in [0,1]$ given as input accuracy parameter, then we stop and report $\overline{y}_m$ as estimate for the E-size; otherwise we continue sampling more unitigs.
+To summarize, we sample unitigs as described in the previous section and obtain samples $x_1,\dots, x_m$. Applying the Central Limit Theorem, we obtain a confidence interval for our E-size estimate $\overline{y}_m$ as 
+\[\left[\overline{y}_m - z_{\frac{\alpha}{2}}\sigma_{Y_m} \;,\; \overline{y}_m + z_{\frac{\alpha}{2}}\sigma_{Y_m}\right], \]
+where we substitute the standard deviation of our E-size estimate $\overline{y}_m$ with $\hat{\sigma}_{Y_m}$. If the margin of error $z_{\frac{\alpha}{2}}\hat{\sigma}_{Y_m}$ is less than $\varepsilon \overline{y}_m$, where $\varepsilon \in [0,1]$ is an input accuracy parameter, we stop and report $\overline{y}_m$ as estimate for the E-size; otherwise we continue sampling more unitigs.
 
 \section{Results and discussion} % (fold)
 \label{sec:results_and_discussion}
