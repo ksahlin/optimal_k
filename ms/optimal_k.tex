@@ -254,10 +254,13 @@ Since not all start node abundances are equal, we need to remove the bias in ove
 \label{eqn:e-size}
 \end{equation}
 
-Since we cannot afford to sample all $k$-mers in $\K_k$, we sample a random subset of them, which produces a multiset $W = \{w_1,\dots,w_m\}$ of unitigs. The above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
-\[\hat{{\sf E}}_{\sf size} := \frac{\sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}}.\]
-In Section~\ref{sec:sampling-accuracy} we discuss how may unitigs we need to sample to accurately estimate the E-size.
-
+Since we cannot afford to sample all $k$-mers in $\K_k$, we will sample a random subset of them, which produces a multiset $W = \{w_1,\dots,w_m\}$ of unitigs. The above relation (\ref{eqn:e-size}) shows that we can estimate $\esize(\U)$ as 
+\begin{equation}
+%\frac{\sum_{i = 1}^m \frac{1}{\abu(w_i)} \sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i = 1}^m \frac{1}{\abu(w_i)} \sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}} = 
+\frac{\sum_{i = 1}^{m}\frac{|w_i|^2}{\alpha(w_i)}}{\sum_{i=1}^{m}\frac{|w_i|}{\alpha(w_i)}}.
+\label{eqn-esize-estimate}
+\end{equation}
+In Section~\ref{sec:sampling-accuracy} we show the details for implementing this estimate and derive a method to sample it accurately.
 
 \begin{algorithm}[h]
 \caption{Computing the lengths of all unitigs starting at a $k$-mer $x$ in $\DB$, for all abundances in an interval $[A_1,A_2]$. The output is an array $length$ of lists such that $length[a]$ is the list of lengths of all unitigs starting at $x$ in $\DB$, for all $a \in [A_1,A_2]$. The sub-routine {\bf extendUnitig}$(y,A_1,A_2)$ is described in Algorithm~\ref{alg:extending-unitig}.\label{alg:sampling-for-esize}}
@@ -419,7 +422,7 @@ $A_1' = A_1$; $A_2' = A_2$\;
 
 % section methods (end)
 
-\subsection{Sampling accuracy}
+\subsection{Sampling accuracy\label{sec:sampling-accuracy}}
 
 Let $Y$ be a random variable, from a distribution with finite mean $\mu$ and finite non-zero variance $\sigma^2$. By the Central Limit Theorem, the $100(1-\alpha)\%$ two-sided confidence interval of the sample mean $\overline{y}$ approaches 
 \[\left[\overline{y} - z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}} \;, \; \overline{y} + z_{\frac{\alpha}{2}}\frac{\sigma}{\sqrt{m}}\right] \]
@@ -429,17 +432,32 @@ as the number of samples $m$ increases. In the above, $z_{\frac{\alpha}{2}}$ den
 \noindent\textbf{Sampling accuracy of a proportion}. Our sampling procedure for the number of nodes and the number of unitigs of $\DB$ can be interpreted as sampling from a population partitioned as $A \cup B$, and estimating the proportion $p = |A| / (|A| + |B|) \in [0,1]$. Observe that this corresponds to binomial data with a proportion $p$, and population standard deviation $\sigma = \sqrt{p(1-p)}$. By the above, we have that the $100(1-\alpha)\%$ confidence interval of the sample estimate $\overline{p}_m$ of $p$, obtained from $m$ samples, is
 \[\left[\overline{p}_m - z_{\frac{\alpha}{2}}\sqrt{\frac{p(1-p)}{m}} , \overline{p}_m + z_{\frac{\alpha}{2}}\sqrt{\frac{p(1-p)}{m}}\right]. \]
 
-We compute the sample estimate $\overline{p}_m$ and we estimate the standard deviation $\sigma$ as $\hat{\sigma} := \sqrt{\overline{p}_m(1-\overline{p}_m)}$. If the margin of error $z_{\frac{\alpha}{2}}\hat{\sigma}$ is less than $\varepsilon \overline{p}_m$, where $\varepsilon \in [0,1]$ is an input accuracy parameter, we stop and report $\overline{p}_m$ as estimate for $p$; otherwise we increase the sample size $m$.
+We compute the sample estimate $\overline{p}_m$ and we estimate the standard deviation $\sigma$ as $\hat{\sigma} := \sqrt{\overline{p}_m(1-\overline{p}_m)}$. If the margin of error $z_{\frac{\alpha}{2}}\hat{\sigma}$ is less than $\varepsilon \overline{p}_m$, where $\varepsilon \in [0,1)$ is an input accuracy parameter, we stop and report $\overline{p}_m$ as estimate for $p$; otherwise we increase the sample size $m$. 
 
-The sampling procedure for the average unitig length in $\DB$ requires estimating the inverse of a proportion, $q = 1/p$, where $p \in [0,1]$. We estimate $q$ as $\hat{q} := 1/\overline{p}$, where $\overline{p}$ is obtained as above. If $\varepsilon'$ is an input accuracy parameter for $q$, then we require that $\overline{p}$ has accuracy $\varepsilon = 1/(1+\varepsilon') - 1$. \kristoffer{I stop here with the note that I have to clarify the last part in this section (i.e f=1/p) a bit. Also, we need to illustrate how it works in practice (inital estimate, then updating sample size as we go for a fixed epsilon= say 0.05)}
-
+The sampling procedure for the average unitig length in $\DB$ requires estimating the inverse of a proportion, $q = 1/p$, where $p \in [0,1]$. We estimate $q$ as $\hat{q} := 1/\overline{p}$, where $\overline{p}$ is obtained as above. If $\delta \in [0,1)$ is an input accuracy parameter for $q$, we want to choose $\varepsilon$ as a function of $\delta$ so that $q (1 - \delta) \leq \hat{q} \leq q (1 + \delta)$ holds. Since $(1 - \varepsilon)p \leq \overline{p} \leq (1 + \varepsilon)p$, by the definition of $\hat{q}$ we have
+\begin{align*}
+\frac{1}{p} \frac{1}{1 + \varepsilon} \leq & \hat{q} \leq \frac{1}{p} \frac{1}{1 - \varepsilon}.
+\end{align*}
+%and we require 
+%\begin{align*}
+%q (1 - \delta) \leq & \hat{q} \leq q (1 + \delta).
+%\end{align*}
+Therefore, we need to choose $\varepsilon$ such that
+\[q (1 - \delta) \leq \frac{1}{p} \frac{1}{1 + \varepsilon} \leq \hat{q} \leq \frac{1}{p} \frac{1}{1 - \varepsilon} \leq q (1+\delta).\]
+This implies that
+\[\varepsilon \leq \frac{\delta}{1 + \delta} \text{  and  } \varepsilon \leq \frac{\delta}{1-\delta},\]
+where the first inequality is a tighter constraint. For example, if $\delta = 5\%$, then $\varepsilon = 4.76\%$.
 
 \medskip
 \noindent\textbf{Sampling accuracy of E-size}. If $x \in \mathbb{N}$, then the string lengths of all unitigs in $\DB$ induces a distribution $f(x)$, and let $X$ be random variable over $f(x)$. From the definition (\ref{eq:esize}), we get
 
 \[\esize(\U) = \frac{\sum_{w \in \U}|w|^2}{\sum_{w \in \U}|w|} = \frac{\sum_{x \in \mathbb{N}} x^2 f(x)}{\sum_{x \in \mathbb{N}} xf(x)} =  \frac{\E[X^2]}{\E[X]}.\]
 
-To estimate the E-size, we will sample unitig string lengths $x_1,x_2,\dots,x_m$, and obtain estimates $\overline{x}_m := \sum_{i=1}^{m} x_i/m$ of $E[X]$ and $\overline{x^2}_m := \sum_{i=1}^{m} x_i^2/m$ of $\E[X^2]$. Recall that these two estimates are random variables themselves, since for a different sample we will get different estimates. For a given sample size $m$, let $X^1_{m}$ and $X^2_{m}$ be random variables over the sample distribution of $\overline{x}_m$ and of $\overline{x^2}_m$, respectively. Let also $Y_m$ be the random variable defined as $X^2_m/X^1_m$. Since $\E[Y_m] = \esize(\U)$ (which holds for any given unbiased estimator), we can report the sample estimate $\overline{y}_m$ for $Y_m$ as our estimate for the E-size. 
+To estimate the E-size, we will sample unitig string lengths $x_1,x_2,\dots,x_m$, and obtain estimates $\overline{x}_m := 1/m\sum_{i=1}^{m} x_i$ of $\E[X]$ and $\overline{x^2}_m := 1/m\sum_{i=1}^{m} x_i^2$ of $\E[X^2]$. Notice that our unitig sampling algorithm from Section~\ref{sub:algorithm} normalizes each unitig length $x_i$ with the abundance $a_i$ of its start node. For instance, $\overline{x}_m$ is in fact calculated as 
+\[\overline{x}_m: = \frac{1}{\sum_{i = 1}^m \frac{1}{a_i}}{\sum_{i=1}^{m} \frac{x_i}{a_i}}.\]
+However, to simplify the presentation in the following paragraphs, we will omit normalizing with the abundance. The true formulas are obtained by systematic replacement of $m$ with $\sum_{i = 1}^m 1/a_i$, of each $x_i$ with $x_i/a_i$, and of each $x_i^2$ with $x_i^2/a_i$. This is important when we estimate the accuracy of the estimates, since $\sum_{i = 1}^m 1/a_i$ grows slower than $m$, as the number of samples $m$ increases.
+
+Recall that the estimates $\overline{x}_m$ and $\overline{x^2}_m$ are random variables themselves, since for a different sample we will get different estimates. For a given sample size $m$, let $X^1_{m}$ and $X^2_{m}$ be random variables over the sample distribution of $\overline{x}_m$ and of $\overline{x^2}_m$, respectively. Let also $Y_m$ be the random variable defined as $X^2_m/X^1_m$. Since $\E[Y_m] = \esize(\U)$ (which holds for any given unbiased estimator), we can report the sample estimate $\overline{y}_m$ for $Y_m$ as our estimate for the E-size. 
 
 In order to get a confidence interval of $\overline{y}_m$, we need to derive the standard deviation of $Y_m$, which we denote by $\sigma_{Y_m}$. \kristoffer{If ... is ..., then the first order Taylor expansion} gives a good estimation of $\sigma_{Y_m}^2$ \cite{Benaroya:2005aa}:
 \[\sigma_{Y_m}^2 = \Var\left[Y_m\right] = \Var\left[\frac{X^2_m}{X^1_m}\right] \approx \frac{\Var\left[X^2_m\right]}{\E\left[X^1_m\right]^2} -2\frac{\E\left[X^2_m\right]}{\E\left[X^1_m\right]^3}\Cov\left[X^2_m,X^1_m\right] + \frac{E\left[X^2_m\right]^2}{E\left[X^1_m\right]^4}\Var\left[X^1_m\right].\] 
@@ -447,8 +465,8 @@ In order to get a confidence interval of $\overline{y}_m$, we need to derive the
 We estimate $\sigma_{Y_m}$ by $\hat{\sigma}_{Y_m}$, obtained by estimating the expressions in the above formula as:
 \begin{itemize}
 \item $\E[X^1_m]$ as $\overline{x}_m$, and $\E[X^2_m]$ as $\overline{x^2}_m$;
-\item $\Var[X^1_m]$ as $1/(m-1) \sum_{i = 1}^{m} (x_i - \overline{x}_m)^2$, and $\Var[X^2_m]$ as $1/(m-1) \sum_{i = 1}^{m} (x_i^2 - \overline{x^2}_m)^2$;
-\item $\Cov[X^2_m,X^1_m]$ as $1/(m-1) \sum_{i=1}^{m} (x_i - \overline{x}_m)(x_i^2 - \overline{x^2}_m)$. 
+\item $\Var[X^1_m]$ as $1/m \sum_{i = 1}^{m} (x_i - \overline{x}_m)^2$, and $\Var[X^2_m]$ as $1/m \sum_{i = 1}^{m} (x_i^2 - \overline{x^2}_m)^2$;
+\item $\Cov[X^2_m,X^1_m]$ as $1/m \sum_{i=1}^{m} (x_i - \overline{x}_m)(x_i^2 - \overline{x^2}_m)$. 
 
 %$\E[X^2_mZ^1_m] - \E[Z^2_m]\E[Z^1_m]$, which we estimate as $\left(\sum_{i=1}^{m} x_i^3\right) - \overline{x}\cdot \overline{x^2}$. This comes from the fact that the samples are independently and identically distributed and thus it holds that 
 %\[\Cov[\overline{x^2},\overline{x}] = \Cov\left[\frac{1}{m}\sum_{i=1}^{m} x^2_i, \frac{1}{m}\sum_{i=1}^{m} x_i\right] = \frac{1}{m^2}\sum_{i= 1}^{m}\Cov\left[x^2_i,x_i\right] = \frac{\Cov\left[X^2,X\right]}{m}\]
