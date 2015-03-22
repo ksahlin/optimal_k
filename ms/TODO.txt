@@ -38,12 +38,6 @@ Alex:
 
 AGENDA:
 - Automatically choose highest kmer size OR stop at some value of k
-- [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
-- Derive an sample size estimate for E-size
-- maybe drop estimation for 
+- [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs (maybe drop estimation for number of unitigs)
 
 PAPER:
-- improve discussion on sampling algorithms
-- explain the idea behind getting all abundances at the same time
-- FIX notation for nb of unitigs and avg unitig length (when summing over start nodes)
-- See how the formulas hold for reverse complements
