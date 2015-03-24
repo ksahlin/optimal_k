@@ -6,6 +6,8 @@
 #define MIN_SAMPLE_SIZE_UNITIGS 500
 #define MAX_SAMPLE_SIZE_UNITIGS 5000
 #define RATIO_SAMPLE_SIZE_UNITIGS 0.05
+#define ESIZE_UPDATE_STATS_STEP 5000
+#define ESIZE_MAX_SAMPLED_UNITIGS 50000
 
 uint32_t N_THREADS;
 
@@ -53,7 +55,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	const uint32_t k,
 	const uint32_t min_abundance,
 	const uint32_t max_abundance,
-	const vector<compact_read>& reads,
+	const vector<compact_read_t>& reads,
 	const uint64_t &reads_total_content,
 	const uint64_t &reads_number,
 	const uint64_t &reads_max_length,
@@ -63,7 +65,11 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &n_starts,
 	vector<double> &n_nodes,
 	vector<double> &n_unitigs,
-	vector<double> &e_size
+	vector<double> &avg_unitig_length,
+	vector<double> &avg_unitig_length_error,
+	vector<double> &e_size,
+	vector<double> &e_size_error,
+	double relative_error
 	)
 {
 	uint64_t total_kmers = reads_total_content - (k - 1) * reads_number;
@@ -89,6 +95,14 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> e_size_sum_length(max_abundance + 1, 0);
 	vector<double> e_size_sum_length_squared(max_abundance + 1, 0);
 
+	vector<double> e_size_e_x(max_abundance + 1, 0);
+	vector<double> e_size_e_x2(max_abundance + 1, 0);
+	vector<double> e_size_var_x(max_abundance + 1, 0);
+	vector<double> e_size_var_x2(max_abundance + 1, 0);
+	vector<double> e_size_cov_x2_x(max_abundance + 1, 0);
+	vector< vector<unitig_t> > sampled_unitigs(max_abundance + 1);
+	unordered_map<string, vector< vector<uint64_t> > > stored_sampled_unitigs;
+
 
 	// initializing the variables controlling the sample size
 	uint64_t n_sampled_kmers = 0;
@@ -110,6 +124,7 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	uint32_t min_abundance_unitigs = min_abundance;
 	uint64_t n_total_sampled_unitigs = 0;
+	uint64_t n_total_sampled_unitigs_reset = 0;
 	// omp_set_dynamic(0);
 	// shared(sampled_enough_start_or_internal_nodes,sampled_enough_unitigs)
 	#pragma omp parallel for num_threads(N_THREADS)
@@ -130,7 +145,7 @@ void sample_nodes(const RLCSA* rlcsa,
 			{
 				read_index = uniform_read_distribution(generator);	
 			}
-			compact_read cread = reads[read_index];
+			compact_read_t cread = reads[read_index];
 			if (cread.length < k)
 			{
 				continue;
@@ -165,7 +180,16 @@ void sample_nodes(const RLCSA* rlcsa,
     		{	
 	        	// computing E-size estimates
 				vector< vector<uint64_t> > u_length(max_abundance + 1);
-    			get_unitig_stats_SMART(sample, sample_abundance, rlcsa, min_abundance_unitigs, for_limit, u_length);
+				if (stored_sampled_unitigs.count(sample) == 0)
+				{
+					get_unitig_stats_SMART(sample, sample_abundance, rlcsa, min_abundance_unitigs, for_limit, u_length);	
+					std::pair<string, vector< vector<uint64_t> > > new_sample (sample,u_length);
+					stored_sampled_unitigs.insert(new_sample);
+				}
+				else
+				{
+					u_length = stored_sampled_unitigs[sample];
+				}
 				
     			for (uint32_t a = min_abundance_unitigs; a <= for_limit; a++)
     			{
@@ -173,33 +197,79 @@ void sample_nodes(const RLCSA* rlcsa,
     				n_sampled_unitigs[a] += u_length[a].size();
     				#pragma omp atomic
     				n_total_sampled_unitigs += u_length[a].size();
+    				#pragma omp atomic
+    				n_total_sampled_unitigs_reset += u_length[a].size();
     				for (auto length : u_length[a])
     				{
-    					#pragma omp atomic
-   						e_size_sum_length[a] += (double)(length + k - 1) / sample_abundance;;
-   						#pragma omp atomic
-    					e_size_sum_length_squared[a] += (length + k - 1) * (double)(length + k - 1) / sample_abundance;;
+    					unitig_t new_unitig;
+    					new_unitig.length = length + k - 1;
+    					new_unitig.abundance = sample_abundance;
+    					#pragma omp critical 
+    					sampled_unitigs[a].push_back(new_unitig);
     				}
     			}
-    			// only Master gets to update which is the min_abundance_unitigs
+    			// only Master gets to update the unitig stats
     			if (omp_get_thread_num() == 0)
     			{
-    				if (n_sampled_unitigs[min_abundance_unitigs] >= sample_size_unitigs[min_abundance_unitigs])
+    				if (n_total_sampled_unitigs_reset > ESIZE_UPDATE_STATS_STEP)
 	    			{
-	    				min_abundance_unitigs++;
-	    				// cout << "min_abundance_unitigs = " << min_abundance_unitigs << endl;
-	    				// cout << "n_total_sampled_unitigs = " << n_total_sampled_unitigs << endl;
-	    				// for (uint32_t a = min_abundance; a <= max_abundance; a++)
-	    				// {
-	    				// 	cout << "n_sampled_unitigs[" << a << "]=" << n_sampled_unitigs[a] << endl;
-	    				// }
-	    			}	
+	    				bool sampled_enough_unitigs_temp = true;
+	    				n_total_sampled_unitigs_reset = 0;
+
+	    				#pragma omp critical
+	    				{
+	    					for (uint32_t a = min_abundance; a <= max_abundance; a++)
+	    					{
+	    						double e_x = 0;
+	    						double e_x2 = 0;
+	    						double var_x = 0;
+	    						double var_x2 = 0;
+	    						double cov_x2_x = 0;
+	    						double sum_1a = 0;
+	    						for (auto unitig : sampled_unitigs[a])
+	    						{
+	    							e_x += unitig.length * (double)1 / unitig.abundance;
+	    							e_x2 += pow(unitig.length, 2) * (double)1 / unitig.abundance;
+	    							sum_1a += (double)1 / unitig.abundance;
+	    						}
+	    						e_x = e_x * (double)1 / sum_1a;
+	    						e_x2 = e_x2 * (double)1 / sum_1a;
+	    						for (auto unitig : sampled_unitigs[a])
+	    						{
+	    							var_x += pow(unitig.length * (double)1 / unitig.abundance - e_x, 2);
+	    							var_x2 += pow(pow(unitig.length,2) * (double)1 / unitig.abundance - e_x2, 2);
+	    							cov_x2_x += (pow(unitig.length,2) * (double)1 / unitig.abundance - e_x2) * (unitig.length * (double)1 / unitig.abundance - e_x);
+	    						}
+	    						var_x = var_x * (double)1 / sum_1a;
+	    						var_x2 = var_x2 * (double)1 / sum_1a;
+	    						cov_x2_x = cov_x2_x * (double)1 / sum_1a;
+
+	    						double sigma = sqrt(var_x2 / pow(e_x,2) - 2 * e_x2 / pow(e_x,3) * cov_x2_x + pow(e_x2,2) / pow(e_x,4) * var_x);
+	    						double esize = e_x2 / e_x; 
+	    						e_size[a] = esize;
+	    						e_size_error[a] = TWOSIDED95P_QUANTILE * sigma / esize;
+	    						avg_unitig_length[a] = e_x;
+	    						avg_unitig_length_error[a] = TWOSIDED95P_QUANTILE * sqrt(var_x / sampled_unitigs[a].size()) / e_x;
+
+	    						if (e_size_error[a] > relative_error)
+	    						{
+	    							sampled_enough_unitigs_temp = false;
+	    						}
+	    					}	
+	    				}
+	    				sampled_enough_unitigs = sampled_enough_unitigs_temp;
+	    			}
+	    			bool sampled_enough_unitigs_temp = true;
+	    			for (uint32_t a = min_abundance; a <= max_abundance; a++)
+	    			{
+	    				if (n_sampled_unitigs[a] < ESIZE_MAX_SAMPLED_UNITIGS)
+	    				{
+	    					sampled_enough_unitigs_temp = false;
+	    					break;
+	    				}
+	    			}
+	    			sampled_enough_unitigs = sampled_enough_unitigs_temp;
     			}
-    			if (min_abundance_unitigs > max_abundance)
-	    		{
-	    			#pragma omp critical
-	    			sampled_enough_unitigs = true;		
-	    		}
     		}
 
     		// computing the other estimates
@@ -237,7 +307,11 @@ void sample_nodes(const RLCSA* rlcsa,
     	} 
 	}
 
-	cout << "Sampled " << n_total_sampled_unitigs << " unitigs " << endl;
+	cout << "Sampled " << n_total_sampled_unitigs << " unitigs out of which" << endl;
+	for (uint32_t a = min_abundance; a <= max_abundance; a++)
+	{
+		cout << n_sampled_unitigs[a] << " for abundance " << a << endl;
+	}
 
 	if (not sampled_enough_start_or_internal_nodes)
 	{
@@ -253,7 +327,6 @@ void sample_nodes(const RLCSA* rlcsa,
 		assert(n_sampled_kmers > 0);
 		n_nodes[a] = total_kmers / n_sampled_kmers * n_sampled_nodes_weighted[a];
 		n_unitigs[a] = total_kmers / n_sampled_kmers * n_starts[a];
-		e_size[a] = e_size_sum_length_squared[a] / e_size_sum_length[a];
 	}
 }
 
@@ -361,7 +434,7 @@ int main(int argc, char** argv)
 		return EXIT_FAILURE;
 	}
 
-	// compact_read cread = encode_string("ACTTGGTACAT");
+	// compact_read_t cread = encode_string("ACTTGGTACAT");
 	// for (uint32_t pos = 0; pos < 11; pos++)
 	// {
 	// 	cout << "pos = " << pos << endl;
@@ -416,7 +489,7 @@ int main(int argc, char** argv)
  	// rlcsa->reportSize(true);
  	cout << "*** Loaded the RLCSA index " << endl;
 
- 	vector<compact_read> reads;
+ 	vector<compact_read_t> reads;
  	uint64_t reads_total_content, reads_number;
  	uint32_t reads_max_length, reads_min_length;
  	// we load the reads
@@ -432,7 +505,6 @@ int main(int argc, char** argv)
 
  	uint64_t total_kmers_for_mink = reads_total_content - (mink - 1) * reads_number;
  	vector<double> n_nodes(max_abundance + 1, total_kmers_for_mink / 2), n_unitigs(max_abundance + 1, total_kmers_for_mink / 2);
- 	vector<double> e_size(max_abundance + 1,1);
 
     if (maxk == 0)
     {
@@ -453,6 +525,11 @@ int main(int argc, char** argv)
 
  	for (uint32_t k = mink; k <= maxk; k++)
  	{
+ 		vector<double> e_size(max_abundance + 1,1);
+ 		vector<double> e_size_error(max_abundance + 1,1);
+ 		vector<double> avg_unitig_length(max_abundance + 1,1);
+ 		vector<double> avg_unitig_length_error(max_abundance + 1,1);
+
  		// getting the sample size
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
  		{
@@ -481,7 +558,25 @@ int main(int argc, char** argv)
  		}
 
  		// sampling
- 		sample_nodes(rlcsa, k, min_abundance, max_abundance, reads, reads_total_content, reads_number, reads_max_length, sample_size_start_or_internal_nodes, sample_size_unitigs, n_internal, n_starts, n_nodes, n_unitigs, e_size);	
+ 		sample_nodes(rlcsa, 
+ 			k, 
+ 			min_abundance, 
+ 			max_abundance, 
+ 			reads, 
+ 			reads_total_content, 
+ 			reads_number, 
+ 			reads_max_length, 
+ 			sample_size_start_or_internal_nodes, 
+ 			sample_size_unitigs, 
+ 			n_internal, 
+ 			n_starts, 
+ 			n_nodes, 
+ 			n_unitigs, 
+ 			avg_unitig_length,
+ 			avg_unitig_length_error,
+ 			e_size,
+ 			e_size_error,
+ 			relative_error);	
 
  		// pruint32_ting the results
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
@@ -501,7 +596,7 @@ int main(int argc, char** argv)
 			outputFile[a] << endl; 
 			//outputFile[a].flush();
 
-	 		cout << k << " " << a << " avg internal nodes=" << (uint64_t)avg_nodes_unitig << " avg length=" << (uint64_t)avg_nodes_unitig + k + 1 << " n_nodes=" << (uint64_t)n_nodes[a] << " n_unitigs=" << (uint64_t)n_unitigs[a] << " e_size=" << e_size[a] << " ess=" << (uint64_t)sample_size_start_or_internal_nodes[a] << endl;
+	 		cout << k << " " << a << " avg internal nodes=" << (uint64_t)avg_nodes_unitig << " avg length=" << (uint64_t)avg_nodes_unitig + k + 1 << " = " << avg_unitig_length[a] << " rel_err=" << avg_unitig_length_error[a] << " n_nodes=" << (uint64_t)n_nodes[a] << " n_unitigs=" << (uint64_t)n_unitigs[a] << " e_size=" << e_size[a] << " rel_err=" << e_size_error[a] << " ess=" << (uint64_t)sample_size_start_or_internal_nodes[a] << endl;
 	 		cout.flush();
  		}
  	}

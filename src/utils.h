@@ -8,6 +8,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <unordered_set>
+#include <unordered_map>
 #include <omp.h>
 #include <algorithm>
 #include <string>
@@ -32,10 +33,16 @@ using namespace std;
 
 #define READ_PROPORTION 0.5
 
-struct compact_read 
+struct compact_read_t
 {
     unsigned char *read; // the encoded read
     uint16_t length; // the length of the original read
+};
+
+struct unitig_t
+{
+    uint64_t length; 
+    uint64_t abundance;
 };
 
 inline char reverse_complement_char(char c)
@@ -85,7 +92,7 @@ inline void make_upper_case(string& s)
     }
 }
 
-inline string decode_substring(const compact_read& cread, const uint32_t &start, uint32_t length)
+inline string decode_substring(const compact_read_t& cread, const uint32_t &start, uint32_t length)
 {
     string read = "";
     if (start >= cread.length)
@@ -137,9 +144,9 @@ inline string decode_substring(const compact_read& cread, const uint32_t &start,
     return read;
 }
 
-inline compact_read encode_string(const string& s)
+inline compact_read_t encode_string(const string& s)
 {
-    compact_read cread;
+    compact_read_t cread;
     cread.length = s.length();
     if (cread.length == 0)
     {
@@ -188,7 +195,7 @@ inline compact_read encode_string(const string& s)
 
 
 int get_reads(const string readFileName, 
-    vector<compact_read>& reads,
+    vector<compact_read_t>& reads,
     uint64_t &reads_total_content,
     uint64_t &reads_number,
     uint32_t &reads_max_length,

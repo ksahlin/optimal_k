@@ -2,7 +2,7 @@
 #include "utils.h"
 
 int get_reads(const string readFileName, 
-	vector<compact_read>& reads,
+	vector<compact_read_t>& reads,
 	uint64_t &reads_total_content,
 	uint64_t &reads_number,
 	uint32_t &reads_max_length,
