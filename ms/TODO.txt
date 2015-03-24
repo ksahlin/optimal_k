@@ -5,7 +5,7 @@ BOTH:
 Kristoffer:
 - Implement paralellizaton of jobs on uppmax with snakemake
 - Implement (separate) analysis of optimal-k vs unitiger (separate snakefile)
-- Implement Velvet into pipeline
+- Implement Velvet/ABySS into pipeline
 
 - Results:
 	- Methods:
@@ -32,18 +32,20 @@ Kristoffer:
 
 Alex:
 16 March ->
-- [DONE] ask Jouni about dependence between buffer size and RAM usage and add max RAM as input parameter
+- [DONE] ask Jouni about dependence between buffer size and RAM usage and add max RAM as input parameter (just add another parameter "medium memory", "low memory")
 - [DONE: Now we thin the reads at 0.5] maybe not keep the reads into RAM when sampling. TODO: keep as many as the peak memory during construction allows
 - [?] fix Unitiger on large datasets
+- nb unitigs is estimated only if --estnumunitigs is on
+- add columns "margin of error for n_nodes", "margin of error for n_unitigs", "margin of error for e_size": value
+- remove ess column
 
 AGENDA:
 - Automatically choose highest kmer size OR stop at some value of k
-- [DONE: but we need to cover corner cases, like p~0 or p~1] Implement sample size estimate for number of nodes, number of unitigs
-- Derive an sample size estimate for E-size
-- maybe drop estimation for 
+
 
 PAPER:
-- improve discussion on sampling algorithms
-- explain the idea behind getting all abundances at the same time
-- FIX notation for nb of unitigs and avg unitig length (when summing over start nodes)
-- See how the formulas hold for reverse complements
+- remove avg unitig length section
+- remove sample size for inverse of proportion
+- add statement of avg unitig length in E-size accuracy
+- add statement about sampling abundance bias in E-size accuracy
+- check Alg 3 and 4
