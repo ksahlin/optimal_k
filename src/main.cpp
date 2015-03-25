@@ -184,6 +184,7 @@ void sample_nodes(const RLCSA* rlcsa,
 				{
 					get_unitig_stats_SMART(sample, sample_abundance, rlcsa, min_abundance_unitigs, for_limit, u_length);	
 					std::pair<string, vector< vector<uint64_t> > > new_sample (sample,u_length);
+					#pragma omp critical
 					stored_sampled_unitigs.insert(new_sample);
 				}
 				else
@@ -226,39 +227,40 @@ void sample_nodes(const RLCSA* rlcsa,
 	    						double var_x2 = 0;
 	    						double cov_x2_x = 0;
 	    						double sum_1a = 0;
+	    						double sum_1a2 = 0;
 	    						for (auto unitig : sampled_unitigs[a])
 	    						{
 	    							e_x += unitig.length * (double)1 / unitig.abundance;
 	    							e_x2 += pow(unitig.length, 2) * (double)1 / unitig.abundance;
 	    							sum_1a += (double)1 / unitig.abundance;
+	    							sum_1a2 += pow((double)1 / unitig.abundance,2);
 	    						}
 	    						e_x = e_x * (double)1 / sum_1a;
 	    						e_x2 = e_x2 * (double)1 / sum_1a;
 	    						for (auto unitig : sampled_unitigs[a])
 	    						{
-	    							// var_x += pow(unitig.length * (double)1 / unitig.abundance - e_x, 2);
-	    							// var_x2 += pow(pow(unitig.length,2) * (double)1 / unitig.abundance - e_x2, 2);
-	    							// cov_x2_x += (pow(unitig.length,2) * (double)1 / unitig.abundance - e_x2) * (unitig.length * (double)1 / unitig.abundance - e_x);
-	    							// var_x += pow(unitig.length - e_x, 2) * (double)1 / unitig.abundance;
-	    							// var_x2 += pow(pow(unitig.length,2) - e_x2, 2) * (double)1 / unitig.abundance;
-	    							// cov_x2_x += (pow(unitig.length,2) - e_x2) * (unitig.length - e_x) * pow((double)1 / unitig.abundance, 2);
-	    							var_x += pow(unitig.length - e_x, 2);
-	    							var_x2 += pow(pow(unitig.length,2) - e_x2, 2);
-	    							cov_x2_x += (pow(unitig.length,2) - e_x2) * (unitig.length - e_x);
+	    							var_x += pow(unitig.length - e_x, 2) * (double)1 / unitig.abundance;
+	    							var_x2 += pow(pow(unitig.length,2) - e_x2, 2) * (double)1 / unitig.abundance;
+	    							cov_x2_x += (pow(unitig.length,2) - e_x2) * (unitig.length - e_x) * (double)1 / unitig.abundance;
 	    						}
-	    						// var_x = var_x * (double)1 / sum_1a;
-	    						// var_x2 = var_x2 * (double)1 / sum_1a;
-	    						// cov_x2_x = cov_x2_x * (double)1 / sum_1a;
-	    						var_x = var_x / sampled_unitigs[a].size();
-	    						var_x2 = var_x2 / sampled_unitigs[a].size();
-	    						cov_x2_x = cov_x2_x / sampled_unitigs[a].size();
+	    						var_x = var_x * (double)1 / sum_1a; // biased version
+	    						var_x = var_x / (1 - sum_1a2 / pow(sum_1a,2)); // unbiased version
+	    						var_x = var_x * sum_1a2 / pow(sum_1a,2); // what we want
+	    						
+	    						var_x2 = var_x2 * (double)1 / sum_1a; // biased version
+	    						var_x2 = var_x2 / (1 - sum_1a2 / pow(sum_1a,2)); // unbiased version
+	    						var_x2 = var_x2 * sum_1a2 / pow(sum_1a,2); // what we want
 
-	    						double sigma = sqrt(var_x2 / pow(e_x,2) - 2 * e_x2 / pow(e_x,3) * cov_x2_x + pow(e_x2,2) / pow(e_x,4) * var_x);
+	    						cov_x2_x = cov_x2_x * (double)1 / sum_1a; // biased version
+	    						cov_x2_x = cov_x2_x * sum_1a2 / pow(sum_1a, 2); // unbiased version and what we want
+
 	    						double esize = e_x2 / e_x; 
+	    						double sigma = sqrt(var_x2 / pow(e_x,2) - 2 * e_x2 / pow(e_x,3) * cov_x2_x + pow(e_x2,2) / pow(e_x,4) * var_x);
 	    						e_size[a] = esize;
 	    						e_size_error[a] = TWOSIDED95P_QUANTILE * sigma / esize;
+
 	    						avg_unitig_length[a] = e_x;
-	    						avg_unitig_length_error[a] = TWOSIDED95P_QUANTILE * sqrt(var_x / sampled_unitigs[a].size()) / e_x;
+	    						avg_unitig_length_error[a] = TWOSIDED95P_QUANTILE * sqrt(var_x) / e_x;
 
 	    						if (e_size_error[a] > relative_error)
 	    						{
@@ -271,7 +273,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	    			bool sampled_enough_unitigs_temp = true;
 	    			for (uint32_t a = min_abundance; a <= max_abundance; a++)
 	    			{
-	    				if (n_sampled_unitigs[a] < ESIZE_MAX_SAMPLED_UNITIGS)
+	    				if ((e_size_error[a] > relative_error) and (n_sampled_unitigs[a] < ESIZE_MAX_SAMPLED_UNITIGS))
 	    				{
 	    					sampled_enough_unitigs_temp = false;
 	    					break;
