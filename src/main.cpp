@@ -252,7 +252,8 @@ void sample_nodes(const RLCSA* rlcsa,
 	    						var_x2 = var_x2 * sum_1a2 / pow(sum_1a,2); // what we want
 
 	    						cov_x2_x = cov_x2_x * (double)1 / sum_1a; // biased version
-	    						cov_x2_x = cov_x2_x * sum_1a2 / pow(sum_1a, 2); // unbiased version and what we want
+	    						cov_x2_x = cov_x2_x / (1 - sum_1a2 / pow(sum_1a,2)); // unbiased version
+	    						cov_x2_x = cov_x2_x * sum_1a2 / pow(sum_1a, 2); // what we want
 
 	    						double esize = e_x2 / e_x; 
 	    						double sigma = sqrt(var_x2 / pow(e_x,2) - 2 * e_x2 / pow(e_x,3) * cov_x2_x + pow(e_x2,2) / pow(e_x,4) * var_x);
