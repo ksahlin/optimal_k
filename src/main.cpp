@@ -236,13 +236,22 @@ void sample_nodes(const RLCSA* rlcsa,
 	    						e_x2 = e_x2 * (double)1 / sum_1a;
 	    						for (auto unitig : sampled_unitigs[a])
 	    						{
-	    							var_x += pow(unitig.length * (double)1 / unitig.abundance - e_x, 2);
-	    							var_x2 += pow(pow(unitig.length,2) * (double)1 / unitig.abundance - e_x2, 2);
-	    							cov_x2_x += (pow(unitig.length,2) * (double)1 / unitig.abundance - e_x2) * (unitig.length * (double)1 / unitig.abundance - e_x);
+	    							// var_x += pow(unitig.length * (double)1 / unitig.abundance - e_x, 2);
+	    							// var_x2 += pow(pow(unitig.length,2) * (double)1 / unitig.abundance - e_x2, 2);
+	    							// cov_x2_x += (pow(unitig.length,2) * (double)1 / unitig.abundance - e_x2) * (unitig.length * (double)1 / unitig.abundance - e_x);
+	    							// var_x += pow(unitig.length - e_x, 2) * (double)1 / unitig.abundance;
+	    							// var_x2 += pow(pow(unitig.length,2) - e_x2, 2) * (double)1 / unitig.abundance;
+	    							// cov_x2_x += (pow(unitig.length,2) - e_x2) * (unitig.length - e_x) * pow((double)1 / unitig.abundance, 2);
+	    							var_x += pow(unitig.length - e_x, 2);
+	    							var_x2 += pow(pow(unitig.length,2) - e_x2, 2);
+	    							cov_x2_x += (pow(unitig.length,2) - e_x2) * (unitig.length - e_x);
 	    						}
-	    						var_x = var_x * (double)1 / sum_1a;
-	    						var_x2 = var_x2 * (double)1 / sum_1a;
-	    						cov_x2_x = cov_x2_x * (double)1 / sum_1a;
+	    						// var_x = var_x * (double)1 / sum_1a;
+	    						// var_x2 = var_x2 * (double)1 / sum_1a;
+	    						// cov_x2_x = cov_x2_x * (double)1 / sum_1a;
+	    						var_x = var_x / sampled_unitigs[a].size();
+	    						var_x2 = var_x2 / sampled_unitigs[a].size();
+	    						cov_x2_x = cov_x2_x / sampled_unitigs[a].size();
 
 	    						double sigma = sqrt(var_x2 / pow(e_x,2) - 2 * e_x2 / pow(e_x,3) * cov_x2_x + pow(e_x2,2) / pow(e_x,4) * var_x);
 	    						double esize = e_x2 / e_x; 
