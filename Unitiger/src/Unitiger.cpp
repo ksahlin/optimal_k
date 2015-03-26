@@ -85,10 +85,11 @@ int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abun
     {
         getline(readFile , line);
         readsString = line;
-
+        cout << "Filename on first line " << readsString << endl;
         while (getline(readFile , line)) // this is the comment line
         {
             readsString += "," + line;
+            cout << "Filename constructed so far " << readsString << endl;
         }
         readFile.close();            
     }
@@ -123,10 +124,12 @@ int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abun
         }
 
         BankFasta *b = new BankFasta(filecount, files);
+        cout << "building the graph from more files '" << readsString << "'" << endl;
         graph = Graph::create(b, (char const *)"-kmer-size %d -abundance %d -verbose 0 -nb-cores %d", k, abundance, nb_cores);
     } 
     else 
     {
+        cout << "building the graph from only one file '" << readsString << "'" << endl;
         graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -verbose 0 -nb-cores %d", readsString.c_str(), k, abundance, nb_cores);
     }
   

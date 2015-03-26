@@ -236,34 +236,34 @@ void sample_nodes(const RLCSA* rlcsa,
 	    						double var_x = 0;
 	    						double var_x2 = 0;
 	    						double cov_x2_x = 0;
-	    						double sum_1a = 0;
-	    						double sum_1a2 = 0;
+	    						double A1 = 0;
+	    						double A2 = 0;
 	    						for (auto unitig : sampled_unitigs[a])
 	    						{
 	    							e_x += unitig.length * (double)1 / unitig.abundance;
 	    							e_x2 += pow(unitig.length, 2) * (double)1 / unitig.abundance;
-	    							sum_1a += (double)1 / unitig.abundance;
-	    							sum_1a2 += pow((double)1 / unitig.abundance,2);
+	    							A1 += (double)1 / unitig.abundance;
+	    							A2 += pow((double)1 / unitig.abundance,2);
 	    						}
-	    						e_x = e_x * (double)1 / sum_1a;
-	    						e_x2 = e_x2 * (double)1 / sum_1a;
+	    						e_x = e_x * (double)1 / A1;
+	    						e_x2 = e_x2 * (double)1 / A1;
 	    						for (auto unitig : sampled_unitigs[a])
 	    						{
 	    							var_x += pow(unitig.length - e_x, 2) * (double)1 / unitig.abundance;
 	    							var_x2 += pow(pow(unitig.length,2) - e_x2, 2) * (double)1 / unitig.abundance;
 	    							cov_x2_x += (pow(unitig.length,2) - e_x2) * (unitig.length - e_x) * (double)1 / unitig.abundance;
 	    						}
-	    						var_x = var_x * (double)1 / sum_1a; // biased version
-	    						var_x = var_x / (1 - sum_1a2 / pow(sum_1a,2)); // unbiased version
-	    						var_x = var_x * sum_1a2 / pow(sum_1a,2); // what we want
+	    						var_x = var_x * (double)1 / A1; // biased version
+	    						var_x = var_x / (1 - A2 / pow(A1,2)); // unbiased version
+	    						var_x = var_x * A2 / pow(A1,2); // what we want
 	    						
-	    						var_x2 = var_x2 * (double)1 / sum_1a; // biased version
-	    						var_x2 = var_x2 / (1 - sum_1a2 / pow(sum_1a,2)); // unbiased version
-	    						var_x2 = var_x2 * sum_1a2 / pow(sum_1a,2); // what we want
+	    						var_x2 = var_x2 * (double)1 / A1; // biased version
+	    						var_x2 = var_x2 / (1 - A2 / pow(A1,2)); // unbiased version
+	    						var_x2 = var_x2 * A2 / pow(A1,2); // what we want
 
-	    						cov_x2_x = cov_x2_x * (double)1 / sum_1a; // biased version
-	    						cov_x2_x = cov_x2_x / (1 - sum_1a2 / pow(sum_1a,2)); // unbiased version
-	    						cov_x2_x = cov_x2_x * sum_1a2 / pow(sum_1a, 2); // what we want
+	    						cov_x2_x = cov_x2_x * (double)1 / A1; // biased version
+	    						cov_x2_x = cov_x2_x / (1 - A2 / pow(A1,2)); // unbiased version
+	    						cov_x2_x = cov_x2_x * A2 / pow(A1, 2); // what we want
 
 	    						double esize = e_x2 / e_x; 
 	    						double sigma = sqrt(var_x2 / pow(e_x,2) - 2 * e_x2 / pow(e_x,3) * cov_x2_x + pow(e_x2,2) / pow(e_x,4) * var_x);
