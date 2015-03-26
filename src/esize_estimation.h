@@ -331,7 +331,7 @@ inline void extend_unitig_from_node_SMART(const string& node,
 	{
 		get_in_out_degrees_and_unique_out_neighbors(current_node, rlcsa, min_alive_abundance, max_alive_abundance, in_degree, out_degree, out_neighbor_char);
 		updated_current_node = false;
-
+		
 		for (a = min_alive_abundance; a <= max_alive_abundance; a++)
 		{
 			u_length[a]++;
@@ -363,25 +363,36 @@ inline void extend_unitig_from_node_SMART(const string& node,
 inline void get_unitig_stats_SMART(const string& node,
 	const uint32_t& node_abundance,
 	const RLCSA* rlcsa, 
-	const uint32_t& min_abundance,
-	const uint32_t& max_abundance,
+	const unordered_set<uint32_t> alive_abundances,
+	const uint32_t max_abundance_where_node_is_present,
 	vector< vector<uint64_t> > &u_length
 )
 {
-	if (min_abundance > max_abundance)
+	if (alive_abundances.size() == 0)
 	{
 		return;
 	}
-	// ALREADY INITIALIZED IN THE CALLING FUNCTION: u_length[a].clear(); for all al
-	vector< vector<string> > in_neighbors(max_abundance + 1), out_neighbors(max_abundance + 1);
-	vector<uint32_t> out_abundances, abundances_for_which_node_is_start;
-	get_in_out_neighbors_with_abundances(node, rlcsa, min_abundance, max_abundance, in_neighbors, out_neighbors, out_abundances);
-
-	uint32_t min_abundance_for_which_node_is_start = max_abundance + 1;
-	uint32_t max_abundance_for_which_node_is_start = min_abundance - 1;
-
-	for (uint32_t a = min_abundance; a <= max_abundance; a++)
+	uint32_t min_alive_abundance = *std::min_element(alive_abundances.begin(), alive_abundances.end());
+	if (min_alive_abundance > max_abundance_where_node_is_present)
 	{
+		return;
+	}
+	uint32_t max_alive_abundance = *std::max_element(alive_abundances.begin(), alive_abundances.end());	
+
+	// ALREADY INITIALIZED IN THE CALLING FUNCTION: u_length[a].clear(); for all al
+	vector< vector<string> > in_neighbors(max_alive_abundance + 1), out_neighbors(max_alive_abundance + 1);
+	vector<uint32_t> out_abundances, abundances_for_which_node_is_start;
+	get_in_out_neighbors_with_abundances(node, rlcsa, min_alive_abundance, max_alive_abundance, in_neighbors, out_neighbors, out_abundances);
+
+	uint32_t min_abundance_for_which_node_is_start = max_alive_abundance + 1;
+	uint32_t max_abundance_for_which_node_is_start = min_alive_abundance - 1;
+
+	for (auto a : alive_abundances)
+	{
+		if (a > max_abundance_where_node_is_present)
+		{
+			break;
+		}
 		// if is truly start of some unitig
 		if ((out_neighbors[a].size() > 1) or ((out_neighbors[a].size() == 1) and (in_neighbors[a].size() != 1)))
 		{
@@ -393,7 +404,7 @@ inline void get_unitig_stats_SMART(const string& node,
 			if (a > max_abundance_for_which_node_is_start)
 			{
 				max_abundance_for_which_node_is_start = a;
-			}
+			}	
 		} 
 		else // if isolated node
 		if ((out_neighbors[a].size() == 0) and (in_neighbors[a].size() == 0))

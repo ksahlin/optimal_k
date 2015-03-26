@@ -7,7 +7,7 @@
 #define MAX_SAMPLE_SIZE_UNITIGS 5000
 #define RATIO_SAMPLE_SIZE_UNITIGS 0.05
 #define ESIZE_UPDATE_STATS_STEP 5000
-#define ESIZE_MAX_SAMPLED_UNITIGS 50000
+#define ESIZE_MAX_SAMPLED_UNITIGS 100000
 
 uint32_t N_THREADS;
 
@@ -102,6 +102,11 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> e_size_cov_x2_x(max_abundance + 1, 0);
 	vector< vector<unitig_t> > sampled_unitigs(max_abundance + 1);
 	unordered_map<string, vector< vector<uint64_t> > > stored_sampled_unitigs;
+	unordered_set<uint32_t> e_size_alive_abundances;
+	for (uint32_t a = min_abundance; a <= max_abundance; a++)
+	{
+		e_size_alive_abundances.insert(a);	
+	}
 
 
 	// initializing the variables controlling the sample size
@@ -122,7 +127,6 @@ void sample_nodes(const RLCSA* rlcsa,
 		}
 	}
 
-	uint32_t min_abundance_unitigs = min_abundance;
 	uint64_t n_total_sampled_unitigs = 0;
 	uint64_t n_total_sampled_unitigs_reset = 0;
 	// omp_set_dynamic(0);
@@ -182,7 +186,7 @@ void sample_nodes(const RLCSA* rlcsa,
 				vector< vector<uint64_t> > u_length(max_abundance + 1);
 				if (stored_sampled_unitigs.count(sample) == 0)
 				{
-					get_unitig_stats_SMART(sample, sample_abundance, rlcsa, min_abundance_unitigs, for_limit, u_length);	
+					get_unitig_stats_SMART(sample, sample_abundance, rlcsa, e_size_alive_abundances, for_limit, u_length);	
 					std::pair<string, vector< vector<uint64_t> > > new_sample (sample,u_length);
 					#pragma omp critical
 					stored_sampled_unitigs.insert(new_sample);
@@ -192,8 +196,12 @@ void sample_nodes(const RLCSA* rlcsa,
 					u_length = stored_sampled_unitigs[sample];
 				}
 				
-    			for (uint32_t a = min_abundance_unitigs; a <= for_limit; a++)
+    			for (auto a : e_size_alive_abundances)
     			{
+    				if (a > for_limit)
+    				{
+    					break;
+    				}
     				#pragma omp atomic
     				n_sampled_unitigs[a] += u_length[a].size();
     				#pragma omp atomic
@@ -209,6 +217,7 @@ void sample_nodes(const RLCSA* rlcsa,
     					sampled_unitigs[a].push_back(new_unitig);
     				}
     			}
+    			//cout << "n_total_sampled_unitigs = " << n_total_sampled_unitigs << endl;
     			// only Master gets to update the unitig stats
     			if (omp_get_thread_num() == 0)
     			{
@@ -219,8 +228,9 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	    				#pragma omp critical
 	    				{
-	    					for (uint32_t a = min_abundance; a <= max_abundance; a++)
+	    					for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
 	    					{
+	    						uint32_t a = *itr;
 	    						double e_x = 0;
 	    						double e_x2 = 0;
 	    						double var_x = 0;
@@ -263,26 +273,45 @@ void sample_nodes(const RLCSA* rlcsa,
 	    						avg_unitig_length[a] = e_x;
 	    						avg_unitig_length_error[a] = TWOSIDED95P_QUANTILE * sqrt(var_x) / e_x;
 
+	    						++itr;
 	    						if (e_size_error[a] > relative_error)
 	    						{
 	    							sampled_enough_unitigs_temp = false;
+	    						}
+	    						else
+	    						{
+	    							e_size_alive_abundances.erase(a);
+	    							// cout << "-" << a << " ";
+	    							// for (auto a2 : e_size_alive_abundances)
+	    							// {
+	    							// 	cout << a2 << " ";
+	    							// }
+	    							// cout << endl;
 	    						}
 	    					}	
 	    				}
 	    				sampled_enough_unitigs = sampled_enough_unitigs_temp;
 	    			}
 	    			bool sampled_enough_unitigs_temp = true;
-	    			for (uint32_t a = min_abundance; a <= max_abundance; a++)
+	    			for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
 	    			{
-	    				if ((e_size_error[a] > relative_error) and (n_sampled_unitigs[a] < ESIZE_MAX_SAMPLED_UNITIGS))
+	    				uint32_t a = *itr;
+	    				++itr;
+	    				if (n_sampled_unitigs[a] < ESIZE_MAX_SAMPLED_UNITIGS)
 	    				{
 	    					sampled_enough_unitigs_temp = false;
 	    					break;
 	    				}
+	    				// else
+	    				// {
+	    				// 	e_size_alive_abundances.erase(a);
+	    				// }
 	    			}
 	    			sampled_enough_unitigs = sampled_enough_unitigs_temp;
     			}
     		}
+
+    		//cout << "new sample " << sample << endl;
 
     		// computing the other estimates
         	vector<uint32_t> in_degree(max_abundance + 1), out_degree(max_abundance + 1);
@@ -361,13 +390,13 @@ inline uint64_t get_sample_size_for_proportion(
 	double err)
 {
 	// MAKE SURE THIS IS OK
-	if (p < 0.001)
+	if (p < 0.01)
 	{
-		p = 0.001;
+		p = 0.01;
 	}
-	if (p > 0.999)
+	if (p > 0.99)
 	{
-		p = 0.999;
+		p = 0.99;
 	}
     double absolute_err = p * err;
     return abs((double)(TWOSIDED95P_QUANTILE / absolute_err) * (double)(TWOSIDED95P_QUANTILE / absolute_err) * (double)(1 - p) * (double)p);
@@ -381,6 +410,9 @@ int main(int argc, char** argv)
 	uint32_t min_abundance,max_abundance;
 	double relative_error; // maximum relative error 10% of our estimators
 	bool lowermemory;
+
+	std::cout << std::fixed;
+    std::cout << std::setprecision(2);
 
 	// command line argument parser
 	string usage = "\n  %prog OPTIONS";
@@ -533,6 +565,8 @@ int main(int argc, char** argv)
     	cout << "***    " << outputFileName + ".a" + int_to_string(a) + ".csv" << endl;
     	outputFile[a].open((outputFileName + ".a" + int_to_string(a) + ".csv").c_str());
     	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
+    	outputFile[a] << std::fixed;
+    	outputFile[a] << std::setprecision(2);
     } 
 
  	for (uint32_t k = mink; k <= maxk; k++)
