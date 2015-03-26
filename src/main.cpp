@@ -3,11 +3,8 @@
 #include "esize_estimation.h"
 
 #define TWOSIDED95P_QUANTILE 1.96
-#define MIN_SAMPLE_SIZE_UNITIGS 500
-#define MAX_SAMPLE_SIZE_UNITIGS 5000
-#define RATIO_SAMPLE_SIZE_UNITIGS 0.05
 #define ESIZE_UPDATE_STATS_STEP 5000
-#define ESIZE_MAX_SAMPLED_UNITIGS 100000
+#define ESIZE_MAX_SAMPLED_UNITIGS 50000
 
 uint32_t N_THREADS;
 
@@ -60,7 +57,6 @@ void sample_nodes(const RLCSA* rlcsa,
 	const uint64_t &reads_number,
 	const uint64_t &reads_max_length,
 	const vector<uint64_t>& sample_size_start_or_internal_nodes,
-	const vector<uint64_t>& sample_size_unitigs,
 	vector<double> &n_internal,
 	vector<double> &n_starts,
 	vector<double> &n_nodes,
@@ -95,11 +91,6 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> e_size_sum_length(max_abundance + 1, 0);
 	vector<double> e_size_sum_length_squared(max_abundance + 1, 0);
 
-	vector<double> e_size_e_x(max_abundance + 1, 0);
-	vector<double> e_size_e_x2(max_abundance + 1, 0);
-	vector<double> e_size_var_x(max_abundance + 1, 0);
-	vector<double> e_size_var_x2(max_abundance + 1, 0);
-	vector<double> e_size_cov_x2_x(max_abundance + 1, 0);
 	vector< vector<unitig_t> > sampled_unitigs(max_abundance + 1);
 	unordered_map<string, vector< vector<uint64_t> > > stored_sampled_unitigs;
 	unordered_set<uint32_t> e_size_alive_abundances;
@@ -437,7 +428,7 @@ int main(int argc, char** argv)
 	parser.add_option("-t", "--threads") .type("uint32_t") .dest("t") .action("store") .set_default(0) .help("number of threads; use 0 for all cores (default: %default)");
 	parser.add_option("-k", "--mink") .type("uint32_t") .dest("k") .action("store") .set_default(15) .help("try all kmer sizes starting with this value (default: %default)");
 	parser.add_option("-K", "--maxk") .type("uint32_t") .dest("K") .action("store") .set_default(0) .help("try all kmer sizes up to this value (default: read_length - 10)");
-	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
+	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.2) .help("relative error of the estimations (default: %default)");
 	parser.add_option("-b", "--buildindex"). type("string") .dest("buildindex") .action("store") .set_default("") .help("the filename where the index should be saved");
 	parser.add_option("-l", "--loadindex"). type("string") .dest("loadindex") .action("store") .set_default("") .help("the filename from where the index should be loaded");
 	parser.add_option("-m", "--lowermemory") .dest("lowermemory") .action("store_true") .set_default(false) .help("force the index construction to use less RAM; this slows the construction");
@@ -544,7 +535,6 @@ int main(int argc, char** argv)
 
  	// these vectors get re-written for each value of k
  	vector<uint64_t> sample_size_start_or_internal_nodes(max_abundance + 1, 0);
- 	vector<uint64_t> sample_size_unitigs(max_abundance + 1, MAX_SAMPLE_SIZE_UNITIGS);
  	vector<double> n_internal(max_abundance + 1,1), n_starts(max_abundance + 1,1);
 
  	uint64_t total_kmers_for_mink = reads_total_content - (mink - 1) * reads_number;
@@ -581,7 +571,6 @@ int main(int argc, char** argv)
  		{
  			uint64_t total_kmers = reads_total_content - (k - 1) * reads_number;
  			uint64_t SS_n_nodes = get_sample_size_for_proportion(n_nodes[a] / (double)(total_kmers), relative_error);
- 			uint64_t SS_n_unitigs = get_sample_size_for_proportion(n_unitigs[a] / (double)(total_kmers), relative_error);
  			uint64_t SS_n_start_or_internal_nodes = get_sample_size_for_proportion(n_starts[a] / (double)(n_internal[a] + n_starts[a]), 1 / (double)(1 + relative_error) - 1);
  			
  			// cout << "SS_n_nodes = " << SS_n_nodes << endl;
@@ -589,18 +578,9 @@ int main(int argc, char** argv)
  			// cout << "ratio = " << n_starts[a] / (double)(n_internal[a] + n_starts[a]) << endl;
  			// cout << "SS_n_start_or_internal_nodes = " << SS_n_start_or_internal_nodes << endl;
 
- 			uint64_t max_sample_size = MAX(SS_n_nodes,SS_n_unitigs);
+ 			uint64_t max_sample_size = MAX(SS_n_nodes,SS_n_nodes);
  			max_sample_size = MAX(max_sample_size,SS_n_start_or_internal_nodes);
  			sample_size_start_or_internal_nodes[a] = max_sample_size;
- 			if (k == mink)
- 			{
-				sample_size_unitigs[a] = MAX_SAMPLE_SIZE_UNITIGS;
- 			} 
- 			else
- 			{
- 				sample_size_unitigs[a] = MIN(RATIO_SAMPLE_SIZE_UNITIGS * n_nodes[a], MAX_SAMPLE_SIZE_UNITIGS);
- 				sample_size_unitigs[a] = MAX(sample_size_unitigs[a],MIN_SAMPLE_SIZE_UNITIGS);	
- 			}
  		}
 
  		// sampling
@@ -612,8 +592,7 @@ int main(int argc, char** argv)
  			reads_total_content, 
  			reads_number, 
  			reads_max_length, 
- 			sample_size_start_or_internal_nodes, 
- 			sample_size_unitigs, 
+ 			sample_size_start_or_internal_nodes,  
  			n_internal, 
  			n_starts, 
  			n_nodes, 
