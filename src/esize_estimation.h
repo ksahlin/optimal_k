@@ -407,10 +407,13 @@ inline void get_unitig_stats_SMART(const string& node,
 			}	
 		} 
 		else // if isolated node
-		if ((out_neighbors[a].size() == 0) and (in_neighbors[a].size() == 0))
 		{
-			u_length[a].push_back(1);
+			if ((out_neighbors[a].size() == 0) and (in_neighbors[a].size() == 0))
+			{
+				u_length[a].push_back(1);
+			}	
 		}
+		
 	}
 
 	// checking that indeed the 
