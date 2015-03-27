@@ -117,7 +117,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 					double cov_x2_x = 0;
 					double A1 = 0;
 					double A2 = 0;
-					for (auto unitig : sampled_unitigs[a])
+					for (auto &unitig : sampled_unitigs[a])
 					{
 						e_x += unitig.length / (double)unitig.abundance;
 						e_x2 += pow(unitig.length, 2) / (double)unitig.abundance;
@@ -160,6 +160,12 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 					else
 					{
 						e_size_alive_abundances.erase(a);
+						// cout << "-" << a << " REMAINING: ";
+						// for (auto a : e_size_alive_abundances)
+						// {
+						// 	cout << a << " ";
+						// }
+						// cout << endl;
 					}
 				}	
 			}
@@ -471,7 +477,7 @@ int main(int argc, char** argv)
 
 	// command line argument parser
 	string usage = "\n  %prog OPTIONS";
-	const string version = "%prog 0.1\nCopyright (C) 2014-2015\n"
+	const string version = "%prog 0.2\nCopyright (C) 2014-2015\n"
 		"License GPLv3+: GNU GPL version 3 or later "
 		"<http://gnu.org/licenses/gpl.html>.\n"
 		"This is free software: you are free to change and redistribute it.\n"
