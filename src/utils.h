@@ -200,7 +200,8 @@ int get_reads(const string readFileName,
     uint64_t &reads_total_content,
     uint64_t &reads_number,
     uint32_t &reads_max_length,
-    uint32_t &reads_min_length
+    uint32_t &reads_min_length,
+    const bool verbose
     );
 
 int get_data_and_build_rlcsa_noniterative(const string& readFileName, 
@@ -211,7 +212,8 @@ int get_data_and_build_rlcsa_noniterative(const string& readFileName,
 int get_data_and_build_rlcsa_iterative(const string& readFileName, 
     const string& indexFileName,
     const uint N_THREADS,
-    const bool lower_memory_construction
+    const bool lower_memory_construction,
+    const bool verbose
     );
 
 // Check if a file is readable

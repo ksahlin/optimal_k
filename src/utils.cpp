@@ -6,7 +6,8 @@ int get_reads(const string readFileName,
 	uint64_t &reads_total_content,
 	uint64_t &reads_number,
 	uint32_t &reads_max_length,
-	uint32_t &reads_min_length
+	uint32_t &reads_min_length,
+	const bool verbose
 	)
 {
 	double start_reading = readTimer();
@@ -30,7 +31,7 @@ int get_reads(const string readFileName,
 		cout << "***    " << error.what() << std::endl;
 		return EXIT_FAILURE;
 	}
-	cout << "*** Reserved memory for a sample of " << reads.capacity() << " reads " << endl;
+	if (verbose) cout << "*** Reserved memory for a sample of " << reads.capacity() << " reads " << endl;
 	
 	reads_total_content = 0;
 	reads_max_length = 0;
@@ -58,8 +59,8 @@ int get_reads(const string readFileName,
     	}
     }
 
-	cout << "*** The file(s) listed in " << readFileName << " contain(s) " << reads_number << " reads" << endl;
-	cout << "*** They were read in " << readTimer() - start_reading << " seconds" << endl;
+	if (verbose) cout << "*** The file(s) listed in " << readFileName << " contain(s) " << reads_number << " reads" << endl;
+	if (verbose) cout << "*** They were read in " << readTimer() - start_reading << " seconds" << endl;
 
 	delete reads_bank;
 
@@ -161,7 +162,8 @@ int get_data_and_build_rlcsa_noniterative(const string& readFileName,
 int get_data_and_build_rlcsa_iterative(const string& readFileName, 
 	const string& indexFileName,
 	const uint N_THREADS,
-	const bool lower_memory_construction
+	const bool lower_memory_construction,
+	const bool verbose
 	)
 {
 	uint64_t DATA_SIZE;
@@ -186,7 +188,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 	cout << "***    " << indexFileName + ".rlcsa.array" << endl;
 	cout << "***    " << indexFileName + ".rlcsa.parameters" << endl;
 
-	cout << "*** Initialized the Bank object from the file(s) listed in " << readFileName << endl;
+	if (verbose) cout << "*** Initialized the Bank object from the file(s) listed in " << readFileName << endl;
 
 	try
    	{
@@ -220,7 +222,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 		if (char_count > INSERT_SIZE * MEGABYTE)
 		{
 			n_insertions++;
-  			cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the RLCSA index" << endl;
+  			if (verbose) cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the RLCSA index" << endl;
   			builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
   			char_count = 0;
   			seq_count = 0;
@@ -230,13 +232,13 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 	if (char_count > 2 * MEGABYTE)	
 	{
 		n_insertions++;
-		cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the RLCSA index" << endl;
+		if (verbose) cout << "*** "<< n_insertions << ": Inserting " << (double)seq_count / MEGABYTE << "MB of sequence into the RLCSA index" << endl;
 		// Insert the sequence:
 		builder.insertSequence(data, char_count - 1, false); // -1 because the last \0 should not count
 		char_count = 0;
 	}
 
-	cout << "*** Now trying to write the index to disk" << endl;
+	if (verbose) cout << "*** Now trying to write the index to disk" << endl;
 
     delete reads_bank;
     delete[] data;
@@ -248,7 +250,7 @@ int get_data_and_build_rlcsa_iterative(const string& readFileName,
 		rlcsa->printInfo();
 	 	rlcsa->reportSize(true);
 		rlcsa->writeTo(indexFileName);
-	 	cout << "*** Created the RLCSA index and saved it to disk" << endl;
+	 	if (verbose) cout << "*** Created the RLCSA index and saved it to disk" << endl;
 		delete rlcsa;
 	}
 	else
