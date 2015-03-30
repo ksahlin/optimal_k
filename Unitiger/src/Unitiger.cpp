@@ -9,177 +9,9 @@
 #include <omp.h>
 
 #include "OptionParser.h"
+#include "utils.h"
 
 using namespace std;
-
-string merge_kmer_at_end (string s, string kmer)
-{
-    s = s + kmer[kmer.size()-1];
-    return s;
-}
-
-string merge_kmer_at_beginning (string s, string kmer)
-{
-    s = kmer[0] + s;
-    return s;
-}
-
-inline char reverse_complement_char(char c)
-{
-    if (c == 'A') return 'T';
-    if (c == 'T') return 'A';
-    if (c == 'C') return 'G';
-    if (c == 'G') return 'C';
-    return c;
-}
-
-inline string reverse_complement(string s)
-{
-    string reverse;
-
-    for (int i = s.length()-1; i >= 0; i--)
-    {
-        reverse += reverse_complement_char(s[i]);
-    }
-
-    return reverse;
-}
-
-string int_to_string(size_t x)
-{
-    stringstream ss;
-    ss << x;
-    return ss.str();
-}
-
-// Check if a file is readable
-bool is_readable( const std::string & file ) 
-{ 
-    std::ifstream f( file.c_str() ); 
-    return !f.fail(); 
-} 
-
-void make_upper_case(string& s)
-{
-    for (size_t i = 0; i < s.length(); i++)
-    {
-        if (s[i] == 'a') s[i] = 'A';
-        else if (s[i] == 'c') s[i] = 'C';
-        else if (s[i] == 'g') s[i] = 'G';
-        else if (s[i] == 't') s[i] = 'T';
-        else if (s[i] == 'n') s[i] = 'N';
-    }
-}
-
-
-int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abundance, size_t nb_cores)
-{
-
-    string readsString = "";
-    string line;
-
-    ifstream readFile;
-    readFile.open(reads);
-
-    if (readFile.is_open())
-    {
-        getline(readFile , line);
-        readsString = line;
-        cout << "Filename on first line " << readsString << endl;
-        while (getline(readFile , line)) // this is the comment line
-        {
-            readsString += "," + line;
-            cout << "Filename constructed so far " << readsString << endl;
-        }
-        readFile.close();            
-    }
-    else
-    {
-        cout << "Error: couldn't open file " << reads << endl;
-        return EXIT_FAILURE;
-    }
-
-    // Tokenize reads file (list of files separated by ,)
-    int filecount=1;
-    char *readcstr = (char *)readsString.c_str();
-    for(int i = 0; i < strlen(readcstr); i++) 
-    {
-        if (readcstr[i] == ',')
-            filecount++;
-    }
-
-    if (filecount > 1) 
-    {
-        char **files = new char*[filecount];
-        files[0] = readcstr;
-        int j = 1;
-        int l = strlen(readcstr);
-        for (int i = 0; i < l; i++) {
-            if (readcstr[i] == ',')
-            {
-                readcstr[i] = '\0';
-                files[j] = &readcstr[i+1];
-                j++;
-            }
-        }
-
-        BankFasta *b = new BankFasta(filecount, files);
-        cout << "building the graph from more files '" << readsString << "'" << endl;
-        graph = Graph::create(b, (char const *)"-kmer-size %d -abundance %d -verbose 0 -nb-cores %d", k, abundance, nb_cores);
-    } 
-    else 
-    {
-        cout << "building the graph from only one file '" << readsString << "'" << endl;
-        graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -verbose 0 -nb-cores %d", readsString.c_str(), k, abundance, nb_cores);
-    }
-  
-	std::cout << graph.getInfo() << std::endl;
-
-
-	return EXIT_SUCCESS;
-}
-
-
-size_t count_nodes(const Graph& graph)
-{
-    size_t nb_kmers = 0;
-
-    // We get an iterator for all nodes of the graph.
-    Graph::Iterator<Node> it = graph.iterator<Node> ();
-    // We loop each node. 
-    for (it.first(); !it.isDone(); it.next())
-    {
-        nb_kmers++;
-    }
-
-    return nb_kmers;
-}
-
-size_t count_arcs(const Graph& graph)
-{
-    // we iterate over every node and cout the size of its out-neighborghood
-
-    size_t nb_arcs = 0;
-
-    // We get an iterator for all nodes of the graph.
-    Graph::Iterator<Node> it = graph.iterator<Node> ();
-    // We loop each node. 
-    for (it.first(); !it.isDone(); it.next())
-    {
-        nb_arcs += graph.outdegree(it.item());
-        // cout << "current node " << graph.toString(it.item()) << " has " << graph.outdegree(it.item()) << " out-neighbors ";
-        Node other = graph.reverse (it.item());
-        // cout << "its reverse complement is " << graph.toString(other) << " which has " << graph.outdegree(other) << " out-neighbors " << std::endl;
-        nb_arcs += graph.outdegree(other);
-    }
-
-    return nb_arcs/2;
-}
-
-bool is_unary_node(Graph& graph, Node node)
-{
-    return ((graph.successors<Node>(node).size() == 1) and (graph.predecessors<Node>(node).size() == 1));
-}
 
 void print_nodes_and_neighbors(Graph& graph)
 {
@@ -204,42 +36,6 @@ void print_nodes_and_neighbors(Graph& graph)
         }
         std::cout << endl;
     }
-}
-
-
-void initialize_dummy_graph(Graph& graph, size_t& k)
-{
-    // k = 4;
-    // IBank* bank = new BankStrings (
-    //     "AGGTTCA",
-    //     "GTTA",
-    //     "AACC",
-    //     NULL
-    // );
-
-    // k = 4;
-    // IBank* bank = new BankStrings (
-    //     "AGGTTCATG",
-    //     "GGTACAT",
-    //     "TTACG",
-    //     NULL
-    // );
-
-    // k = 5;
-    // IBank* bank = new BankStrings (
-    //     "AGTCATA",
-    //     NULL
-    // );
-
-    k = 5;
-    IBank* bank = new BankStrings (
-        "AGTCATC",
-        "TCATA",
-        NULL
-    );
-
-    // We create the graph from a given sequence, and for a given kmer size
-    graph = Graph::create (bank,  "-kmer-size %d  -abundance 1 -verbose 0", k);
 }
 
 
@@ -338,32 +134,6 @@ inline unordered_set<string> compute_unitigs(Graph& graph, int nb_cores)
     return unitigs;
 }
 
-double compute_average_length(unordered_set<string>& unitigs)
-{
-    size_t sum_lengths = 0;
-    for (unordered_set<string>::iterator itr = unitigs.begin(); itr != unitigs.end(); ++itr) 
-        {
-            sum_lengths += (*itr).length();
-        }
-
-    return sum_lengths / (double)unitigs.size();
-}
-
-double compute_e_size(unordered_set<string>& unitigs)
-{
-    double e_size;
-    size_t sum_lengths = 0;
-    size_t sum_lengths_squared = 0;
-    for (unordered_set<string>::iterator itr = unitigs.begin(); itr != unitigs.end(); ++itr) 
-        {
-            int ctg_len = (*itr).length();
-            sum_lengths += ctg_len;  //(*itr).length();
-
-            sum_lengths_squared += pow( static_cast<double>(ctg_len) ,2);
-        }
-    e_size = sum_lengths_squared / (double)sum_lengths;
-    return e_size;
-}
 
 int print_unitigs(Graph& graph, unordered_set<string>& unitigs, string reads)
 {
@@ -443,7 +213,6 @@ int main (int argc, char* argv[])
     parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");
     parser.add_option("-s", "--silentoutput") .action("store_true") .dest("not_print_output_unitigs") .set_default(false) .help("this option suppresses writing the unitigs to file");
     parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(1) .help("number of threads for graph construction (0 for using cores; default: %default)");
-
 
     optparse::Values& options = parser.parse_args(argc, argv);
     readFileName = (string) options.get("r");
