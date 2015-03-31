@@ -4,43 +4,189 @@
 #include <fstream>
 #include <unordered_set>
 #include <stdlib.h>
-#include <stdio.h>
 #include <iostream>
-#include <fstream>
-#include <omp.h>
 
 #include "OptionParser.h"
 #include "utils.h"
 
 using namespace std;
 
-void print_nodes_and_neighbors(Graph& graph)
-{
-    std::cout << "All nodes: " << std::endl;
-    Graph::Iterator<Node> allit = graph.iterator<Node> ();
-    // We loop each node. Note the structure of the for loop.
-    for (allit.first(); !allit.isDone(); allit.next())
+// We define a functor that will be cloned by the dispatcher
+struct ExploreBranchingNodeFunctor { 
+
+    ISynchronizer* synchro;
+    Graph &graph;
+    unordered_set<string> &fingerprints_of_unitigs;
+    ofstream &unitigsFile;
+    uint64_t &unitigsCounter;
+    uint64_t &sum_unitig_lengths;
+    uint64_t &sum2_unitig_lengths;
+    bool print_output_unitigs;
+
+    ExploreBranchingNodeFunctor (ISynchronizer* synchro, 
+        Graph &graph,
+        unordered_set<string> &fingerprints_of_unitigs, 
+        ofstream &unitigsFile, 
+        uint64_t &unitigsCounter,
+        uint64_t &sum_unitig_lengths,
+        uint64_t &sum2_unitig_lengths,
+        bool print_output_unitigs)  : 
+            synchro(synchro), 
+            graph(graph),
+            fingerprints_of_unitigs(fingerprints_of_unitigs),
+            unitigsFile(unitigsFile),
+            unitigsCounter(unitigsCounter),
+            sum_unitig_lengths(sum_unitig_lengths),
+            sum2_unitig_lengths(sum2_unitig_lengths),
+            print_output_unitigs(print_output_unitigs)
+        {}
+
+    void operator() (BranchingNode current_node2)
     {
-        // The currently iterated node is available with it.item()
-        // We dump an ascii representation of the current node.
-        std::cout << "node " << graph.toString (allit.item()) << " has predecessors: ";
-        Graph::Vector<Node> in_n = graph.predecessors<Node> (allit.item());
-        for (size_t i=0; i < in_n.size(); i++)
+        BranchingNode current_node = current_node2;
+        for (uint64_t strand = 0; strand <= 1; strand++)
         {
-            std::cout << graph.toString(in_n[i]) << " ";
+            if (strand == 1)
+            {
+                current_node = graph.reverse(current_node);
+            }
+        
+            // for each out-neighbor, we traverse as long as we see unary nodes
+            Graph::Vector<Node> out_neighbors = graph.successors<Node> (current_node);
+            for (size_t i = 0; i < out_neighbors.size(); i++)
+            {
+                string current_unitig = graph.toString(current_node);
+                string last_node;
+                string last_node_previous = graph.toString(current_node);
+                bool start_of_unitig = true;
+                Node current_successor = out_neighbors[i];
+
+                // if current extension has not been reported before
+                string fingerprint = last_node_previous;
+                merge_kmer_at_end(fingerprint, graph.toString(current_successor));
+                // /*LOCK*/ synchro->lock();
+                if (fingerprints_of_unitigs.count(reverse_complement(fingerprint)) != 0)
+                {
+                    // /*UNLOCK*/ synchro->unlock();
+                    continue;
+                }
+                // /*UNLOCK*/ synchro->unlock();
+
+                // as long as we see unary nodes, we go on
+                while (true)
+                {
+                    // std::cout << "visited by successors " << graph.toString(current_successor) << std::endl;
+                    last_node = graph.toString(current_successor);
+                     
+                    merge_kmer_at_end(current_unitig, graph.toString(current_successor));    
+                    if (is_unary_node(graph,current_successor))
+                    {
+                        current_successor = graph.successors<Node> (current_successor)[0];
+                        last_node_previous = last_node;
+                        last_node = graph.toString(current_successor); 
+                    }
+                    else
+                    {
+                        // this is the end of the unitig
+                        merge_kmer_at_end(last_node_previous, last_node);
+
+                        // make sure that no other thread has processed this unitig from the other side in the mean time
+                        /*LOCK*/ synchro->lock();
+                        if (fingerprints_of_unitigs.count(reverse_complement(fingerprint)) != 0)
+                        {
+                            /*UNLOCK*/ synchro->unlock();
+                            break;
+                        }
+                        // we are here if we actually assembled a new unitig
+                        fingerprints_of_unitigs.insert(last_node_previous);
+                        if (print_output_unitigs)
+                        {
+                            //unitigs.insert(current_unitig);
+                            unitigsFile << "UNITIG" << unitigsCounter << endl;
+                            unitigsFile << current_unitig << endl;
+                            unitigsCounter++;    
+                        }
+                        sum_unitig_lengths += current_unitig.length();
+                        sum2_unitig_lengths += current_unitig.length() * current_unitig.length();
+                        /*UNLOCK*/ synchro->unlock();
+                        break;    
+                    }
+                }
+            }
+
+            // if it was isolated node
+            if ((graph.outdegree(current_node) == 0) and (graph.indegree(current_node) == 0) and (strand == 0))
+            {
+                /*LOCK*/ synchro->lock();
+                string current_unitig = graph.toString(current_node);
+                if (print_output_unitigs)
+                {
+                    //unitigs.insert(graph.toString(current_node));
+                    unitigsFile << "UNITIG" << unitigsCounter << endl;
+                    unitigsFile << current_unitig << endl;
+                }
+                unitigsCounter++;    
+                sum_unitig_lengths += current_unitig.length();
+                sum2_unitig_lengths += current_unitig.length() * current_unitig.length();    
+                /*UNLOCK*/ synchro->unlock();
+            }
         }
-        std::cout << " and successors: ";
-        Graph::Vector<Node> out_n = graph.successors<Node> (allit.item());
-        for (size_t i=0; i < out_n.size(); i++)
-        {
-            std::cout << graph.toString(out_n[i]) << " ";
-        }
-        std::cout << endl;
     }
+};
+
+
+void compute_and_print_unitigs(Graph& graph,
+    int nbCores,
+    ofstream &unitigsFile,
+    ofstream &metricsFile,
+    bool print_output_unitigs,
+    const int &k,
+    const int &abundance
+    )
+{
+    uint64_t unitigsCounter = 0;
+    uint64_t sum_unitig_lengths = 0;
+    uint64_t sum2_unitig_lengths = 0;
+
+    unordered_set<string> fingerprints_of_unitigs;
+
+    // Graph::Iterator<Node> it = graph.iterator<Node> ();
+    Graph::Iterator<BranchingNode> iter = graph.iterator<BranchingNode> ();
+
+    ISynchronizer* synchro = System::thread().newSynchronizer();
+
+    // We create a dispatcher configured for 'nbCores' cores.
+    Dispatcher dispatcher (nbCores, 1);
+
+    IDispatcher::Status status = dispatcher.iterate (iter, ExploreBranchingNodeFunctor(synchro,
+        graph,
+        fingerprints_of_unitigs, 
+        unitigsFile, 
+        unitigsCounter,
+        sum_unitig_lengths,
+        sum2_unitig_lengths,
+        print_output_unitigs) );
+
+    std::cout << "we used " << status.nbCores << " cores, traversal time " << (double)status.time/1000 << " sec" << std::endl;
+
+    double average_length = (double)sum_unitig_lengths / unitigsCounter;
+    double average_internal_nodes = average_length - k - 1;
+    double e_size = (double) sum2_unitig_lengths / sum_unitig_lengths;
+
+    metricsFile << k << ",";
+    metricsFile << abundance << ",";
+    metricsFile << count_nodes(graph) << ","; // number of nodes
+    metricsFile << ".,"; // count_arcs(graph) << ","; // number of edges
+    metricsFile << average_internal_nodes << ","; // average number of internal nodes in unitigs
+    metricsFile << average_length << ","; // average length of unitigs
+    metricsFile << ".,"; // estimated sample size
+    metricsFile << unitigsCounter << ",";
+    metricsFile << e_size; // e-size
+    metricsFile << endl; 
+
 }
 
-
-void compute_and_print_unitigs(const Graph& graph,
+void compute_and_print_unitigs_OLD(const Graph& graph,
     int nb_cores,
     ofstream &unitigsFile,
     ofstream &metricsFile,
@@ -55,10 +201,10 @@ void compute_and_print_unitigs(const Graph& graph,
 
     unordered_set<string> fingerprints_of_unitigs;
 
-    if (nb_cores == 0)
-    {
-        nb_cores = omp_get_num_procs();
-    }
+    // if (nb_cores == 0)
+    // {
+    //     nb_cores = omp_get_num_procs();
+    // }
 
     // we get an iterator over the branching nodes
     Graph::Iterator<BranchingNode> iter = graph.iterator<BranchingNode> ();
@@ -72,7 +218,7 @@ void compute_and_print_unitigs(const Graph& graph,
     }
     uint64_t n_nodes = branching_nodes.size();
 
-    #pragma omp parallel for num_threads(nb_cores)
+    // #pragma omp parallel for num_threads(nb_cores)
     for (uint64_t j = 0; j < n_nodes; j++)
     {
         // The currently iterated branching node is available with it.item()
@@ -129,7 +275,7 @@ void compute_and_print_unitigs(const Graph& graph,
                         // this is the end of the unitig
                         // we are here if we actually assembled a new unitig
                         merge_kmer_at_end(last_node_previous, last_node);
-                        #pragma omp critical
+                        // #pragma omp critical
                         {
                             fingerprints_of_unitigs.insert(last_node_previous);
                             if (print_output_unitigs)
@@ -150,7 +296,7 @@ void compute_and_print_unitigs(const Graph& graph,
             // if it was isolated node
             if ((graph.outdegree(current_node) == 0) and (graph.indegree(current_node) == 0) and (strand == 0))
             {
-                #pragma omp critical
+                // #pragma omp critical
                 {
                     string current_unitig = graph.toString(current_node);
                     if (print_output_unitigs)
@@ -211,7 +357,7 @@ int main (int argc, char* argv[])
     parser.add_option("-k", "--kmersize") .type("int") .dest("k") .action("store") .set_default(31) .help("kmer size (default: %default)");
     parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");
     parser.add_option("-s", "--silentoutput") .action("store_true") .dest("not_print_output_unitigs") .set_default(false) .help("this option suppresses writing the unitigs to file");
-    parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(1) .help("number of threads for graph construction (0 for using cores; default: %default)");
+    parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(0) .help("number of threads (0 for using cores; default: %default)");
 
     optparse::Values& options = parser.parse_args(argc, argv);
     readFileName = (string) options.get("r");
