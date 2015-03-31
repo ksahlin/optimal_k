@@ -4,6 +4,7 @@
 #include <fstream>
 #include <unordered_set>
 #include <stdlib.h>
+#include <stdio.h>
 #include <iostream>
 #include <fstream>
 #include <omp.h>
@@ -39,9 +40,20 @@ void print_nodes_and_neighbors(Graph& graph)
 }
 
 
-inline unordered_set<string> compute_unitigs(Graph& graph, int nb_cores)
+void compute_and_print_unitigs(const Graph& graph,
+    int nb_cores,
+    ofstream &unitigsFile,
+    ofstream &metricsFile,
+    bool print_output_unitigs,
+    const int &k,
+    const int &abundance
+    )
 {
-    unordered_set<string> unitigs;
+    uint64_t unitigsCounter = 0;
+    uint64_t sum_unitig_lengths = 0;
+    uint64_t sum2_unitig_lengths = 0;
+
+    unordered_set<string> fingerprints_of_unitigs;
 
     if (nb_cores == 0)
     {
@@ -69,120 +81,107 @@ inline unordered_set<string> compute_unitigs(Graph& graph, int nb_cores)
 
         //Graph::Iterator<BranchingNode> it = branching_nodes[j];
 
-        Node current_node = branching_nodes[j];
-
-        // for each out-neighbor, we traverse as long as we see unary nodes
-        Graph::Vector<Node> out_neighbors = graph.successors<Node> (current_node);
-        for (size_t i = 0; i < out_neighbors.size(); i++)
+        Node current_node;
+        for (uint64_t strand = 0; strand <= 1; strand++)
         {
-            string current_contig = graph.toString(current_node);
-            // as long as we see unary nodes, we go on
-            for (Node current_successor = out_neighbors[i]; ; )
+            if (strand == 0)
             {
-                // std::cout << "visited by successors " << graph.toString(current_successor) << std::endl;
-                current_contig = merge_kmer_at_end(current_contig, graph.toString(current_successor));    
+                current_node = branching_nodes[j];       
+            }
+            else
+            {
+                current_node = graph.reverse(branching_nodes[j]);
+            }
+        
+            // for each out-neighbor, we traverse as long as we see unary nodes
+            Graph::Vector<Node> out_neighbors = graph.successors<Node> (current_node);
+            for (size_t i = 0; i < out_neighbors.size(); i++)
+            {
+                string current_unitig = graph.toString(current_node);
+                string last_node;
+                string last_node_previous = graph.toString(current_node);
+                bool start_of_unitig = true;
+                Node current_successor = out_neighbors[i];
 
-                if (is_unary_node(graph,current_successor))
+                // if current extension has not been reported before
+                string fingerprint = last_node_previous;
+                merge_kmer_at_end(fingerprint, graph.toString(current_successor));
+                if (fingerprints_of_unitigs.count(reverse_complement(fingerprint)) != 0)
                 {
-                    current_successor = graph.successors<Node> (current_successor)[0];
+                    continue;
                 }
-                else
-                    break;
+
+                // as long as we see unary nodes, we go on
+                while (true)
+                {
+                    // std::cout << "visited by successors " << graph.toString(current_successor) << std::endl;
+                    last_node = graph.toString(current_successor);
+                     
+                    merge_kmer_at_end(current_unitig, graph.toString(current_successor));    
+                    if (is_unary_node(graph,current_successor))
+                    {
+                        current_successor = graph.successors<Node> (current_successor)[0];
+                        last_node_previous = last_node;
+                        last_node = graph.toString(current_successor); 
+                    }
+                    else
+                    {
+                        // this is the end of the unitig
+                        // we are here if we actually assembled a new unitig
+                        merge_kmer_at_end(last_node_previous, last_node);
+                        #pragma omp critical
+                        {
+                            fingerprints_of_unitigs.insert(last_node_previous);
+                            if (print_output_unitigs)
+                            {
+                                //unitigs.insert(current_unitig);
+                                unitigsFile << "UNITIG" << unitigsCounter << endl;
+                                unitigsFile << current_unitig << endl;
+                                unitigsCounter++;    
+                            }
+                            sum_unitig_lengths += current_unitig.length();
+                            sum2_unitig_lengths += current_unitig.length() * current_unitig.length();
+                        }    
+                        break;    
+                    }
+                }
             }
 
-            // std::cout << ">> Constructed contig: " << current_contig << std::endl;
-            if ((unitigs.count(current_contig) == 0) and (unitigs.count(reverse_complement(current_contig)) == 0))
+            // if it was isolated node
+            if ((graph.outdegree(current_node) == 0) and (graph.indegree(current_node) == 0) and (strand == 0))
             {
                 #pragma omp critical
                 {
-                    unitigs.insert(current_contig);    
+                    string current_unitig = graph.toString(current_node);
+                    if (print_output_unitigs)
+                    {
+                        //unitigs.insert(graph.toString(current_node));
+                        unitigsFile << "UNITIG" << unitigsCounter << endl;
+                        unitigsFile << current_unitig << endl;
+                    }
+                    unitigsCounter++;    
+                    sum_unitig_lengths += current_unitig.length();
+                    sum2_unitig_lengths += current_unitig.length() * current_unitig.length();    
                 }
             }
         }
-
-        // for each in-neighbor, we traverse as long as we see unary nodes
-        Graph::Vector<Node> in_neighbors = graph.predecessors<Node> (current_node);
-        for (size_t i = 0; i < in_neighbors.size(); i++)
-        {
-            string current_contig = graph.toString(current_node);
-            // as long as we see unary nodes, we go on
-            for (Node current_predecessor = in_neighbors[i]; ; )
-            {
-                // std::cout << "visited by predecessors " << graph.toString(current_predecessor) << std::endl;
-                current_contig = merge_kmer_at_beginning(current_contig, graph.toString(current_predecessor));    
-
-                if (is_unary_node(graph,current_predecessor))
-                {
-                    current_predecessor = graph.predecessors<Node> (current_predecessor)[0];
-                }
-                else
-                    break;
-            }
-
-            // std::cout << ">> Constructed contig: " << current_contig << std::endl;
-            if ((unitigs.count(current_contig) == 0) and (unitigs.count(reverse_complement(current_contig)) == 0))
-            {
-                #pragma omp critical
-                {
-                    unitigs.insert(current_contig);    
-                }
-            }
-        }
-
     }
 
-    return unitigs;
-}
-
-
-int print_unitigs(Graph& graph, unordered_set<string>& unitigs, string reads)
-{
-    try 
-    {
-        ofstream output_file;
-
-        output_file.open((reads + ".unitigs").c_str());
-
-        size_t i = 1;
-        for (unordered_set<string>::iterator itr = unitigs.begin(); itr != unitigs.end(); ++itr) 
-        {
-            output_file << ">UNITIG" << i << endl;
-            output_file << *itr << endl;
-            i++;
-        }
-
-        output_file.close();    
-    }
-    catch (gatb::core::system::Exception& e)
-    {
-        std::cerr << "EXCEPTION: " << e.getMessage() << endl;
-        return EXIT_FAILURE;
-    }
-
-    return EXIT_SUCCESS;
-
-}
-
-void print_metrics(const Graph& graph,
-    size_t k,
-    size_t abundance,
-    unordered_set<string>& unitigs,
-    ofstream& metricsFile
-    )
-{
-    double average_length = compute_average_length(unitigs);
+    double average_length = (double)sum_unitig_lengths / unitigsCounter;
     double average_internal_nodes = average_length - k - 1;
+    double e_size = (double) sum2_unitig_lengths / sum_unitig_lengths;
 
     metricsFile << k << ",";
     metricsFile << abundance << ",";
     metricsFile << count_nodes(graph) << ","; // number of nodes
-    metricsFile << count_arcs(graph) << ","; // number of edges
+    metricsFile << ".,"; // count_arcs(graph) << ","; // number of edges
     metricsFile << average_internal_nodes << ","; // average number of internal nodes in unitigs
     metricsFile << average_length << ","; // average length of unitigs
     metricsFile << ".,"; // estimated sample size
-    metricsFile << unitigs.size() << ",";
-    metricsFile << compute_e_size(unitigs); // e-size
+    metricsFile << unitigsCounter << ",";
+    metricsFile << e_size; // e-size
     metricsFile << endl; 
+
 }
 
 
@@ -223,29 +222,87 @@ int main (int argc, char* argv[])
     print_output_unitigs = (options.get("not_print_output_unitigs") ? false : true);
 
     ofstream metricsFile;
-
-    metricsFile.open((outputFileName + ".k" + int_to_string(k) + ".a" + int_to_string(abundance) + ".csv").c_str());
-    metricsFile << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
+    ofstream unitigsFile;
+    string filePrefix = outputFileName + ".k" + int_to_string(k) + ".a" + int_to_string(abundance);
     
-    unordered_set<string> unitigs;
     Graph graph;
     try
     {
         initialize_de_bruijn_graph(graph, readFileName, k, abundance, nb_cores);
+        metricsFile.open((filePrefix + ".csv").c_str());
+        metricsFile << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
+        if (print_output_unitigs)
+        {
+            unitigsFile.open((filePrefix + ".unitigs").c_str());
+        }
     }
     catch (gatb::core::system::Exception& e)
     {
         std::cerr << "EXCEPTION: " << e.getMessage() << endl;
         return EXIT_FAILURE;
     }
-    unitigs = compute_unitigs(graph, nb_cores);
+    compute_and_print_unitigs(graph, 
+        nb_cores, 
+        unitigsFile, 
+        metricsFile, 
+        print_output_unitigs, 
+        k, 
+        abundance);
+    
+    metricsFile.close();
     if (print_output_unitigs)
     {
-        print_unitigs(graph, unitigs, outputFileName);
+        unitigsFile.close();
     }
-    print_metrics(graph, k, abundance, unitigs, metricsFile);
-
-    metricsFile.close();
 
     return EXIT_SUCCESS;
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
