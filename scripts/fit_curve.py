@@ -40,13 +40,13 @@ def main(csvfile, plot=False):
 		plt.xlim([x[0]-1, x[-1] + 1 ])
 		plt.savefig(plot+'.png')
 
-	print(max_x)
+	print max_x, max(y_new)
 	return max_x
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser()#prog="Infer variants with simple p-value test using theory of GetDistr - proof of concept.")
 	parser.add_argument('csv', type=str, help='csv file with predictions. ')
-	parser.add_argument('plot', type=str, help=' prefix to plot with fitted curve')
+	parser.add_argument('--plot', type=str, default=False, help=' prefix to plot with fitted curve')
 
 	args = parser.parse_args()
 	main( args.csv , args.plot)
