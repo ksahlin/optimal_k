@@ -13,7 +13,7 @@ try:
     import seaborn as sns
     sns.set_palette("husl", desat=.6)
 except ImportError:
-    print "You don't have matplotlib or seaborn installed, or no access to at least one of them"
+    print("You don't have matplotlib or seaborn installed, or no access to at least one of them")
     sys.exit()
 
 class ResultContainer(object):
@@ -39,8 +39,8 @@ def scatterplot(x_axis,y_axis,methods,outfolder):
         try:
             plt.plot(method.results[x_axis], method.results[y_axis], '-', label=method.name )
         except ValueError:
-            print 'Skipping to plot x_axis:{0} to y_axis:{1} due to ValueError. \
-            probably because csv column contains ".". This is expected for e.g. "estiamator". '.format(x_axis,y_axis)
+            print('Skipping to plot x_axis:{0} to y_axis:{1} due to ValueError. \
+            probably because csv column contains ".". This is expected for e.g. "estiamator". '.format(x_axis,y_axis))
 
     # fig = ax.get_figure()
     # fig.savefig(os.path.join(outfolder,'x_axis='+x_axis+',y_axis='+y_axis))
@@ -51,7 +51,7 @@ def scatterplot(x_axis,y_axis,methods,outfolder):
     plt.title(title)
     plt.legend( )
     plt.grid()
-    plt.savefig(os.path.join(outfolder,'x_axis='+x_axis+',y_axis='+y_axis))
+    plt.savefig(os.path.join(outfolder,'x_axis='+x_axis+',y_axis='+y_axis+'.eps'), format='eps')
     plt.close()
     plt.clf()
 
@@ -118,6 +118,6 @@ if __name__ == '__main__':
     # elif args.which == 'nr_nodes_parser':
     #     nr_nodes(args)
     else:
-        print 'invalid call'
+        print('invalid call')
 
 
