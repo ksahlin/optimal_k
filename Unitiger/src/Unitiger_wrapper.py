@@ -66,7 +66,7 @@ for k in range(mink, maxk + 1):
 		metricsFile[a].flush()
 		currentMetricsFile.close()
 		
-		# os.remove(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".csv")
+		os.remove(args.outputFileName + ".k" + str(k) + ".a" + str(a) + ".csv")
 
 for a in range(mina, maxa + 1):
 	metricsFile[a].close()
