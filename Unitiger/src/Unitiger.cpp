@@ -105,20 +105,22 @@ struct ExploreBranchingNodeFunctor {
                     {
                         // this is the end of the unitig
                         merge_kmer_at_end(last_node_previous, last_node);
-
+                        
+                        /*LOCK*/ synchro->lock();
                         // make sure that no other thread has processed this unitig from the other side in the mean time
                         if (fingerprints_of_unitigs.count(reverse_complement(fingerprint)) != 0)
                         {
+                            /*LOCK*/ synchro->unlock();
                             break;
                         }
 
                         // we are here if we actually assembled a new unitig
-                        /*LOCK*/ synchro->lock();
+                        // /*LOCK*/ synchro->lock();
                         fingerprints_of_unitigs.insert(last_node_previous);
+                        unitigsCounter++;
                         if (print_output_unitigs)
                         {
                             assembled_unitigs.push_back(current_unitig);
-                            unitigsCounter++;
                             if (unitigsCounter % UNITIG_BUFFER == 0)
                             {
                                 uint64_t i = 0;
@@ -145,20 +147,24 @@ struct ExploreBranchingNodeFunctor {
             {
                 string current_unitig = graph.toString(current_node);
                 /*LOCK*/ synchro->lock();
-                assembled_unitigs.push_back(current_unitig);
                 unitigsCounter++;    
-                if (unitigsCounter % UNITIG_BUFFER == 0)
+                if (print_output_unitigs)
                 {
-                    uint64_t i = 0;
-                    for (auto &unitig : assembled_unitigs)
+                    assembled_unitigs.push_back(current_unitig);
+                    if (unitigsCounter % UNITIG_BUFFER == 0)
                     {
-                        unitigsFile << ">UNITIG_" << (print_times * UNITIG_BUFFER + i) << endl;
-                        unitigsFile << unitig << endl;        
-                        i++;
+                        uint64_t i = 0;
+                        for (auto &unitig : assembled_unitigs)
+                        {
+                            unitigsFile << ">UNITIG_" << (print_times * UNITIG_BUFFER + i) << endl;
+                            unitigsFile << unitig << endl;        
+                            i++;
+                        }
+                        print_times++;
+                        assembled_unitigs.clear();
                     }
-                    print_times++;
-                    assembled_unitigs.clear();
                 }
+                
                 sum_unitig_lengths += current_unitig.length();
                 sum2_unitig_lengths += current_unitig.length() * current_unitig.length();    
                 /*UNLOCK*/ synchro->unlock();
