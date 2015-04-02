@@ -1,6 +1,7 @@
 
 import argparse
 import sys
+import warnings
 
 try:
 	import matplotlib
@@ -24,9 +25,27 @@ def main(csvfile, plot=False):
 	x = points[:,0]
 	y = points[:,1]
 
+
+	# go through all polynomial fits and take the one with highest fit that 
+	# does not throw a warning
+
+	with warnings.catch_warnings():
+		warnings.filterwarnings('error')
+		for degree in range(2,40):
+			try:
+				# calculate polynomial
+				z = np.polyfit(x, y, degree)
+				f = np.poly1d(z)
+			except Warning: 
+				# print 'Warning raised for degree {0}'.format(degree)
+				final_degree = degree -1
+				break
+
+	# print "final degree= ", final_degree
+
 	# calculate polynomial
-	z = np.polyfit(x, y, 4)
-	f = np.poly1d(z)
+	z = np.polyfit(x, y, final_degree)
+	f = np.poly1d(z)			
 
 	# calculate new x's and y's
 	x_new = np.linspace(x[0], x[-1], len(points))
