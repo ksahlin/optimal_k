@@ -221,7 +221,7 @@ void compute_and_print_unitigs(Graph& graph,
 
     metricsFile << k << ",";
     metricsFile << abundance << ",";
-    metricsFile << count_nodes(graph) << ","; // number of nodes
+    metricsFile << count_nodes(graph,nbCores) << ","; // number of nodes
     metricsFile << ".,"; // count_arcs(graph) << ","; // number of edges
     metricsFile << average_internal_nodes << ","; // average number of internal nodes in unitigs
     metricsFile << average_length << ","; // average length of unitigs
@@ -365,7 +365,7 @@ void compute_and_print_unitigs_OLD(const Graph& graph,
 
     metricsFile << k << ",";
     metricsFile << abundance << ",";
-    metricsFile << count_nodes(graph) << ","; // number of nodes
+    metricsFile << count_nodes(graph, nb_cores) << ","; // number of nodes
     metricsFile << ".,"; // count_arcs(graph) << ","; // number of edges
     metricsFile << average_internal_nodes << ","; // average number of internal nodes in unitigs
     metricsFile << average_length << ","; // average length of unitigs
@@ -416,8 +416,6 @@ int main (int argc, char* argv[])
     ofstream metricsFile;
     ofstream unitigsFile;
     string filePrefix = outputFileName + ".k" + int_to_string(k) + ".a" + int_to_string(abundance);
-    
-    cout << "UNITIG_BUFFER = " << UNITIG_BUFFER << endl;
 
     Graph graph;
     try
@@ -451,52 +449,3 @@ int main (int argc, char* argv[])
 
     return EXIT_SUCCESS;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

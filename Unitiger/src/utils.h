@@ -34,17 +34,21 @@ inline string int_to_string(size_t x)
     return ss.str();
 }
 
-inline uint64_t count_nodes(const Graph& graph)
+inline uint64_t count_nodes(const Graph& graph, uint64_t nbCores)
 {
     uint64_t nb_kmers = 0;
 
     // We get an iterator for all nodes of the graph.
-    Graph::Iterator<Node> it = graph.iterator<Node> ();
-    // We loop each node. 
-    for (it.first(); !it.isDone(); it.next())
-    {
-        nb_kmers++;
-    }
+    Graph::Iterator<Node> it = graph.iterator<Node>();
+
+    Dispatcher dispatcher (nbCores, 1);
+    dispatcher.iterate (it, [&] (Node n)  {  __sync_fetch_and_add (&nb_kmers, 1);  });
+
+    // // We loop each node. 
+    // for (it.first(); !it.isDone(); it.next())
+    // {
+    //     nb_kmers++;
+    // }
 
     return nb_kmers;
 
