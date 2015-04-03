@@ -1,0 +1,106 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\begin{document}
+
+\newcommand{\Lemma}[1]{Lemma~\ref{#1}}
+\newcommand{\kristoffer}[1]{{\color{red}{#1}}}
+\newcommand{\alex}[1]{{\color{blue}{#1}}}
+
+\newcommand{\DB}{\mathsf{DB}_{k,a}}
+\newcommand{\U}{\mathsf{U}_{k,a}}
+\newcommand{\ST}{\mathsf{ST}_{k,a}}
+\newcommand{\UN}{\mathsf{UN}_{k,a}}
+\newcommand{\dplus}{\delta^+_{k,a}}
+\newcommand{\dminus}{\delta^-_{k,a}}
+\newcommand{\K}{\mathsf{K}}
+\newcommand{\abu}{\alpha}
+\newcommand{\esize}{{\sf E_{size}}}
+\newcommand{\isstart}{{\sf isStart}_{k,a}}
+\newcommand{\isunary}{{\sf isUnary}_{k,a}}
+\newcommand{\RLCSA}{{\sf RLCSA}}
+\newcommand{\st}{\:|\:}
+\renewcommand{\geq}{\geqslant}
+\renewcommand{\ge}{\geqslant}
+\renewcommand{\leq}{\leqslant}
+\renewcommand{\le}{\leqslant}
+\newcommand{\Var}{\text{Var}}
+\newcommand{\Cov}{\text{Cov}}
+\newcommand{\E}{\text{E}}
+
+\section{Distribution of the population (the pool of samples)}
+\label{sec:title}
+
+\subsection{Distribution of the sample}
+\label{ssec:subtitle}
+
+Let $A_1 = \sum_{i}^m \frac{1}{a_i}$ and $A_1 = \sum_{i}^m (\frac{1}{a_i})^2$
+
+\[\hat{\mu} = \bar{x} = \frac{\sum_{i}^m \frac{1}{a_1}x_i}{A_1} \]
+\[\hat{\sigma^2} = \frac{\sum_{i}^m \frac{1}{a_i}(x_i-\bar{x})^2}{A_1} \]
+
+Note, $\hat{\sigma^2}$ is the sample variance, NOT the `` variance of the sample mean''. Accordiing to the wiki, the unbiased estimate of the sample variance is then
+
+\[\hat{\sigma^2}_{unbiased} =  \frac{\hat{\sigma^2}}{1- A_2/(A_1)^2 } \].
+
+We will use $\hat{\mu}$ and $\hat{\sigma^2}_{unbiased}$ in further calculations. The same derivations holds for $\bar{x^2}$, just substitute $x^2$ to $x$. Let $\hat{\xi^2}_{unbiased}$ denote the unbiased sample variance estimate of $Var(\bar{X^2})$ 
+
+
+
+\subsection{Sample covariance of $X$ and $X^2$}
+\label{ssec:subtitle}
+We have the sample covariance $\tau$ of $X$ and $X^2$ as 
+
+\[\hat{\tau} = \frac{\sum_{i}^m \frac{1}{a_i}(x_i-\bar{x})(x^2_i-\bar{x^2})}{A_1} \]
+
+The unbiased predictor is given by
+\[\hat{\tau^2}_{unbiased} =  \frac{\hat{\tau^2}}{1- A_2/(A_1)^2 } \].
+
+\section{Distribution of sample means} % (fold)
+\label{sec:distribution_of_sample_means}
+
+% section distribution_of_sample_means (end)
+
+\subsection{Distribution of the \textbf{sample mean} (what we want)}
+
+The variance of the sample mean is $Var(\bar{X})$ (note a large variable $X$ now as treating it as a stochastic variable). We have
+\begin{multline}
+	Var(\bar{X}) = Var(\frac{\sum_{i}^m \frac{1}{a_i}X_i}{A_1}) = \frac{1}{(A_1)^2} Var(\sum_{i}^m \frac{1}{a_i}X_i) = \\ \frac{1}{(A_1)^2} \sum_{i=1}^m (\frac{1}{a_i})^2 Var(X_i) = \frac{1}{(A_1)^2} \sum_{i=1}^m (\frac{1}{a_i})^2 \sigma^2 = \frac{A_2}{(A_1)^2}  \sigma^2
+\end{multline}
+
+CLT gives 
+
+\[ \Big[ \bar{x} -  z_{\alpha/2}\sqrt{\frac{A_2}{(A_1)^2}  \sigma^2} \quad,\quad \bar{x} -  z_{\alpha/2}\sqrt{\frac{A_2}{(A_1)^2}  \sigma^2} \Big]\]
+We substitute $\sigma^2$ with our estimate $\hat{\sigma^2}_{unbiased}$ above. Similarly to $\bar{x}$ we have
+\[ \Big[ \bar{x^2} -  z_{\alpha/2}\sqrt{\frac{A_2}{(A_1)^2}  \xi^2} \quad,\quad \bar{x^2} -  z_{\alpha/2}\sqrt{\frac{A_2}{(A_1)^2}  \xi^2} \Big]\]
+as confidence interval for $ \bar{x^2}$
+
+
+\subsection{Covariance of $\bar{X}$ and $\bar{X^2}$ }
+\label{ssec:another_subtitle}
+
+Notice that this is different from Covariance of $X$ and $X^2$. Now we are measuring the covariance of two means of different stochastic variables. This quantity will continue to decrease as with more and more samples, the two estimations of the means $X$ and $X^2$ will become almost point distributions (single mass at one point). thus, covariance decreases of the sample means
+The covariance we get by
+
+\begin{multline}
+	Cov(\bar{X}, \bar{X^2} ) = Cov(\frac{\sum_{i}^m \frac{1}{a_i}X_i}{A_1}, \frac{\sum_{i}^m \frac{1}{a_i}X_i^2}{A_1}) = \frac{1}{(A_1)^2} Cov(\sum_{i}^m \frac{1}{a_i}X_i, \sum_{i}^m \frac{1}{a_i}X^2_i) = \\ \frac{1}{(A_1)^2} \sum_{i=1}^m (\frac{1}{a_i})^2 Cov(X_i, X^2_i) = \frac{A_2}{(A_1)^2} \tau. 
+\end{multline}
+
+We get our estimate of $\tau$ from first section.
+
+\subsection{Distribution of the E-size estimate}
+\label{ssec:another_subtitle}
+
+We need 
+
+\[\sigma_{Y_m}^2 = \Var\left[Y_m\right] = \Var\left[\frac{X^2_m}{X^1_m}\right] \approx \frac{\Var\left[X^2_m\right]}{\E\left[X^1_m\right]^2} -2\frac{\E\left[X^2_m\right]}{\E\left[X^1_m\right]^3}\Cov\left[X^2_m,X^1_m\right] + \frac{E\left[X^2_m\right]^2}{E\left[X^1_m\right]^4}\Var\left[X^1_m\right].\] 
+We get all the quantities we need to calculate this as:
+
+\begin{itemize}
+\item $\E[X^1_m]$ as $\overline{x}_m$, and $\E[X^2_m]$ as $\overline{x^2}_m$;
+\item $\Var[X^1_m]$ as $\frac{A_2}{(A_1)^2}  \hat{\sigma}^2_{unbiased}$, and $\Var[X^2_m]$ as $\frac{A_2}{(A_1)^2}  \hat{\xi^2}_{unbiased}$;
+\item $\Cov[X^2_m,X^1_m]$ as $ \frac{A_2}{(A_1)^2} \tau$. 
+\end{itemize}
+
+
+\end{document}
