@@ -27,6 +27,7 @@ struct ExploreBranchingNodeFunctor {
     bool print_output_unitigs;
     uint64_t &print_times;
     vector<string> &assembled_unitigs;
+    unordered_set<string> &the_set_of_unitigs;
 
     ExploreBranchingNodeFunctor (ISynchronizer* synchro, 
         Graph &graph,
@@ -37,7 +38,8 @@ struct ExploreBranchingNodeFunctor {
         uint64_t &sum2_unitig_lengths,
         bool print_output_unitigs,
         uint64_t &print_times,
-        vector<string> &assembled_unitigs)  : 
+        vector<string> &assembled_unitigs,
+        unordered_set<string> &the_set_of_unitigs)  : 
             synchro(synchro), 
             graph(graph),
             fingerprints_of_unitigs(fingerprints_of_unitigs),
@@ -47,7 +49,8 @@ struct ExploreBranchingNodeFunctor {
             sum2_unitig_lengths(sum2_unitig_lengths),
             print_output_unitigs(print_output_unitigs),
             print_times(print_times),
-            assembled_unitigs(assembled_unitigs)
+            assembled_unitigs(assembled_unitigs),
+            the_set_of_unitigs(the_set_of_unitigs)
         {}
 
     void operator() (BranchingNode current_node2)
@@ -134,6 +137,14 @@ struct ExploreBranchingNodeFunctor {
                                 assembled_unitigs.clear();
                             }                              
                         }
+                        // if ((the_set_of_unitigs.count(current_unitig) > 0) or (the_set_of_unitigs.count(reverse_complement(current_unitig)) > 0))
+                        // {
+                        //     cout << "Reported before " << current_unitig << endl;
+                        // }
+                        // else
+                        // {
+                        //     the_set_of_unitigs.insert(current_unitig);
+                        // }
                         sum_unitig_lengths += current_unitig.length();
                         sum2_unitig_lengths += current_unitig.length() * current_unitig.length();
                         /*UNLOCK*/ synchro->unlock();
@@ -164,7 +175,14 @@ struct ExploreBranchingNodeFunctor {
                         assembled_unitigs.clear();
                     }
                 }
-                
+                // if ((the_set_of_unitigs.count(current_unitig) > 0) or (the_set_of_unitigs.count(reverse_complement(current_unitig)) > 0))
+                // {
+                //     cout << "Reported before " << current_unitig << endl;
+                // }
+                // else
+                // {
+                //     the_set_of_unitigs.insert(current_unitig);
+                // }
                 sum_unitig_lengths += current_unitig.length();
                 sum2_unitig_lengths += current_unitig.length() * current_unitig.length();    
                 /*UNLOCK*/ synchro->unlock();
@@ -191,6 +209,7 @@ void compute_and_print_unitigs(Graph& graph,
     vector<string> assembled_unitigs;
     assembled_unitigs.reserve(UNITIG_BUFFER);
     uint64_t print_times = 0;
+    unordered_set<string> the_set_of_unitigs;
 
     // Graph::Iterator<Node> it = graph.iterator<Node> ();
     Graph::Iterator<BranchingNode> iter = graph.iterator<BranchingNode> ();
@@ -209,7 +228,8 @@ void compute_and_print_unitigs(Graph& graph,
         sum2_unitig_lengths,
         print_output_unitigs,
         print_times,
-        assembled_unitigs) );
+        assembled_unitigs,
+        the_set_of_unitigs) );
 
     uint64_t i = 0;
     for (auto &unitig : assembled_unitigs)
@@ -220,6 +240,7 @@ void compute_and_print_unitigs(Graph& graph,
     }
 
     std::cout << "we used " << status.nbCores << " cores, traversal time " << (double)status.time/1000 << " sec" << std::endl;
+    // cout << "the_set_of_unitigs.size() = " << the_set_of_unitigs.size() << endl;
 
     double average_length = (double)sum_unitig_lengths / unitigsCounter;
     double average_internal_nodes = average_length - k - 1;
