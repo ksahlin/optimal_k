@@ -2,35 +2,35 @@
 \@writefile{toc}{\contentsline {section}{\numberline {1}Abstract}{1}}
 \@writefile{toc}{\contentsline {section}{\numberline {2}Introduction}{1}}
 \newlabel{sec:introduction}{{2}{1}}
-\@writefile{toc}{\contentsline {section}{\numberline {3}Methods}{1}}
-\newlabel{sec:methods}{{3}{1}}
+\@writefile{toc}{\contentsline {subsubsection}{\numberline {2.0.1}Choosing parameters in a DBG assembler}{1}}
+\newlabel{ssub:choosing_parameters_in_a_dbg_assembler}{{2.0.1}{1}}
 \citation{DBLP:conf/wabi/MedvedevGMB07}
 \citation{Kececioglu:1992aa}
 \citation{DBLP:journals/bioinformatics/DrezenRCDLPL14}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Basic notions and algorithmics building blocks}{2}}
+\@writefile{toc}{\contentsline {section}{\numberline {3}Methods}{2}}
+\newlabel{sec:methods}{{3}{2}}
+\newlabel{sec:basics}{{3.1}{2}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Basic notions and algorithmic building blocks}{2}}
 \providecommand*\caption@xref[2]{\@setref\relax\@undefined{#1}}
-\newlabel{alg:out-degrees}{{1}{2}}
-\@writefile{loa}{\contentsline {algocf}{\numberline {1}{\ignorespaces Computing the out-degrees $\delta ^+_{k,a}(x)$ of a $k$-mer $x$, for all abundances $a \in [A_1,A_2]$; {\sf  RLCSA}\ is the index over the reads.\relax }}{2}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Sampling algorithms}{3}}
+\newlabel{alg:out-degrees}{{1}{3}}
+\@writefile{loa}{\contentsline {algocf}{\numberline {1}{\ignorespaces Computing the out-degrees $\delta ^+_{k,a}(x)$ of a $k$-mer $x$, for all abundances $a \in [A_1,A_2]$; {\sf  RLCSA}\ is the index over the reads.\relax }}{3}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Sampling algorithms for the number of nodes and unitigs}{3}}
 \newlabel{sub:algorithm}{{3.2}{3}}
-\newlabel{alg:graph-nodes}{{2}{3}}
-\@writefile{loa}{\contentsline {algocf}{\numberline {2}{\ignorespaces Computing the estimate $\mathaccentV {hat}05E{p}_{k,a}$ needed for the number of $k$-mers in the de Bruijn graph $\mathsf  {DB}_{k,a}$, for all $a \in [A_1,A_2]$. The input is also a multiset $\{x_1,\dots  ,x_m\}$ of $k$-mers from $\mathsf  {K}_k$.\relax }}{3}}
-\newlabel{eqn:number-of-unitigs}{{1}{4}}
-\newlabel{eqn:avg_internal}{{2}{4}}
-\newlabel{eqn:number-of-unary-nodes}{{3}{4}}
+\newlabel{alg:graph-nodes}{{2}{4}}
+\@writefile{loa}{\contentsline {algocf}{\numberline {2}{\ignorespaces Computing the estimate $\mathaccentV {hat}05E{p}_{k,a}$ needed for the number of $k$-mers in the de Bruijn graph $\mathsf  {DB}_{k,a}$, for all $a \in [A_1,A_2]$. The input is also a multiset $\{x_1,\dots  ,x_m\}$ of $k$-mers from $\mathsf  {K}_k$.\relax }}{4}}
 \citation{Salzberg2011}
 \citation{Salzberg2011}
-\newlabel{eq:esize}{{4}{5}}
-\newlabel{eqn:e-size}{{5}{5}}
-\newlabel{eqn-esize-estimate}{{6}{6}}
-\newlabel{alg:sampling-for-esize}{{3}{6}}
-\@writefile{loa}{\contentsline {algocf}{\numberline {3}{\ignorespaces Computing the lengths of all unitigs starting at a $k$-mer $x$ in $\mathsf  {DB}_{k,a}$, for all abundances in an interval $[A_1,A_2]$. The output is an array $length$ of lists such that $length[a]$ is the list of lengths of all unitigs starting at $x$ in $\mathsf  {DB}_{k,a}$, for all $a \in [A_1,A_2]$. The sub-routine {\bf  extendUnitig}$(y,A_1,A_2)$ is described in Algorithm\nobreakspace  {}4\hbox {}.\relax }}{6}}
-\newlabel{sec:sampling-accuracy}{{3.3}{6}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Sampling accuracy}{6}}
+\newlabel{eqn:number-of-unitigs}{{1}{5}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.3}Sampling algorithms for the mean length and E-size of the unitigs}{5}}
+\newlabel{eq:esize}{{2}{5}}
 \citation{Benaroya:2005aa}
+\newlabel{eqn:e-size}{{3}{6}}
+\newlabel{eqn:e-size-abu}{{4}{6}}
 \bibstyle{plain}
 \bibdata{refs}
 \bibcite{Benaroya:2005aa}{1}
+\newlabel{alg:sampling-for-esize}{{3}{7}}
+\@writefile{loa}{\contentsline {algocf}{\numberline {3}{\ignorespaces Computing the lengths of all unitigs starting at a $k$-mer $x$ in $\mathsf  {DB}_{k,a}$, for all abundances in an interval $[A_1,A_2]$. The output is an array $length$ of lists such that $length[a]$ is the list of lengths of all unitigs starting at $x$ in $\mathsf  {DB}_{k,a}$, for all $a \in [A_1,A_2]$. The sub-routine {\bf  extendUnitig}$(y,A_1,A_2)$ is described in Algorithm\nobreakspace  {}4\hbox {}.\relax }}{7}}
 \bibcite{DBLP:journals/bioinformatics/DrezenRCDLPL14}{2}
 \bibcite{Kececioglu:1992aa}{3}
 \bibcite{DBLP:conf/wabi/MedvedevGMB07}{4}
