@@ -6,8 +6,8 @@
 #define KMER_UPDATE_STATS_STEP 5000
 #define KMER_MAX_SAMPLE 500000
 #define ESIZE_UPDATE_STATS_STEP 5000
-#define ESIZE_MAX_SAMPLED_UNITIGS 50000
 
+uint64_t ESIZE_MAX_SAMPLED_UNITIGS;
 uint32_t N_THREADS;
 
 inline void get_in_out_degrees(const string& node, 
@@ -61,6 +61,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 	vector<double> &e_size_error,
 	const double &relative_error,
 	vector< vector<unitig_t> > &sampled_unitigs,
+	vector<uint64_t> &n_unique_sampled_unitigs,
 	uint64_t &n_total_sampled_unitigs_reset,
 	unordered_map<string, vector< vector<uint64_t> > > &stored_sampled_unitigs,
 	unordered_set<uint32_t> &e_size_alive_abundances,
@@ -76,6 +77,14 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 		std::pair<string, vector< vector<uint64_t> > > new_sample (sample,u_length);
 		#pragma omp critical
 		stored_sampled_unitigs.insert(new_sample);
+		
+		// updating the unique kmers stats
+		for (auto a : e_size_alive_abundances)
+		{
+			if (a > for_limit) break;
+			#pragma omp atomic 
+			n_unique_sampled_unitigs[a] += u_length[a].size();
+		}
 	}
 	else
 	{
@@ -170,25 +179,28 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 				}	
 			}
 			sampled_enough_unitigs = sampled_enough_unitigs_temp;
-		}
-		bool sampled_enough_unitigs_temp = true;
-		for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
-		{
-			uint32_t a = *itr;
-			++itr;
-			if (sampled_unitigs[a].size() < ESIZE_MAX_SAMPLED_UNITIGS)
-			{
-				sampled_enough_unitigs_temp = false;
-				break;
-			}
-			// else
-			// {
-			// 	e_size_alive_abundances.erase(a);
-			// }
-		}
-		sampled_enough_unitigs = sampled_enough_unitigs_temp;
-	}
 
+			sampled_enough_unitigs_temp = true;
+			#pragma omp critical 
+			{
+				for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
+				{
+					uint32_t a = *itr;
+					++itr;
+					if (n_unique_sampled_unitigs[a] < ESIZE_MAX_SAMPLED_UNITIGS)
+					{
+						sampled_enough_unitigs_temp = false;
+						break;
+					}
+					else
+					{
+						//e_size_alive_abundances.erase(a);
+					}
+				}
+			}
+			sampled_enough_unitigs = sampled_enough_unitigs_temp;
+		}
+	}
 }
 
 inline void update_node_stats_from_sample(const uint32_t &sample_abundance,
@@ -344,6 +356,7 @@ void sample_nodes(const RLCSA* rlcsa,
 
 	/////////// ESIZE_UNITIG AND AVG_UNITIG_LENGTH STATS ////////////
 	vector< vector<unitig_t> > sampled_unitigs(max_abundance + 1);
+	vector<uint64_t> n_unique_sampled_unitigs(max_abundance + 1, 0);
 	unordered_map<string, vector< vector<uint64_t> > > stored_sampled_unitigs;
 	unordered_set<uint32_t> e_size_alive_abundances;
 	for (uint32_t a = min_abundance; a <= max_abundance; a++)
@@ -363,6 +376,11 @@ void sample_nodes(const RLCSA* rlcsa,
 	bool sampled_enough_for_n_unitigs = false;
 	uint64_t n_sampled_kmers_reset_for_unitigs = 0;
 	vector<double> n_unitigs_weighted_sum(max_abundance + 1, 0);
+
+	/////////// SOME STORED VALUES /////////
+	unordered_map<string, uint32_t> stored_abundance;
+	unordered_map<string, vector<uint32_t> > stored_in_degree;
+	unordered_map<string, vector<uint32_t> > stored_out_degree;
 		
 	#pragma omp parallel for num_threads(N_THREADS)
 	for (uint64_t i = 0; i < 100 * n_sampled_reads; i++)
@@ -395,7 +413,34 @@ void sample_nodes(const RLCSA* rlcsa,
 	        
         	if (sample.find('N') != string::npos) continue;
 
-        	uint32_t sample_abundance = calc_abundance(rlcsa, sample);
+			uint32_t sample_abundance, for_limit;
+			vector<uint32_t> in_degree(max_abundance + 1), out_degree(max_abundance + 1);
+
+        	if (stored_abundance.count(sample) == 0)
+        	{
+        		sample_abundance = calc_abundance(rlcsa, sample);
+        		for_limit = MIN(max_abundance,sample_abundance);
+        		get_in_out_degrees(sample,rlcsa,min_abundance,for_limit,in_degree,out_degree);	
+        		
+        		std::pair<string, uint32_t > new_abundance(sample,sample_abundance);
+        		#pragma omp critical
+        		stored_abundance.insert(new_abundance);
+
+        		std::pair<string, vector<uint32_t> > new_in_degree(sample,in_degree);
+        		#pragma omp critical
+        		stored_in_degree.insert(new_in_degree);
+
+        		std::pair<string, vector<uint32_t> > new_out_degree(sample,out_degree);
+        		#pragma omp critical
+        		stored_out_degree.insert(new_out_degree);
+        	}
+        	else
+        	{
+        		sample_abundance = stored_abundance[sample];
+        		for_limit = MIN(max_abundance,sample_abundance);
+        		in_degree = stored_in_degree[sample];
+        		out_degree = stored_out_degree[sample];
+        	}
 
     		if (not sampled_enough_unitigs)
     		{	
@@ -411,16 +456,12 @@ void sample_nodes(const RLCSA* rlcsa,
     				e_size_error,
     				relative_error,
     				sampled_unitigs,
+    				n_unique_sampled_unitigs,
     				n_total_sampled_unitigs_reset,
     				stored_sampled_unitigs,
     				e_size_alive_abundances,
     				sampled_enough_unitigs);
     		}
-
-    		// computing the other estimates
-    		uint32_t for_limit = MIN(max_abundance,sample_abundance);
-    		vector<uint32_t> in_degree(max_abundance + 1), out_degree(max_abundance + 1);
-    		get_in_out_degrees(sample,rlcsa,min_abundance,for_limit,in_degree,out_degree);	
 
     		update_node_stats_from_sample(sample_abundance,
     			min_abundance,
@@ -457,7 +498,7 @@ void sample_nodes(const RLCSA* rlcsa,
 		cout << "Sampled:" << endl;
 		for (uint32_t a = min_abundance; a <= max_abundance; a++)
 		{
-			cout << sampled_unitigs[a].size() << " unitigs for abundance " << a << endl;
+			cout << sampled_unitigs[a].size() << " (" << n_unique_sampled_unitigs[a] << " unique) unitigs for abundance " << a << endl;
 		}
 		cout << "Sampled " << n_sampled_kmers << " k-mers" << endl;	
 	}
@@ -493,16 +534,18 @@ int main(int argc, char** argv)
 
 	parser.add_option("-r", "--readfile") .type("string") .dest("r") .set_default("") .help("a file containing a list of FASTA/Q(.gz) file names, one per line");
 	parser.add_option("-o", "--outputfile") .type("string") .dest("o") .set_default("") .help("output file");
-	parser.add_option("-a", "--minabundance") .type("uint32_t") .dest("a") .action("store") .set_default(1) .help("try all abundances starting with this value (default: %default)");
-	parser.add_option("-A", "--maxabundance") .type("uint32_t") .dest("A") .action("store") .set_default(5) .help("try all abundances up to this value (default: %default)");
-	parser.add_option("-t", "--threads") .type("uint32_t") .dest("t") .action("store") .set_default(0) .help("number of threads; use 0 for all cores (default: %default)");
-	parser.add_option("-k", "--mink") .type("uint32_t") .dest("k") .action("store") .set_default(15) .help("try all kmer sizes starting with this value (default: %default)");
-	parser.add_option("-K", "--maxk") .type("uint32_t") .dest("K") .action("store") .set_default(0) .help("try all kmer sizes up to this value (default: read_length - 10)");
-	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
+	parser.add_option("-a", "--minabundance") .type("int") .dest("a") .action("store") .set_default(1) .help("try all abundances starting with this value (default: %default)");
+	parser.add_option("-A", "--maxabundance") .type("int") .dest("A") .action("store") .set_default(5) .help("try all abundances up to this value (default: %default)");
+	parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(0) .help("number of threads; use 0 for all cores (default: %default)");
+	parser.add_option("-k", "--mink") .type("int") .dest("k") .action("store") .set_default(15) .help("try all kmer sizes starting with this value (default: %default)");
+	parser.add_option("-K", "--maxk") .type("int") .dest("K") .action("store") .set_default(0) .help("try all kmer sizes up to this value (default: read_length - 10)");
 	parser.add_option("-b", "--buildindex"). type("string") .dest("buildindex") .action("store") .set_default("") .help("the filename where the index should be saved");
 	parser.add_option("-l", "--loadindex"). type("string") .dest("loadindex") .action("store") .set_default("") .help("the filename from where the index should be loaded");
-	parser.add_option("-m", "--lowermemory") .dest("lowermemory") .action("store_true") .set_default(false) .help("force the index construction to use less RAM; this slows the construction (default %default)");
+	parser.add_option("-m", "--lowermemory") .dest("lowermemory") .action("store_true") .set_default(false) .help("force the index construction to use less RAM; this slows the construction (default %default)");	
+	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
+	parser.add_option("-s", "--samples") .type("int") .dest("s") .action("store") .set_default(15000) .help("maximum number of unique k-mers that are sampled (default: %default)");
 	parser.add_option("-v", "--nonverbose") .dest("nonverbose") .action("store_true") .set_default(false) .help("print some stats to stdout (default %default)");
+
 	optparse::Values& options = parser.parse_args(argc, argv);
 
 	lowermemory = (options.get("lowermemory") ? true : false);
@@ -520,6 +563,11 @@ int main(int argc, char** argv)
 	{
 		N_THREADS = omp_get_num_procs();
 		cout << "*** Running on " << N_THREADS << " cores (change this number with option -t)" << endl;
+	}
+	ESIZE_MAX_SAMPLED_UNITIGS = (uint64_t) options.get("s");
+	if (ESIZE_MAX_SAMPLED_UNITIGS < ESIZE_UPDATE_STATS_STEP)
+	{
+		ESIZE_MAX_SAMPLED_UNITIGS = ESIZE_UPDATE_STATS_STEP;
 	}
 	relative_error = (double) options.get("e");
 
@@ -647,7 +695,7 @@ int main(int argc, char** argv)
 			outputFile[a] << (uint64_t)n_unitigs[a] << ","; // number of unitigs
 			outputFile[a] << e_size[a] << ","; // e-size
 			outputFile[a] << n_nodes_error[a] << ","; // rel_err for n_nodes
-			outputFile[a] << avg_unitig_length[a] << ","; // rel_err avg_length_unitigs
+			outputFile[a] << avg_unitig_length_error[a] << ","; // rel_err avg_length_unitigs
 			outputFile[a] << n_unitigs_error[a] << ","; // rel_err n_unitigs
 			outputFile[a] << e_size_error[a]; // rel_err e_size
 			outputFile[a] << endl; 

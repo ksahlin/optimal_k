@@ -363,8 +363,8 @@ inline void extend_unitig_from_node_SMART(const string& node,
 inline void get_unitig_stats_SMART(const string& node,
 	const uint32_t& node_abundance,
 	const RLCSA* rlcsa, 
-	const unordered_set<uint32_t> alive_abundances,
-	const uint32_t max_abundance_where_node_is_present,
+	const unordered_set<uint32_t> &alive_abundances,
+	const uint32_t &max_abundance_where_node_is_present,
 	vector< vector<uint64_t> > &u_length
 )
 {
