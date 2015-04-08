@@ -147,8 +147,30 @@ inline void initialize_dummy_graph(Graph& graph, size_t& k)
     graph = Graph::create (bank,  "-kmer-size %d  -abundance 1 -verbose 0", k);
 }
 
-inline int initialize_de_bruijn_graph(Graph& graph, string reads, size_t k, size_t abundance, size_t nb_cores)
+// Check if a file is readable
+bool is_readable( const std::string & file ) 
+{ 
+    std::ifstream f( file.c_str() ); 
+    return !f.fail(); 
+} 
+
+inline int initialize_de_bruijn_graph(Graph& graph, 
+    string reads, 
+    size_t k, 
+    size_t abundance, 
+    size_t nb_cores,
+    bool load_graph)
 {
+
+    //string reads_tmp = reads + ".h5";
+    string reads_tmp = "frag_1.h5";
+    if (load_graph and is_readable(reads_tmp))
+    {
+        std::cout << "Loading from " << reads_tmp << std::endl;
+        graph = Graph::load("frag_1");
+        std::cout << graph.getInfo() << std::endl;
+        return EXIT_SUCCESS;
+    }
 
     string readsString = "";
     string line;

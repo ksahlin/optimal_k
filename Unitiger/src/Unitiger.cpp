@@ -85,7 +85,7 @@ struct ExploreBranchingNodeFunctor {
                     /*UNLOCK*/ synchro->unlock();
                 }
 
-                // if current extension has not been reported before
+                // if current extension has been reported before, abandon it
                 string fingerprint = last_node_previous;
                 merge_kmer_at_end(fingerprint, graph.toString(current_successor));
                 if (fingerprints_of_unitigs.count(reverse_complement(fingerprint)) != 0)
@@ -127,7 +127,7 @@ struct ExploreBranchingNodeFunctor {
                             if (unitigsCounter % UNITIG_BUFFER == 0)
                             {
                                 uint64_t i = 0;
-                                for (auto &unitig : assembled_unitigs)
+                                for (auto unitig : assembled_unitigs)
                                 {
                                     unitigsFile << ">UNITIG_" << (print_times * UNITIG_BUFFER + i) << endl;
                                     unitigsFile << unitig << endl;        
@@ -231,12 +231,15 @@ void compute_and_print_unitigs(Graph& graph,
         assembled_unitigs,
         the_set_of_unitigs) );
 
-    uint64_t i = 0;
-    for (auto &unitig : assembled_unitigs)
+    if (print_output_unitigs)
     {
-        unitigsFile << ">UNITIG_" << (print_times * UNITIG_BUFFER + i) << endl;
-        unitigsFile << unitig << endl;        
-        i++;
+        uint64_t i = 0;
+        for (auto unitig : assembled_unitigs)
+        {
+            unitigsFile << ">UNITIG_" << (print_times * UNITIG_BUFFER + i) << endl;
+            unitigsFile << unitig << endl;        
+            i++;
+        }    
     }
 
     std::cout << "we used " << status.nbCores << " cores, traversal time " << (double)status.time/1000 << " sec" << std::endl;
@@ -409,6 +412,7 @@ int main (int argc, char* argv[])
     size_t k, abundance, nb_cores;
     string readFileName, outputFileName;
     bool print_output_unitigs;
+    bool load_graph;
 
     string usage = "\n  %prog OPTIONS";
     const string version = "%prog 0.1\nCopyright (C) 2014-2015\n"
@@ -431,6 +435,7 @@ int main (int argc, char* argv[])
     parser.add_option("-a", "--abundance") .type("int") .dest("a") .action("store") .set_default(3) .help("minimum abundance (default: %default)");
     parser.add_option("-s", "--silentoutput") .action("store_true") .dest("not_print_output_unitigs") .set_default(false) .help("this option suppresses writing the unitigs to file");
     parser.add_option("-t", "--threads") .type("int") .dest("t") .action("store") .set_default(0) .help("number of threads (0 for using cores; default: %default)");
+    parser.add_option("-l", "--loadgraph") .dest("l") .action("store_true") .set_default(false) .help("the graph is loaded from the file <reads>.h5 (if it exists)");
 
     optparse::Values& options = parser.parse_args(argc, argv);
     readFileName = (string) options.get("r");
@@ -439,6 +444,7 @@ int main (int argc, char* argv[])
     abundance = (int) options.get("a");
     nb_cores = (size_t) options.get("t");
     print_output_unitigs = (options.get("not_print_output_unitigs") ? false : true);
+    load_graph = (options.get("l") ? true : false);
 
     ofstream metricsFile;
     ofstream unitigsFile;
@@ -447,7 +453,7 @@ int main (int argc, char* argv[])
     Graph graph;
     try
     {
-        initialize_de_bruijn_graph(graph, readFileName, k, abundance, nb_cores);
+        initialize_de_bruijn_graph(graph, readFileName, k, abundance, nb_cores, load_graph);
         metricsFile.open((filePrefix + ".csv").c_str());
         metricsFile << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size" << endl;
         if (print_output_unitigs)
