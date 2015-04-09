@@ -78,12 +78,24 @@ inline int calc_abundance(const RLCSA* rlcsa,
     // return length(result);
 }
 
-inline string int_to_string(size_t x)
+inline string int_to_string(uint64_t x)
 {
     stringstream ss;
+    ss << std::fixed;
+    ss << std::setprecision(2);
     ss << x;
     return ss.str();
 }
+
+inline string double_to_string(double x)
+{
+    stringstream ss;
+    ss << std::fixed;
+    ss << std::setprecision(2);    
+    ss << x;
+    return ss.str();
+}
+
 
 inline void make_upper_case(string& s)
 {

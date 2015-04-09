@@ -7,8 +7,18 @@
 #define KMER_MAX_SAMPLE 500000
 #define ESIZE_UPDATE_STATS_STEP 9000
 
+#define LARGE_NUMBER 1048576
+
+#define _first_k 15
+#define _last_k 60
+#define _first_a 2
+#define _last_a 5
+
+
+
 uint64_t ESIZE_MAX_SAMPLED_UNITIGS;
 uint32_t N_THREADS;
+double _n_nodes_proportion;
 
 inline void get_in_out_degrees(const string& node, 
 	const RLCSA* rlcsa, 
@@ -65,6 +75,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 	vector<uint64_t> &n_total_sampled_unitigs_reset,
 	unordered_map<string, vector< vector<uint64_t> > > &stored_sampled_unitigs,
 	unordered_set<uint32_t> &e_size_alive_abundances,
+	unordered_set<uint32_t> &e_size_alive_abundances_thread,
 	bool &sampled_enough_unitigs
 	)
 {
@@ -73,13 +84,13 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 	vector< vector<uint64_t> > u_length(max_abundance + 1);
 	if (stored_sampled_unitigs.count(sample) == 0)
 	{
-		get_unitig_stats_SMART(sample, sample_abundance, rlcsa, e_size_alive_abundances, for_limit, u_length);	
+		get_unitig_stats_SMART(sample, sample_abundance, rlcsa, e_size_alive_abundances_thread, for_limit, u_length);	
 		std::pair<string, vector< vector<uint64_t> > > new_sample (sample,u_length);
 		#pragma omp critical
 		stored_sampled_unitigs.insert(new_sample);
 		
 		// updating the unique kmers stats
-		for (auto a : e_size_alive_abundances)
+		for (auto a : e_size_alive_abundances_thread)
 		{
 			if (a > for_limit) break;
 			#pragma omp atomic 
@@ -91,7 +102,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 		u_length = stored_sampled_unitigs[sample];
 	}
 	
-	for (auto a : e_size_alive_abundances)
+	for (auto a : e_size_alive_abundances_thread)
 	{
 		if (a > for_limit) break;
 		#pragma omp atomic
@@ -112,7 +123,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 		#pragma omp critical
 		{
 			bool sampled_enough_unitigs_temp = true;
-			for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
+			for (auto itr = e_size_alive_abundances_thread.begin(); itr != e_size_alive_abundances_thread.end(); )
 			{
 				uint32_t a = *itr;
 				++itr;
@@ -186,7 +197,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 		bool sampled_enough_unitigs_temp = true;
 		#pragma omp critical 
 		{
-			for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
+			for (auto itr = e_size_alive_abundances_thread.begin(); itr != e_size_alive_abundances_thread.end(); )
 			{
 				uint32_t a = *itr;
 				++itr;
@@ -324,8 +335,8 @@ inline void update_n_unitig_stats_from_sample(const uint32_t &sample_abundance,
 
 void sample_nodes(const RLCSA* rlcsa, 
 	const uint32_t &k,
-	const uint32_t &min_abundance,
-	const uint32_t &max_abundance,
+	uint32_t min_abundance,
+	uint32_t max_abundance,
 	const vector<compact_read_t>& reads,
 	const uint64_t &reads_total_content,
 	const uint64_t &reads_number,
@@ -339,6 +350,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &e_size,
 	vector<double> &e_size_error,
 	const double &relative_error,
+	const uint64_t &n_nodes_h,
 	const bool &verbose
 	)
 {
@@ -389,6 +401,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	{
 		if ((not sampled_enough_unitigs) or (not sampled_enough_unitigs) or (not sampled_enough_for_n_unitigs))
 		{
+			unordered_set<uint32_t> e_size_alive_abundances_thread = e_size_alive_abundances;
 			uint64_t read_index;
 			uint32_t pos;
 			string sample;
@@ -462,7 +475,46 @@ void sample_nodes(const RLCSA* rlcsa,
     				n_total_sampled_unitigs_reset,
     				stored_sampled_unitigs,
     				e_size_alive_abundances,
+    				e_size_alive_abundances_thread,
     				sampled_enough_unitigs);
+
+    			// heuristic criterion for abandoning this k and a
+    			// only master thread gets to update sampled_enough_unitigs
+    			if ((omp_get_thread_num() == 0) and (n_nodes_h != 0))
+    			{
+    				for (uint32_t a = min_abundance; a <= max_abundance; a++)	
+    				{
+    					// if we have a good estimate of the number of nodes
+    					// and the estimated number of nodes is less than _n_nodes_proportion (e.g. 70%) of n_nodes_h
+    					// then we abort this abundance and all greater abundances
+    					if ((n_nodes_error[a] <= relative_error) and
+    						(n_nodes[a] <= _n_nodes_proportion * n_nodes_h))
+    					{
+    						#pragma omp critical
+    						{
+    							for (uint32_t a2 = a; a2 <= max_abundance; a2++)
+    							{
+    								n_unitigs_error[a] = LARGE_NUMBER;
+    								e_size_error[a] = LARGE_NUMBER;
+    								avg_unitig_length_error[a] = LARGE_NUMBER;
+    								e_size_alive_abundances.erase(a2);
+    							}	
+    												
+	    						max_abundance = a - 1;
+	    						if (verbose)
+	    						{
+	    							cout << "Setting max_abundance = " << max_abundance << " for k = " << k << endl;
+	    						}
+	    						if (max_abundance < min_abundance)
+	    						{
+	    							sampled_enough_unitigs = true;
+	    							sampled_enough_for_n_unitigs = true;
+	    						}
+    						}
+    						break;
+    					}
+    				}
+    			}
     		}
 
     		update_node_stats_from_sample(sample_abundance,
@@ -545,10 +597,12 @@ int main(int argc, char** argv)
 	parser.add_option("-l", "--loadindex"). type("string") .dest("loadindex") .action("store") .set_default("") .help("the filename from where the index should be loaded");
 	parser.add_option("-m", "--lowermemory") .dest("lowermemory") .action("store_true") .set_default(false) .help("force the index construction to use less RAM; this slows the construction (default %default)");	
 	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
+	parser.add_option("-h", "--heuristic") .type("float") .dest("h") .action("store") .set_default(0.7) .help("abandon sampling unitigs for a pair (k,a) if the estimated number of nodes for (k,a) is less than <h> * the estimated number of nodes of the genome (default: %default)");
 	parser.add_option("-s", "--samples") .type("int") .dest("s") .action("store") .set_default(15000) .help("maximum number of unique k-mers that are sampled (default: %default)");
 	parser.add_option("-v", "--nonverbose") .dest("nonverbose") .action("store_true") .set_default(false) .help("print some stats to stdout (default %default)");
 
 	optparse::Values& options = parser.parse_args(argc, argv);
+
 
 	lowermemory = (options.get("lowermemory") ? true : false);
 	verbose = (options.get("nonverbose") ? false : true);
@@ -572,6 +626,7 @@ int main(int argc, char** argv)
 		ESIZE_MAX_SAMPLED_UNITIGS = ESIZE_UPDATE_STATS_STEP;
 	}
 	relative_error = (double) options.get("e");
+	_n_nodes_proportion = (double) options.get("h");
 
 	if (readFileName == "")
 	{
@@ -648,21 +703,37 @@ int main(int argc, char** argv)
     {
     	cout << "***    " << outputFileName + ".a" + int_to_string(a) + ".csv" << endl;
     	outputFile[a].open((outputFileName + ".a" + int_to_string(a) + ".csv").c_str());
-    	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size,rel_err for n_nodes,rel_err avg_length_unitigs,rel_err n_unitigs,rel_err e_size" << endl;
+    	outputFile[a] << "k,a,nr_nodes,nr_edges,avg_internal_nodes,avg_length_unitigs,est_sample_size,nr_unitigs,e_size,rel_err n_nodes,rel_err avg_length_unitigs,rel_err n_unitigs,rel_err e_size" << endl;
     	outputFile[a] << std::fixed;
     	outputFile[a] << std::setprecision(2);
     } 
 
+    bool computed_n_nodes_h = false;
+    uint64_t sum_n_nodes_h = 0;
+    uint32_t values_n_nodes_h = 0;
+    uint64_t n_nodes_h = 0;
+
  	for (uint32_t k = mink; k <= maxk; k++)
  	{
+ 		if ((k > _last_k) and (not computed_n_nodes_h)) 
+ 		{
+ 			n_nodes_h = (double)sum_n_nodes_h / values_n_nodes_h;
+ 			if (verbose)
+ 			{
+ 				cout << "Number of nodes used in pruning the search space over pairs (k,a): " << n_nodes_h << endl;
+ 				cout << "If for a pair (k,a) the estimated number of nodes is less than " << _n_nodes_proportion << " * " << n_nodes_h << " = " << _n_nodes_proportion * n_nodes_h << ", then that pair is abandoned" << endl;
+ 			}
+ 			computed_n_nodes_h = true;
+ 		}
+
  		vector<double> n_nodes(max_abundance + 1,0); 
-		vector<double> n_nodes_error(max_abundance + 1,100);
+		vector<double> n_nodes_error(max_abundance + 1,LARGE_NUMBER);
 		vector<double> n_unitigs(max_abundance + 1,0);
-		vector<double> n_unitigs_error(max_abundance + 1,100);
+		vector<double> n_unitigs_error(max_abundance + 1,LARGE_NUMBER);
  		vector<double> avg_unitig_length(max_abundance + 1,0);
- 		vector<double> avg_unitig_length_error(max_abundance + 1,100);
+ 		vector<double> avg_unitig_length_error(max_abundance + 1,LARGE_NUMBER);
  		vector<double> e_size(max_abundance + 1,0);
- 		vector<double> e_size_error(max_abundance + 1,100);
+ 		vector<double> e_size_error(max_abundance + 1,LARGE_NUMBER);
 
  		// sampling
  		sample_nodes(rlcsa, 
@@ -682,6 +753,7 @@ int main(int argc, char** argv)
  			e_size,
  			e_size_error,
  			relative_error,
+ 			n_nodes_h,
  			verbose);
 
  		// printing the results
@@ -692,24 +764,42 @@ int main(int argc, char** argv)
 	 		outputFile[a] << (uint64_t)n_nodes[a] << ","; // number of nodes
 	 		outputFile[a] << "." << ","; // number of edges
 	 		outputFile[a] << "." << ","; // average number of internal nodes in unitigs
-			outputFile[a] << avg_unitig_length[a] << ","; // average length of unitigs // OLD: avg_unitig_length + k + 1 << ","; 
+			outputFile[a] << (avg_unitig_length_error[a] != LARGE_NUMBER ? double_to_string(avg_unitig_length[a]) : ".") << ","; // average length of unitigs // OLD: avg_unitig_length + k + 1 << ","; 
 			outputFile[a] << "." << ","; // estimated sample size for kmers
-			outputFile[a] << (uint64_t)n_unitigs[a] << ","; // number of unitigs
-			outputFile[a] << e_size[a] << ","; // e-size
+			outputFile[a] << (n_unitigs_error[a] != LARGE_NUMBER ? int_to_string(n_unitigs[a]) : "." ) << ","; // number of unitigs
+			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(e_size[a]) : ".") << ","; // e-size	
 			outputFile[a] << n_nodes_error[a] << ","; // rel_err for n_nodes
-			outputFile[a] << avg_unitig_length_error[a] << ","; // rel_err avg_length_unitigs
-			outputFile[a] << n_unitigs_error[a] << ","; // rel_err n_unitigs
-			outputFile[a] << e_size_error[a]; // rel_err e_size
+			outputFile[a] << (avg_unitig_length_error[a] != LARGE_NUMBER ? double_to_string(avg_unitig_length_error[a]) : ".") << ","; // rel_err avg_length_unitigs
+			outputFile[a] << (n_unitigs_error[a] != LARGE_NUMBER ? double_to_string(n_unitigs_error[a]) : ".") << ","; // rel_err n_unitigs
+			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(e_size_error[a]) : "."); // rel_err e_size				
 			outputFile[a] << endl; 
 			//outputFile[a].flush();
+
+			if ((_first_k <= k) and (k <= _last_k) and
+				(_first_a <= a) and (a <= _last_a))
+			{
+				sum_n_nodes_h += n_nodes[a];
+				values_n_nodes_h++;
+			}
+				
 
 			if (verbose)
 			{
 				cout << k << " " << a << " ";
 				cout << "n_nodes=" << (uint64_t)n_nodes[a] << "±" << (uint32_t)ceil(100 * n_nodes_error[a]) << "% ";
-				cout << "n_unitigs=" << (uint64_t)n_unitigs[a] << "±" << (uint32_t)ceil(100 * n_unitigs_error[a]) << "% ";
-				cout << "avg_length=" << avg_unitig_length[a] << "±" << (uint32_t)ceil(100 * avg_unitig_length_error[a]) << "% ";
-				cout << "e_size=" << e_size[a] << "±" << (uint32_t)ceil(100 * e_size_error[a]) << "%" << endl;
+				if (n_unitigs_error[a] != LARGE_NUMBER)
+				{
+					cout << "n_unitigs=" << (uint64_t)n_unitigs[a] << "±" << (uint32_t)ceil(100 * n_unitigs_error[a]) << "% ";
+				}
+				if (avg_unitig_length_error[a] != LARGE_NUMBER)
+				{
+					cout << "avg_length=" << avg_unitig_length[a] << "±" << (uint32_t)ceil(100 * avg_unitig_length_error[a]) << "% ";	
+				}
+				if (e_size_error[a] != LARGE_NUMBER)
+				{
+					cout << "e_size=" << e_size[a] << "±" << (uint32_t)ceil(100 * e_size_error[a]) << "%";	
+				}
+				cout << endl;
 				cout.flush();	
 			}
  		}
