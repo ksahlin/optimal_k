@@ -5,7 +5,7 @@
 #define TWOSIDED95P_QUANTILE 1.96
 #define KMER_UPDATE_STATS_STEP 5000
 #define KMER_MAX_SAMPLE 500000
-#define ESIZE_UPDATE_STATS_STEP 5000
+#define ESIZE_UPDATE_STATS_STEP 9000
 
 uint64_t ESIZE_MAX_SAMPLED_UNITIGS;
 uint32_t N_THREADS;
@@ -62,7 +62,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 	const double &relative_error,
 	vector< vector<unitig_t> > &sampled_unitigs,
 	vector<uint64_t> &n_unique_sampled_unitigs,
-	uint64_t &n_total_sampled_unitigs_reset,
+	vector<uint64_t> &n_total_sampled_unitigs_reset,
 	unordered_map<string, vector< vector<uint64_t> > > &stored_sampled_unitigs,
 	unordered_set<uint32_t> &e_size_alive_abundances,
 	bool &sampled_enough_unitigs
@@ -95,7 +95,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 	{
 		if (a > for_limit) break;
 		#pragma omp atomic
-		n_total_sampled_unitigs_reset += u_length[a].size();
+		n_total_sampled_unitigs_reset[a] += u_length[a].size();
 		for (auto length : u_length[a])
 		{
 			unitig_t new_unitig;
@@ -109,16 +109,19 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 	// only Master gets to update the unitig stats
 	if (omp_get_thread_num() == 0)
 	{
-		if (n_total_sampled_unitigs_reset > ESIZE_UPDATE_STATS_STEP)
+		#pragma omp critical
 		{
-			n_total_sampled_unitigs_reset = 0;
 			bool sampled_enough_unitigs_temp = true;
-
-			#pragma omp critical
+			for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
 			{
-				for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
+				uint32_t a = *itr;
+				++itr;
+
+				if (n_total_sampled_unitigs_reset[a] > ESIZE_UPDATE_STATS_STEP)
 				{
-					uint32_t a = *itr;
+					n_total_sampled_unitigs_reset[a] = 0;
+					
+					
 					double e_x = 0;
 					double e_x2 = 0;
 					double var_x = 0;
@@ -161,7 +164,6 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 					avg_unitig_length[a] = e_x;
 					avg_unitig_length_error[a] = TWOSIDED95P_QUANTILE * sqrt(var_x) / e_x;
 
-					++itr;
 					if (e_size_error[a] > relative_error)
 					{
 						sampled_enough_unitigs_temp = false;
@@ -179,27 +181,27 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 				}	
 			}
 			sampled_enough_unitigs = sampled_enough_unitigs_temp;
+		}
 
-			sampled_enough_unitigs_temp = true;
-			#pragma omp critical 
+		bool sampled_enough_unitigs_temp = true;
+		#pragma omp critical 
+		{
+			for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
 			{
-				for (auto itr = e_size_alive_abundances.begin(); itr != e_size_alive_abundances.end(); )
+				uint32_t a = *itr;
+				++itr;
+				if (n_unique_sampled_unitigs[a] < ESIZE_MAX_SAMPLED_UNITIGS)
 				{
-					uint32_t a = *itr;
-					++itr;
-					if (n_unique_sampled_unitigs[a] < ESIZE_MAX_SAMPLED_UNITIGS)
-					{
-						sampled_enough_unitigs_temp = false;
-						break;
-					}
-					else
-					{
-						//e_size_alive_abundances.erase(a);
-					}
+					sampled_enough_unitigs_temp = false;
+					break;
+				}
+				else
+				{
+					//e_size_alive_abundances.erase(a);
 				}
 			}
-			sampled_enough_unitigs = sampled_enough_unitigs_temp;
 		}
+		sampled_enough_unitigs = sampled_enough_unitigs_temp;
 	}
 }
 
@@ -363,7 +365,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	{
 		e_size_alive_abundances.insert(a);
 	}
-	uint64_t n_total_sampled_unitigs_reset = 0;
+	vector<uint64_t> n_total_sampled_unitigs_reset(max_abundance + 1, 0);
 	bool sampled_enough_unitigs = false;
 
 	/////////// NODES STATS ////////////
