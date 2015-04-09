@@ -25,6 +25,7 @@
 #include <gatb/debruijn/impl/Frontline.hpp>
 
 using namespace std;
+using namespace gatb::core::tools::misc;
 
 /********************************************************************************/
 namespace gatb {  namespace core {  namespace debruijn {  namespace impl {
@@ -42,20 +43,20 @@ namespace gatb {  namespace core {  namespace debruijn {  namespace impl {
 ** REMARKS :
 *********************************************************************/
 Traversal* Traversal::create (
-    Kind&               type,
-    const Graph&        graph,
-    Terminator&         terminator,
-    int                 max_len,
-    int                 max_depth,
-    int                 max_breadth
+    TraversalKind   type,
+    const Graph&    graph,
+    Terminator&     terminator,
+    int             max_len,
+    int             max_depth,
+    int             max_breadth
 )
 {
     Traversal* result = 0;
 
-         if (type == UNITIG)  { result = new SimplePathsTraversal (graph, terminator, max_len, max_depth, max_breadth); }
-    else if (type == CONTIG)  { result = new MonumentTraversal    (graph, terminator, max_len, max_depth, max_breadth); }
-    else if (type == NONE)    { result = new NullTraversal        (graph, terminator, max_len, max_depth, max_breadth); }
-    else                      { result = new MonumentTraversal    (graph, terminator, max_len, max_depth, max_breadth); }
+         if (type == TRAVERSAL_UNITIG)  { result = new SimplePathsTraversal (graph, terminator, max_len, max_depth, max_breadth); }
+    else if (type == TRAVERSAL_CONTIG)  { result = new MonumentTraversal    (graph, terminator, max_len, max_depth, max_breadth); }
+    else if (type == TRAVERSAL_NONE)    { result = new NullTraversal        (graph, terminator, max_len, max_depth, max_breadth); }
+    else                                { result = new MonumentTraversal    (graph, terminator, max_len, max_depth, max_breadth); }
 
     return result;
 }
@@ -77,11 +78,7 @@ Traversal* Traversal::create (
     int                 max_breadth
 )
 {
-    Kind typeEnum;
-         if (type == "unitig")    { typeEnum = UNITIG; }
-    else if (type == "monument")  { typeEnum = CONTIG; }
-    else if (type == "null")      { typeEnum = NONE; }
-    else                          { typeEnum = CONTIG; }
+    TraversalKind typeEnum;  parse (type, typeEnum);
 
     return create (typeEnum, graph, terminator, max_len, max_depth, max_breadth);
 }
@@ -116,9 +113,9 @@ Traversal::Traversal (
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-int Traversal::traverse (const Node& startingNode, Direction dir, Path& consensus)
+int Traversal::traverse (const Node& startingNode, Node& currentNode, Direction dir, Path& consensus)
 {
-    Node currentNode = startingNode;
+    currentNode = startingNode;
     Node previousNode;
 
     int nnt = 0;
@@ -193,10 +190,10 @@ float Traversal::needleman_wunch (const Path& a, const Path& b)
     #define nw_score(x,y) ( (x == y) ? match_score : mismatch_score )
 
     int n_a = a.size(), n_b = b.size();
-    float ** score =  (float **) malloc (sizeof(float*) * (n_a+1));
+    float ** score =  (float **) MALLOC (sizeof(float*) * (n_a+1));
     for (int ii=0; ii<(n_a+1); ii++)
     {
-        score [ii] = (float *) malloc (sizeof(float) * (n_b+1));
+        score [ii] = (float *) MALLOC (sizeof(float) * (n_b+1));
     }
 
 
@@ -244,9 +241,9 @@ float Traversal::needleman_wunch (const Path& a, const Path& b)
 
     for (int ii=0; ii<(n_a+1); ii++)
     {
-        free (score [ii]);
+        FREE (score [ii]);
     }
-    free(score);
+    FREE(score);
 
     return identity;
 }
@@ -769,7 +766,7 @@ Path MonumentTraversal::most_abundant_consensus(set<Path>& consensuses)
         }
 
         if (debug && consensuses.size() > 1)
-            printf("path: %s mean abundance: %d\n",p_str.c_str(),mean_abundance);
+            printf("path: %s mean abundance: %ld\n",p_str.c_str(),mean_abundance);
     }
 
     return res;

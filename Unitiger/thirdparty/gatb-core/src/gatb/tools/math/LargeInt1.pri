@@ -16,15 +16,12 @@
  *  You should have received a copy of the GNU Affero General Public License
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
 *****************************************************************************/
-
 /** \file LargeInt<1>.hpp
  *  \date 01/03/2013
  *  \author edrezen
  *  \brief Integer class relying on native u_int64_t type
  */
 
-/** \brief Large integer class
- */
 template<>  class LargeInt<1> :  private misc::ArrayData<u_int64_t, 1>
 {
 public:
@@ -33,7 +30,7 @@ public:
      * \param[in] c : initial value of the large integer. */
     LargeInt<1> (const u_int64_t& c=0)  {  value[0] = c;  }
 
-     u_int64_t getVal ()  { return *value; }
+     u_int64_t getVal () const  { return *value; }
 
     static const char* getName ()  { return "LargeInt<1>"; }
 
@@ -61,6 +58,9 @@ public:
 
     LargeInt<1>& operator+=  (const LargeInt<1>& other)    {  value[0] += other.value[0]; return *this; }
     LargeInt<1>& operator^=  (const LargeInt<1>& other)    {  value[0] ^= other.value[0]; return *this; }
+
+    LargeInt<1>& operator<<=  (const int& coeff)  { value[0] <<= coeff; return *this; } 
+    LargeInt<1>& operator>>=  (const int& coeff)  { value[0] >>= coeff; return *this; }
 
     u_int8_t  operator[]  (size_t idx) const   {  return (value[0] >> (2*idx)) & 3; }
 
@@ -113,18 +113,24 @@ public:
         return seq;
     }
 
-    
     /********************************************************************************/
     inline static u_int64_t revcomp64 (const u_int64_t& x, size_t sizeKmer)
     {
         u_int64_t res = x;
 
-        unsigned char* kmerrev  = (unsigned char *) (&(res));
-        unsigned char* kmer     = (unsigned char *) (&(x));
+        // OLD VERSION (with lookup table)
+        // unsigned char* kmerrev  = (unsigned char *) (&(res));
+        // unsigned char* kmer     = (unsigned char *) (&(x));
+        // for (size_t i=0; i<8; ++i)  {  kmerrev[8-1-i] = revcomp_4NT [kmer[i]];  }
 
-        for (size_t i=0; i<8; ++i)  {  kmerrev[8-1-i] = revcomp_4NT [kmer[i]];  }
-
-        return (res >> (2*( 32 - sizeKmer))) ;
+        res = ((res>> 2 & 0x3333333333333333) | (res & 0x3333333333333333) <<  2);
+        res = ((res>> 4 & 0x0F0F0F0F0F0F0F0F) | (res & 0x0F0F0F0F0F0F0F0F) <<  4);
+        res = ((res>> 8 & 0x00FF00FF00FF00FF) | (res & 0x00FF00FF00FF00FF) <<  8);
+        res = ((res>>16 & 0x0000FFFF0000FFFF) | (res & 0x0000FFFF0000FFFF) << 16);
+        res = ((res>>32 & 0x00000000FFFFFFFF) | (res & 0x00000000FFFFFFFF) << 32);
+        res = res ^ 0xAAAAAAAAAAAAAAAA;
+        
+        return (res >> (2*(32-sizeKmer))) ;
     }
 
     /********************************************************************************/
@@ -139,7 +145,8 @@ public:
         hash = (hash + (hash << 2)) + (hash << 4); // hash * 21
         hash = hash ^ (hash >> 28);
         hash = hash + (hash << 31);
-        return hash;
+		
+		return hash;
     }
 
     /********************************************************************************/
@@ -167,7 +174,18 @@ public:
         
         input = input  >> 8;
         res  ^= random_values[input & 255] ;
+
         
+        res  ^= random_values[key & 255] ;//also always add 8 first bits
+//		
+//		input = input  >> 8;
+//        res  ^= random_values[input & 255] ;
+//		
+//		
+//		input = input  >> 8;
+//        res  ^= random_values[input & 255] ;
+		
+		
         return res;
         //could be improved by xor'ing result of multiple bytes
     }
@@ -205,6 +223,7 @@ inline LargeInt<1> revcomp (const LargeInt<1>& x, size_t sizeKmer)
 /********************************************************************************/
 inline u_int64_t hash1 (const LargeInt<1>& key, u_int64_t seed=0)
 {
+
     return LargeInt<1>::hash64 (key.value[0], seed);
 }
 
@@ -213,7 +232,7 @@ inline u_int64_t oahash (const LargeInt<1>& key)
 {
     return LargeInt<1>::oahash64 (key.value[0]);
 }
-    
+
 /********************************************************************************/
 inline u_int64_t simplehash16 (const LargeInt<1>& key, int  shift)
 {

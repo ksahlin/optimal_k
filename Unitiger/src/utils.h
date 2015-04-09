@@ -162,73 +162,17 @@ inline int initialize_de_bruijn_graph(Graph& graph,
     bool load_graph)
 {
 
-    //string reads_tmp = reads + ".h5";
-    string reads_tmp = "frag_1.h5";
-    if (load_graph and is_readable(reads_tmp))
-    {
-        std::cout << "Loading from " << reads_tmp << std::endl;
-        graph = Graph::load("frag_1");
-        std::cout << graph.getInfo() << std::endl;
-        return EXIT_SUCCESS;
-    }
+    // //string reads_tmp = reads + ".h5";
+    // string reads_tmp = "frag_1.h5";
+    // if (load_graph and is_readable(reads_tmp))
+    // {
+    //     std::cout << "Loading from " << reads_tmp << std::endl;
+    //     graph = Graph::load("frag_1");
+    //     std::cout << graph.getInfo() << std::endl;
+    //     return EXIT_SUCCESS;
+    // }
 
-    string readsString = "";
-    string line;
-
-    ifstream readFile;
-    readFile.open(reads);
-
-    if (readFile.is_open())
-    {
-        getline(readFile , line);
-        readsString = line;
-        cout << "Filename on first line " << readsString << endl;
-        while (getline(readFile , line)) // this is the comment line
-        {
-            readsString += "," + line;
-            cout << "Filename constructed so far " << readsString << endl;
-        }
-        readFile.close();            
-    }
-    else
-    {
-        cout << "Error: couldn't open file " << reads << endl;
-        return EXIT_FAILURE;
-    }
-
-    // Tokenize reads file (list of files separated by ,)
-    int filecount=1;
-    char *readcstr = (char *)readsString.c_str();
-    for(int i = 0; i < strlen(readcstr); i++) 
-    {
-        if (readcstr[i] == ',')
-            filecount++;
-    }
-
-    if (filecount > 1) 
-    {
-        char **files = new char*[filecount];
-        files[0] = readcstr;
-        int j = 1;
-        int l = strlen(readcstr);
-        for (int i = 0; i < l; i++) {
-            if (readcstr[i] == ',')
-            {
-                readcstr[i] = '\0';
-                files[j] = &readcstr[i+1];
-                j++;
-            }
-        }
-
-        BankFasta *b = new BankFasta(filecount, files);
-        cout << "building the graph from more files '" << readsString << "'" << endl;
-        graph = Graph::create(b, (char const *)"-kmer-size %d -abundance %d -verbose 0 -nb-cores %d", k, abundance, nb_cores);
-    } 
-    else 
-    {
-        cout << "building the graph from only one file '" << readsString << "'" << endl;
-        graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance %d -verbose 0 -nb-cores %d", readsString.c_str(), k, abundance, nb_cores);
-    }
+    graph = Graph::create ((char const *)"-in %s -kmer-size %d -abundance-min %d -verbose 0 -nb-cores %d", reads.c_str(), k, abundance, nb_cores);
   
 	std::cout << graph.getInfo() << std::endl;
 

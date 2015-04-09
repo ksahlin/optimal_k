@@ -43,6 +43,11 @@ namespace impl          {
 /********************************************************************************/
 
 /** \brief Bag implementation as a cache to a referred Bag instance
+ *
+ * This implementation is a proxy to a Bag instance. One can insert items into such
+ * a bag, it will just put them into a cache. When the cache is full, all the cached
+ * items are inserted into the delegate; this operation may be protected by a
+ * synchronizer in case several threads use different BagCache on the same delegate.
  */
 template <typename Item> class BagCache : public Bag<Item>, public system::SmartPointer
 {
@@ -51,13 +56,13 @@ public:
     /** Constructor */
     BagCache () : _ref(0), _nbMax(0), _synchro(0), _items(0), _idx(0)  {}
 
-    /** Constructor. */
+    /** Constructor. Cache size is in terms of number of items (I think) */
     BagCache (Bag<Item>* ref, size_t cacheSize, system::ISynchronizer* synchro=0)
         : _ref(0), _nbMax(cacheSize), _synchro(0), _items(0), _idx(0)
     {
         setRef     (ref);
         setSynchro (synchro);
-        _items = (Item*) system::impl::System::memory().calloc (_nbMax, sizeof(Item));
+        _items = (Item*) CALLOC (_nbMax, sizeof(Item));
         system::impl::System::memory().memset (_items, 0, _nbMax*sizeof(Item));
     }
 
@@ -67,7 +72,7 @@ public:
         setRef     (b._ref);
         setSynchro (b._synchro);
 
-        _items = (Item*) system::impl::System::memory().calloc (_nbMax, sizeof(Item));
+        _items = (Item*) CALLOC (_nbMax, sizeof(Item));
         system::impl::System::memory().memset (_items, 0, _nbMax*sizeof(Item));
     }
 
@@ -81,7 +86,7 @@ public:
         setRef     (0);
         setSynchro (0);
 
-        system::impl::System::memory().free (_items);
+        FREE (_items);
     }
 
     /**  \copydoc Bag::insert */
@@ -124,10 +129,6 @@ protected:
         _idx = 0;
     }
 };
-
-    
-
-
     
 /********************************************************************************/
 
@@ -163,17 +164,13 @@ public:
     /**  \copydoc Bag::insert */
     void insert (const Item& item)
     {
-        
         if (this->_idx+1 > this->_nbMax)
         {
             if (this->_synchro)  {  this->_synchro->lock();    }
             flushLocalCache ();
             if (this->_synchro)  {  this->_synchro->unlock();  }
         }
-        
         this->_items[this->_idx++] = item;
-        
-
     }
     
     /**  \copydoc Bag::flush */
@@ -186,15 +183,11 @@ public:
 
         flushCache ();
         if (this->_synchro)  {  this->_synchro->unlock();  }
-        
 
         if (this->_outsynchro)  {  this->_outsynchro->lock();    }
         this->_ref->flush();
         if (this->_outsynchro)  {  this->_outsynchro->unlock();  }
-        
-        
     }
-    
     
 private:
     Item * _sharedBuffer; // shared buffer for sorting, allocated from outside
@@ -202,9 +195,7 @@ private:
     void setOutSynchro (system::ISynchronizer* outsynchro)  { SP_SETATTR(outsynchro); }
     size_t _sharedCacheSize;
     size_t * _idxShared;
-    
 
-    
     void flushLocalCache () //flush local cache to shared buffer
     {
       //  printf("flush local cache to %p  from %p  %zu \n",_sharedBuffer + *_idxShared,this->_items,this->_idx);
@@ -233,34 +224,25 @@ private:
 
         if (*_idxShared > 0)
         {
-        //first duplicate into temp vector
+            //first duplicate into temp vector
             std::vector<Item> tempArray(_sharedBuffer, _sharedBuffer + *_idxShared);
-        *_idxShared = 0;
-        //here shared buffer is effectively flushed to temp array, safe to unlock
-        
-        if (this->_synchro)  {  this->_synchro->unlock();    }
-        std::sort (tempArray.begin(), tempArray.end());
-            
-        //flush to file using outsynchro
-        if (this->_outsynchro)  {  this->_outsynchro->lock();    }
-        this->_ref->insert (tempArray, tempArray.size());
-        if (this->_outsynchro)  {  this->_outsynchro->unlock();  }
-            
-        if (this->_synchro)  {  this->_synchro->lock();    }
-            
-        }
-        
-        
-        
-//        if (*_idxShared > 0)  { this->_ref->insert (_sharedBuffer, *_idxShared);  }
-//        *_idxShared = 0;
-        
-    }
-    
-};
+            *_idxShared = 0;
+            //here shared buffer is effectively flushed to temp array, safe to unlock
 
-    
-    
+            if (this->_synchro)  {  this->_synchro->unlock();    }
+            std::sort (tempArray.begin(), tempArray.end());
+
+            //flush to file using outsynchro
+            if (this->_outsynchro)  {  this->_outsynchro->lock();    }
+            this->_ref->insert (tempArray, tempArray.size());
+            if (this->_outsynchro)  {  this->_outsynchro->unlock();  }
+
+            if (this->_synchro)  {  this->_synchro->lock();    }
+        }
+        //  if (*_idxShared > 0)  { this->_ref->insert (_sharedBuffer, *_idxShared);  }
+        //  *_idxShared = 0;
+    }
+};
     
 /********************************************************************************/
 

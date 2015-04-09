@@ -53,7 +53,7 @@ namespace bank      {
  *  - read sequences from some container.
  *  - insert sequences into some container.
  *
- * Typical implementation of this interface is a FASTA bank parser.
+ * One typical implementation of this interface is a FASTA bank parser.
  *
  * The key point here is that clients should use this interface instead of specific
  * implementations, wherever they need to get nucleotides sequences from some container.
@@ -61,19 +61,32 @@ namespace bank      {
  * By doing this, such clients will support many bank formats (according to the fact that
  * a IBank implementation provides such a service). They will also support "fake" banks, for
  * instance random generated sequences or any kind of synthetic data.
+ *
+ * From a design point of view, IBank is an Iterable (something we can get iterators from) and
+ * a Bag (something we can insert items into); in both cases, the item type is Sequence
+ *
+ * Some kind of factory method exists for using IBank instances: this is the gatb::core::bank::impl::Bank
+ * class. This class allows to get a IBank instance by providing an URI. The actual implementation
+ * class of the IBank interface is computed by analyzing the URI string itself, or the content of the
+ * file defined by the URI. So, tools developers should in general get IBank instances this way, so their
+ * tool would support different kind of input bank formats.
+ *
+ * \see Sequence
+ * \see IBankFactory
+ * \see impl::Bank
  */
 class IBank : public tools::collections::Iterable<Sequence>, public tools::collections::Bag<Sequence>
 {
 public:
 
-    /** Get an unique identifier for the bank (could be an URI for instance).
+    /** Get an unique identifier for the bank (could be the URI of a FASTA file for instance).
      * \return the identifier */
     virtual std::string getId () = 0;
 
     /** \copydoc tools::collections::Iterable::iterator */
     virtual tools::dp::Iterator<Sequence>* iterator () = 0;
 
-    /** \copydoc tools::collections::Bag */
+    /** \copydoc tools::collections::Bag::insert */
     virtual void insert (const Sequence& item) = 0;
 
     /** Return the size of the bank (comments + data)
@@ -82,14 +95,14 @@ public:
      * a zipped bank, an implementation may be not able to give accurate answer to the
      * size of the original file.
      *
-     * \return the bank size.*/
+     * \return the bank size in bytes.*/
     virtual u_int64_t getSize () = 0;
 
-    /** Give an estimation of sequences information in the bank:
-     *      - sequences number
-     *      - sequences size (in bytes)
-     *      - max size size (in bytes)
-     * \return the sequences number estimation. */
+    /** Give an estimation of sequences information in the bank.
+     * \param[out] number : sequences number
+     * \param[out] totalSize : sequences size (in bytes)
+     * \param[out] maxSize : max size size (in bytes)
+     */
     virtual void estimate (u_int64_t& number, u_int64_t& totalSize, u_int64_t& maxSize) = 0;
 
     /** Shortcut to 'estimate' method.
@@ -106,6 +119,10 @@ public:
     /** Set the number of sequences read from the bank for computing estimated information
      * \param[in] nbSeq : the number of sequences to be read.*/
     virtual void setEstimateThreshold (u_int64_t nbSeq) = 0;
+
+    /** Remove physically the bank. This method will have non-empty implementation for banks using
+     * file system for instance. */
+    virtual void remove () = 0;
 };
 
 /********************************************************************************/
@@ -117,6 +134,9 @@ public:
  *
  * Such an identifier can be an uri (FASTA banks for instance), or any mechanism allowing
  * to retrieve enough information for creating instances of a specific IBank implementation.
+ *
+ * Actually, the gatb::core::bank::impl::Bank class relies on a list of registered IBankFactory
+ * instances.
  */
 class IBankFactory : public system::SmartPointer
 {

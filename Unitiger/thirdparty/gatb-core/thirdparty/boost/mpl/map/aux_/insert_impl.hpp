@@ -11,9 +11,9 @@
 //
 // See http://www.boost.org/libs/mpl for documentation.
 
-// $Id: insert_impl.hpp,v 1.1 2014/12/19 07:37:50 lmsalmel Exp $
-// $Date: 2014/12/19 07:37:50 $
-// $Revision: 1.1 $
+// $Id: insert_impl.hpp 55751 2009-08-24 04:11:00Z agurtovoy $
+// $Date: 2009-08-24 00:11:00 -0400 (Mon, 24 Aug 2009) $
+// $Revision: 55751 $
 
 #include <boost/mpl/insert_fwd.hpp>
 #include <boost/mpl/next_prior.hpp>

@@ -50,24 +50,32 @@ namespace storage   {
 namespace impl      {
 /********************************************************************************/
 
+/** \brief Implementation of the Bag interface with a HDF5 file.
+ *
+ * This implementation writes Item objects in a HDF5 file.
+ */
 template <class Item> class BagHDF5 : public collections::Bag<Item>, public system::SmartPointer
 {
 public:
 
-    /** */
+    /** Constructor.
+     * \param[in] datasetId : HDF5 identifier of the dataset acting as a Bag.
+     * \param[in] typeId : HDF5 type identifier for the Item type
+     * \param[in] nbItems : number of items
+     * \param[in] synchro : used to serialize concurrent read/write HDF5 operations.
+     */
     BagHDF5 (hid_t datasetId, hid_t typeId, u_int64_t& nbItems, system::ISynchronizer* synchro)
         : _datasetId(datasetId), _typeId(typeId), _nbInserted(0), _nbItems(nbItems), _synchro(synchro)
     {
     }
 
-    /** Insert an item into the bag.
-     * \param[in] item : the item to be inserted. */
+    /** \copydoc collections::Bag::insert */
     void insert (const Item& item) {  insert (&item, 1);  }
 
+    /** \copydoc collections::Bag::insert(const std::vector<Item>& items, size_t length) */
     void insert (const std::vector<Item>& items, size_t length=0)  {  insert (items.data(), length==0 ? items.size() : length); }
 
-    /** Insert items into the bag.
-     * \param[in] items : items to be inserted. */
+    /** \copydoc collections::Bag::insert(const Item* items, size_t length) */
     void insert (const Item* items, size_t length)
     {
         if (items==0 || length==0)  { return; }
@@ -108,7 +116,7 @@ public:
 
     }
 
-    /** */
+    /** \copydoc collections::Bag::flush */
     void flush ()  {}
 
 private:
@@ -158,6 +166,8 @@ public:
         return buffer;
     }
 
+    size_t getItems (Item*& buffer, size_t start, size_t count)  { return retrieveCache (buffer, start, count); }
+
 
 private:
 
@@ -171,6 +181,9 @@ private:
     u_int64_t retrieveCache (Item* data, hsize_t start, hsize_t count)
     {
         herr_t status = 0;
+
+        if (start       > _nbItems)  { return 0;               }
+        if (start+count > _nbItems)  { count = _nbItems-start; }
 
         system::LocalSynchronizer localsynchro (_synchro);
 
@@ -217,7 +230,7 @@ public:
         _data(0), _dataSize(0), _dataIdx(0), _isDone (true),
         _nbRead(0), _memspaceId(0), _total(0)
     {
-        _data = (Item*) malloc (_blockSize*sizeof(Item));
+        _data = (Item*) MALLOC (_blockSize*sizeof(Item));
         memset (_data, 0, _blockSize*sizeof(Item));
         _total = _ref->_nbItems;
     }
@@ -228,7 +241,7 @@ public:
           _data(0), _dataSize(0), _dataIdx(0), _isDone (true),
           _nbRead(0), _memspaceId(0), _total(0)
     {
-        _data = (Item*) malloc (_blockSize*sizeof(Item));
+        _data = (Item*) MALLOC (_blockSize*sizeof(Item));
         memset (_data, 0, _blockSize*sizeof(Item));
 
         _total = _ref->_nbItems;
@@ -247,8 +260,8 @@ public:
             _memspaceId = it._memspaceId;
             _total      = it._total;
 
-            if (_data)  { free (_data); }
-            _data = (Item*) malloc (_blockSize*sizeof(Item));
+            if (_data)  { FREE (_data); }
+            _data = (Item*) MALLOC (_blockSize*sizeof(Item));
             memcpy (_data, it._data, _blockSize*sizeof(Item));
         }
         return *this;
@@ -258,7 +271,7 @@ public:
     /** */
     ~HDF5Iterator()
     {
-        if (_data)  { free (_data); }
+        if (_data)  { FREE (_data); }
     }
 
     void first()
@@ -395,10 +408,10 @@ public:
         status = H5Tclose (_typeId);
     }
 
-    /** \copydoc Collection::remove */
+    /** \copydoc tools::collections::Collection::remove */
     void remove ()  {}
 
-    /** \copydoc Collection::addProperty */
+    /** \copydoc tools::collections::Collection::addProperty */
     void addProperty (const std::string& key, const std::string value)
     {
         hid_t datatype = H5Tcopy (H5T_C_S1);  H5Tset_size (datatype, H5T_VARIABLE);
@@ -419,7 +432,7 @@ public:
         H5Sclose (space_id);
     }
 
-    /** \copydoc Collection::getProperty */
+    /** \copydoc tools::collections::Collection::getProperty */
     std::string getProperty (const std::string& key)
     {
         std::string result;
@@ -433,7 +446,7 @@ public:
 
         hsize_t dims = 1;
         H5Sget_simple_extent_dims (space_id, &dims, NULL);
-        char** rdata = (char **) malloc (dims * sizeof (char *));
+        char** rdata = (char **) MALLOC (dims * sizeof (char *));
 
         status = H5Aread (attrId, datatype, rdata);
 

@@ -90,6 +90,14 @@ public:
      */
     virtual void stop (const char* name);
 
+    /** Merge the content of the current time info with the provided one.
+     * \param[in] ti : info to merged. */
+    TimeInfo& operator+= (TimeInfo& ti);
+
+    /** Didive the time (useful when gathered times from several threads).
+     * \param[in] nb : divisor. */
+    TimeInfo& operator/= (size_t nb );
+
     /** Provides (as a map) all got durations for each known label/
      * \return a map holding all retrieved timing information.
      */
@@ -100,6 +108,12 @@ public:
      * \return the duration.
      */
     u_int32_t getEntryByKey (const std::string& key);
+
+    /** Retrieve the duration for a given label in seconds
+     * \param[in] key : the label we want the duration for.
+     * \return the duration.
+     */
+    double get (const std::string& key) { return (double)getEntryByKey(key) / 1000.0; }
 
     /** Creates and return as a IProperties instance the whole timing information.
      * \param[in] root : root name of the properties to be returned.
@@ -116,13 +130,41 @@ private:
 
 /********************************************************************************/
 
-/** */
+/** \brief Helper for time info statistics.
+ *
+ * This class allows to get the execution time within an instruction block.
+ *
+ * See also the TIME_INFO macro that eases its usage.
+ *
+ * Example:
+ * \code
+ void foo ()
+ {
+     TimeInfo t;
+
+     {
+         LocalTimeInfo local (t, "part1");
+
+         // do something here
+     }
+
+     // now, we dump the exec time of the instruction block enclosing the LocalTimeInfo instance
+     cout << "part1: " << t.getEntryByKey("part1") << "  " endl;
+ }
+ * \endcode
+ *
+ * */
 class LocalTimeInfo
 {
 public:
 
+    /** Constuctor
+     * \param[in] ti : time info object to be used
+     * \param[in] txt : key of the exec time to be got
+     */
     LocalTimeInfo (TimeInfo& ti, const std::string& txt) : _ti(ti), _txt(txt)  {  _ti.start (_txt.c_str());  }
 
+    /** Destructor. */
     ~LocalTimeInfo ()   {  _ti.stop (_txt.c_str());   }
 
 private:

@@ -20,7 +20,7 @@
 /** \file BankFasta.hpp
  *  \date 01/03/2013
  *  \author edrezen
- *  \brief Interface definition for genomic databases management
+ *  \brief FASTA bank format
  */
 
 #ifndef _GATB_CORE_BANK_IMPL_BANK_FASTA_HPP_
@@ -51,9 +51,15 @@ namespace bank      {
 namespace impl      {
 /********************************************************************************/
 
-/** \brief Interface for reading genomic databases.
+/** \brief Implementation of IBank for FASTA format
  *
- * Sample of use:
+ *  This class provides FASTA management in GATB.
+ *
+ *  Actually, it provides FASTA and FASTQ formats, both in uncompressed and gzip formats.
+ *
+ *  In case of FASTQ files, the iterated Sequence objects will provide quality information.
+ *
+ * Sample of use (note however that it is better to use Bank::open for opening a bank):
  * \snippet bank1.cpp  snippet1_bank
  */
 class BankFasta : public AbstractBank
@@ -64,19 +70,11 @@ public:
     static const char* name()  { return "fasta"; }
 
     /** Constructor.
-     * \param[in] filenames : uri list of the banks. */
-    BankFasta (const std::vector<std::string>& filenames);
-
-    /** Constructor.
-     * \param[in] argc : number of filenames
-     * \param[in] argv : filenames
+     * \param[in] filename : uri of the bank.
+     * \param[in] output_fastq : tells whether the file is in fastq or not.
+     * \param[in] output_gz: tells whether the file is gzipped or not
      */
-    BankFasta (int argc, char* argv[]);
-
-    /** Constructor.
-     * \param[in] filename : uri of the bank. */
     BankFasta (const std::string& filename, bool output_fastq = false, bool output_gz = false);
-
 
     /** Destructor. */
     ~BankFasta ();
@@ -87,14 +85,14 @@ public:
     /** \copydoc IBank::iterator */
     tools::dp::Iterator<Sequence>* iterator ()  { return new Iterator (*this); }
 
-    /** */
+    /** \copydoc IBank::getNbItems */
     int64_t getNbItems () { return -1; }
 
     /** \copydoc IBank::insert */
     void insert (const Sequence& item);
 
     /** \copydoc IBank::flush */
-    void flush ()  {}
+    void flush ();
 
     /** \copydoc IBank::getSize */
     u_int64_t getSize ()  { return filesizes; }
@@ -102,10 +100,6 @@ public:
     /** \copydoc IBank::estimate */
     void estimate (u_int64_t& number, u_int64_t& totalSize, u_int64_t& maxSize);
 
-    /** \return maximum number of files. */
-    static const size_t getMaxNbFiles ()  { return 100; } // ORIGINALLY: { return 30; }
-
-    /** */
     static void setDataLineSize (size_t len) { _dataLineSize = len; }
     static size_t getDataLineSize ()  { return _dataLineSize; }
 
@@ -209,6 +203,9 @@ public:
 
 protected:
 
+    /** \return maximum number of files. */
+    static const size_t getMaxNbFiles ()  { return 1; }
+
     friend class Iterator;
 
     bool _output_fastq;
@@ -233,11 +230,12 @@ protected:
 
 /********************************************************************************/
 
-/** */
+/* \brief Factory for the BankFasta class. */
 class BankFastaFactory : public IBankFactory
 {
 public:
 
+    /** \copydoc IBankFactory::createBank */
     IBank* createBank (const std::string& uri);
 };
 

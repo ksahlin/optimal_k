@@ -100,36 +100,6 @@ struct buffered_strings_t
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-BankFasta::BankFasta (const std::vector<std::string>& filenames)
-    : _filenames(filenames), filesizes(0), nb_files(0), _insertHandle(0), _gz_insertHandle(0)
-{
-    init ();
-}
-
-/*********************************************************************
-** METHOD  :
-** PURPOSE :
-** INPUT   :
-** OUTPUT  :
-** RETURN  :
-** REMARKS :
-*********************************************************************/
-BankFasta::BankFasta (int argc, char* argv[])
-    : filesizes(0), nb_files(0), _insertHandle(0), _gz_insertHandle(0)
-{
-    for (size_t i=0; i<argc; i++)  { _filenames.push_back (argv[i]); }
-
-    init ();
-}
-
-/*********************************************************************
-** METHOD  :
-** PURPOSE :
-** INPUT   :
-** OUTPUT  :
-** RETURN  :
-** REMARKS :
-*********************************************************************/
 BankFasta::BankFasta (const std::string& filename, bool output_fastq, bool output_gz)
     : filesizes(0), nb_files(0), _insertHandle(0), _gz_insertHandle(0)
 {
@@ -151,7 +121,6 @@ BankFasta::~BankFasta ()
 {
     if (_insertHandle    != 0)  { fclose  (_insertHandle);    }
     if (_gz_insertHandle != 0)  { gzclose (_gz_insertHandle); }
-    
 }
 
 /*********************************************************************
@@ -223,13 +192,25 @@ void BankFasta::estimate (u_int64_t& number, u_int64_t& totalSize, u_int64_t& ma
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
+void BankFasta::flush ()
+{
+    if (_insertHandle    != 0)  { fflush  (_insertHandle);              }
+    if (_gz_insertHandle != 0)  { gzflush (_gz_insertHandle, Z_FINISH); }
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
 void BankFasta::insert (const Sequence& item)
 {
-
     /** We open the last file if needed. */
     if (_insertHandle == 0  &&  _filenames.empty()==false)
     {
-
         _insertHandle = fopen (_filenames[_filenames.size()-1].c_str(), "w");
     }
 
@@ -627,7 +608,7 @@ bool BankFasta::Iterator::get_next_seq (Vector<char>& data)
 void BankFasta::Iterator::init ()
 {
     /** We initialize the array of files. */
-    buffered_file = (void**) calloc (getMaxNbFiles(), sizeof(void*));
+    buffered_file = (void**) CALLOC (getMaxNbFiles(), sizeof(void*));
 
     /** Shortcut. */
     vector<string>& fnames = _ref._filenames;
@@ -693,7 +674,7 @@ void BankFasta::Iterator::finalize ()
     }
 
     /** We release the array of files. */
-    free (buffered_file);
+    FREE (buffered_file);
 }
 
 /*********************************************************************

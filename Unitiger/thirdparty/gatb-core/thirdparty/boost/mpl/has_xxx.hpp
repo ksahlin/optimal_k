@@ -12,9 +12,9 @@
 //
 // See http://www.boost.org/libs/mpl for documentation.
 
-// $Id: has_xxx.hpp,v 1.1 2014/12/19 07:36:05 lmsalmel Exp $
-// $Date: 2014/12/19 07:36:05 $
-// $Revision: 1.1 $
+// $Id: has_xxx.hpp 64146 2010-07-19 00:46:31Z djwalker $
+// $Date: 2010-07-18 20:46:31 -0400 (Sun, 18 Jul 2010) $
+// $Revision: 64146 $
 
 #include <boost/mpl/bool.hpp>
 #include <boost/mpl/aux_/na_spec.hpp>

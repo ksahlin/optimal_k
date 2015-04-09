@@ -44,22 +44,27 @@ namespace misc      {
 namespace impl      {
 /********************************************************************************/
 
-/** TBD */
+/** \brief Basic implementation of the IHistogram interface.
+ *
+ * This implementation is the one actually used by SortingCountAlgorithm.
+ */
 class Histogram : public IHistogram, public system::SmartPointer
 {
 public:
 
-    /** */
+    /** Constructor.
+     * \param[in] length : maximum value for the X axis
+     * \param[in] bag : bag where the values can be saved. */
     Histogram (size_t length, tools::collections::Bag<Entry>* bag)
         : _length(length), _cutoff(0), _nbsolids(0),
-          _histogram(0), _histogram_smoothed(0), _bag(0)
+          _histogram(0), _histogram_smoothed(0), _bag(0), _firstPeak(0)
     {
         setBag (bag);
 
-        _histogram = (Entry*) system::impl::System::memory().calloc (_length + 1, sizeof (Entry));
+        _histogram = (Entry*) CALLOC (_length + 1, sizeof (Entry));
         memset (_histogram, 0, sizeof(Entry)*(_length + 1));
 
-		_histogram_smoothed = (Entry*) system::impl::System::memory().calloc (_length + 1, sizeof (Entry));
+		_histogram_smoothed = (Entry*) CALLOC (_length + 1, sizeof (Entry));
         memset (_histogram_smoothed, 0, sizeof(Entry)*(_length + 1));
 		
         for (size_t i=0; i<_length+1; i++)
@@ -71,39 +76,46 @@ public:
         }
     }
 
-    /** */
+    /** Destructor */
     virtual ~Histogram ()
     {
         setBag(0);
-        system::impl::System::memory().free (_histogram);
-        system::impl::System::memory().free (_histogram_smoothed);
+        FREE (_histogram);
+        FREE (_histogram_smoothed);
     }
 
-    /** */
+    /** \copydoc IHistogram::inc */
     void inc (u_int16_t index)  { _histogram [(index >= _length) ? _length : index].abundance ++; }
 
-    /** */
+    /** \copydoc IHistogram::save */
     void save ();
 
+    /** \copydoc IHistogram::compute_threshold */
+	void compute_threshold (int min_auto_threshold) ;  //min_auto_threshold = prevents the auto_cutoff from being below this value. Default =3
 	
-	void compute_threshold () ;
-	u_int16_t get_solid_cutoff () ;
-	u_int64_t get_nbsolids_auto () ;
+    /** \copydoc IHistogram::get_solid_cutoff */
+	u_int16_t get_solid_cutoff ()  { return _cutoff; }
 
-    /** */
+    /** \copydoc IHistogram::get_nbsolids_auto */
+	u_int64_t get_nbsolids_auto ()  { return _nbsolids; }
+
+    /** \copydoc IHistogram::get_first_peak */
+	u_int16_t get_first_peak ()  { return _firstPeak; }
+
+    /** \copydoc IHistogram::getLength */
     size_t getLength() { return _length; }
 
-    /** */
-    u_int64_t& get (u_int16_t i)  { return _histogram[i].abundance; }
+    /** \copydoc IHistogram::get */
+    u_int64_t& get (u_int16_t idx)  { return _histogram[idx].abundance; }
 
 private:
 
     size_t  _length;
 	u_int16_t _cutoff;
 	u_int64_t _nbsolids;
+    u_int16_t _firstPeak;
 	
     Entry*  _histogram;
-
 	Entry*  _histogram_smoothed;
 
     tools::collections::Bag<Entry>* _bag;
@@ -112,41 +124,56 @@ private:
 
 /********************************************************************************/
 
-/** */
+/** \brief Null implementation of the IHistogram interface.
+ */
 class HistogramNull : public IHistogram, public system::SmartPointer
 {
 public:
 
-    /** */
-    void inc (u_int16_t abundance) {}
+    /** \copydoc IHistogram::inc */
+    void inc (u_int16_t index) {}
 
-    /** */
+    /** \copydoc IHistogram::save */
     void save ()  {}
 	
-	u_int16_t get_solid_cutoff () {return 0; }
-	u_int64_t get_nbsolids_auto () {return 0;}
+    /** \copydoc IHistogram::get_solid_cutoff */
+	u_int16_t get_solid_cutoff  () { return 0; }
 
-	void compute_threshold () { }
+    /** \copydoc IHistogram::get_nbsolids_auto */
+	u_int64_t get_nbsolids_auto () { return 0; }
 
-    /** */
+    /** \copydoc IHistogram::get_first_peak */
+	u_int16_t get_first_peak    () { return 0; }
+
+    /** \copydoc IHistogram::compute_threshold */
+	void compute_threshold (int min_auto_threshold) { }
+
+    /** \copydoc IHistogram::getLength */
     size_t getLength() { return 0; }
 
-    /** */
-    u_int64_t& get (u_int16_t i)  { static u_int64_t foo; return foo; }
+    /** \copydoc IHistogram::get */
+    u_int64_t& get (u_int16_t idx)  { static u_int64_t foo; return foo; }
 };
 
 /********************************************************************************/
 
-/** */
+/** \brief Cached implementation of the IHistogram interface.
+ *
+ * This implementation is a Proxy design pattern. It allows to modify a IHistogram instance
+ * by several threads at the same time. Actually, each thread has a local copy and at
+ * the end, all the local copies are merged into the referred instance.
+ * */
 class HistogramCache : public IHistogram, public system::SmartPointer
 {
 public:
 
-    /** */
+    /** Constructor.
+     * \param[in] ref : the referred instance.
+     * \param[in] synchro : used for synchronization */
     HistogramCache (IHistogram* ref, system::ISynchronizer* synchro=0)
         : _ref(0), _synchro(synchro), _localHisto(ref ? ref->getLength() : 0, 0) {  setRef(ref); }
 
-    /** */
+    /** Destructor. */
     ~HistogramCache()
     {
         system::LocalSynchronizer ls (_synchro);
@@ -154,23 +181,29 @@ public:
         setRef (0);
     }
 
-    /** */
+    /** \copydoc IHistogram::inc */
     void inc (u_int16_t index)  { _localHisto.inc (index); }
 
-    /** */
+    /** \copydoc IHistogram::save */
     void save ()  { return _ref->save(); }
 
-	void compute_threshold () { return _ref->compute_threshold(); }
+    /** \copydoc IHistogram::compute_threshold */
+	void compute_threshold (int min_auto_threshold) { return _ref->compute_threshold(min_auto_threshold); }
 
+    /** \copydoc IHistogram::get_solid_cutoff */
 	u_int16_t get_solid_cutoff () {return _ref->get_solid_cutoff();}
 	
+    /** \copydoc IHistogram::get_nbsolids_auto */
 	u_int64_t get_nbsolids_auto () {return _ref->get_nbsolids_auto();}
 
-    /** */
+    /** \copydoc IHistogram::get_first_peak */
+    u_int16_t get_first_peak () { return _ref->get_first_peak(); }
+
+    /** \copydoc IHistogram::getLength */
     size_t getLength() { return _localHisto.getLength(); }
 
-    /** */
-    u_int64_t& get (u_int16_t i)  { return _localHisto.get(i); }
+    /** \copydoc IHistogram::get */
+    u_int64_t& get (u_int16_t idx)  { return _localHisto.get(idx); }
 
 private:
 

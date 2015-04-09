@@ -38,6 +38,12 @@ namespace impl      {
 /********************************************************************************/
 
 /** \brief Abstract implementation of IBank for factorizing common behavior.
+ *
+ * This abstract implementation of the IBank interface provides some methods having the
+ * same behavior for most implementations.
+ *
+ * Note that it implements the system::ISmartPointer interface as well, so it can be
+ * used as a smart pointer.
  */
 class AbstractBank : public IBank, public system::SmartPointer
 {
@@ -46,7 +52,7 @@ public:
     /** Constructor. */
     AbstractBank () : _estimateThreshold(5000) {}
 
-    /** \copydoc IBank::estimateNbSequences */
+    /** \copydoc IBank::estimateNbItems */
     int64_t estimateNbItems ()
     {
         u_int64_t number, totalSize, maxSize;    estimate (number, totalSize, maxSize);  return number;
@@ -63,6 +69,9 @@ public:
 
     /** \copydoc IBank::setEstimateThreshold */
     void setEstimateThreshold (u_int64_t nbSeq) { _estimateThreshold = nbSeq; }
+
+    /** \copydoc IBank::remove */
+    void remove () {}
 
 private:
 

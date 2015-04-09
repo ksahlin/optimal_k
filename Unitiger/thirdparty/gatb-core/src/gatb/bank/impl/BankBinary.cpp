@@ -31,10 +31,30 @@ using namespace gatb::core::tools::misc;
 
 #define DEBUG(a)  //printf a
 
-#define BINREADS_BUFFER 100000
-
 /********************************************************************************/
 namespace gatb {  namespace core {  namespace bank {  namespace impl {
+/********************************************************************************/
+
+static u_int64_t BINREADS_BUFFER = 100000;
+
+/********************************************************************************/
+
+static u_int64_t MAGIC_NUMBER = 0x12345678;  // set to 0 for no usage of magic number
+
+static void writeMagic (FILE* file)
+{
+    if (MAGIC_NUMBER != 0)  {  fwrite (&MAGIC_NUMBER, sizeof(MAGIC_NUMBER), 1, file);  }
+}
+
+static bool checkMagic (FILE* file)
+{
+    if (MAGIC_NUMBER == 0)  { return true; }
+
+    u_int64_t value = 0;
+    fread (&value, sizeof(value), 1, file);
+    return  value==MAGIC_NUMBER;
+}
+
 /********************************************************************************/
 
 int NT2int(char nt)
@@ -87,7 +107,7 @@ BankBinary::BankBinary (const std::string& filename, size_t nbValidLetters)
 
     //open (true);
 
-    buffer = (unsigned char *) malloc(read_write_buffer_size*sizeof(unsigned char));
+    buffer = (unsigned char *) MALLOC (read_write_buffer_size*sizeof(unsigned char));
 
     cpt_buffer = 0;
 }
@@ -104,7 +124,7 @@ BankBinary::~BankBinary ()
 {
     if(buffer!=NULL)
     {
-        free (buffer); //buffer =NULL;
+        FREE (buffer); //buffer =NULL;
     }
 }
 
@@ -182,7 +202,7 @@ void BankBinary::insert (const Sequence& seq)
         if(read_write_buffer_size < readlen)
         {
             read_write_buffer_size = 2*readlen; // too large but ok
-            buffer =  (unsigned char *) realloc(buffer,sizeof(unsigned char) * read_write_buffer_size);
+            buffer =  (unsigned char *) REALLOC (buffer,sizeof(unsigned char) * read_write_buffer_size);
         }
         
         /** We write the length of the read. */
@@ -252,6 +272,9 @@ void BankBinary::open (bool write)
     {
         throw gatb::core::system::ExceptionErrno (STR_BANK_unable_open_file, _filename.c_str());
     }
+
+    /** We write the magic number. */
+    if (write == true)  {  writeMagic (binary_read_file);  }
 }
 
 /*********************************************************************
@@ -282,6 +305,54 @@ void BankBinary::estimate (u_int64_t& number, u_int64_t& totalSize, u_int64_t& m
 
     /** We return the estimation of sequences information. */
     it.estimate (number, totalSize, maxSize);
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void BankBinary::remove ()
+{
+    System::file().remove (_filename);
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void  BankBinary::setBufferSize (u_int64_t bufferSize)
+{
+    BINREADS_BUFFER = bufferSize;
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+bool BankBinary::check (const std::string& uri)
+{
+    bool result = false;
+
+    FILE* file = fopen (uri.c_str(), "rb");
+    if (file != NULL)
+    {
+        result = checkMagic (file);
+        fclose (file);
+    }
+
+    return result;
 }
 
 /*********************************************************************
@@ -333,7 +404,13 @@ void BankBinary::Iterator::first()
         if (binary_read_file == 0)  {  throw gatb::core::system::ExceptionErrno (STR_BANK_unable_open_file, _ref._filename.c_str());  }
     }
 
-    if (binary_read_file != 0)  {  rewind (binary_read_file); }
+    if (binary_read_file != 0)
+    {
+        rewind (binary_read_file);
+
+        /** We read the magic number. */
+        if (checkMagic(binary_read_file)==false)  {  throw gatb::core::system::ExceptionErrno (STR_BANK_unable_open_file, _ref._filename.c_str());  }
+    }
 
     /** We reinitialize some attributes. */
     _isDone          = false;
@@ -422,23 +499,25 @@ void  BankBinary::Iterator::estimate (u_int64_t& number, u_int64_t& totalSize, u
     maxSize   = 0;
 
     /** We open the binary file at first call. */
-    IFile* file = System::file().newFile (_ref._filename, "rb");
+    FILE* file = fopen (_ref._filename.c_str(), "rb");
     if (file != 0)
     {
+        if (checkMagic(file)==false)  {  throw gatb::core::system::ExceptionErrno (STR_BANK_unable_open_file, _ref._filename.c_str());  }
+
         vector<char> buffer;
 
-        while (file->isEOF() == false)
+        while (feof (file) == false)
         {
             unsigned int block_size = 0;
 
             // we read the block header
-            if (! file->fread (&block_size,sizeof(unsigned int), 1))  { break; }
+            if (! fread (&block_size,sizeof(unsigned int), 1, file))  { break; }
 
             // we resize the buffer
             buffer.resize (block_size);
 
             // read a block of reads into the buffer
-            if (! file->fread (buffer.data(), sizeof(char), block_size))  { break; }
+            if (! fread (buffer.data(), sizeof(char), block_size, file))  { break; }
 
             // we loop the sequences
             char* loop = buffer.data();
@@ -459,16 +538,16 @@ void  BankBinary::Iterator::estimate (u_int64_t& number, u_int64_t& totalSize, u
         }
 
         // we extrapolate the result according to the current location in the file
-        if (file->isEOF() == false)
+        if (feof (file) == false)
         {
             // we keep the current location in the file
-            u_int64_t current = file->tell ();
+            u_int64_t current = ftell (file);
 
             // we go to the end of the file
-            file->seeko (0, SEEK_END);
+            fseeko (file, 0, SEEK_END);
 
             // we keep the current location in the file
-            u_int64_t end = file->tell ();
+            u_int64_t end = ftell (file);
 
             // we extrapolate the result
             number    = (number    * end) / current;
@@ -477,8 +556,9 @@ void  BankBinary::Iterator::estimate (u_int64_t& number, u_int64_t& totalSize, u
         }
 
         // we clean up resources
-        delete file;
-    }
+        fclose (file);
+
+    }  /* end of if (file != 0) */
 }
 
 /********************************************************************************/

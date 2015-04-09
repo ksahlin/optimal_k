@@ -38,11 +38,8 @@ namespace misc      {
 namespace impl      {
 /********************************************************************************/
 
-/**
- * \class Pool,
- * \brief Cette class dÈfinit une pool memoire pour allocation rapide de la table de hachage utilisee quand seed >14
- */
-
+/* Cette class dÈfinit une pool memoire pour allocation rapide de la table de hachage
+ * utilisee quand seed >14 */
 template <typename graine_type, typename value_type=int>  class Pool
 {
 public:
@@ -64,12 +61,12 @@ public:
     {
         n_pools = 0; n_cells=0;
         //allocation table de pool :
-        tab_pool = (cell**)  system::impl::System::memory().malloc (N_POOL*sizeof(cell*) );
+        tab_pool = (cell**)  MALLOC (N_POOL*sizeof(cell*) );
 
         tab_pool[0]=0; n_pools++; // la premiere pool est NULL, pour conversion null_internal -> null
 
         //allocation de la premiere pool :
-        pool_courante =(cell*)  system::impl::System::memory().malloc (TAI_POOL*sizeof(cell) );
+        pool_courante =(cell*)  MALLOC (TAI_POOL*sizeof(cell) );
         tab_pool[n_pools] = pool_courante;
         n_pools++;
     }
@@ -78,9 +75,9 @@ public:
     ~Pool()
     {
         // la pool 0 est NULL
-        for(size_t i=1;i<n_pools;i++)  {  system::impl::System::memory().free( tab_pool[i] );  }
+        for(size_t i=1;i<n_pools;i++)  {  FREE ( tab_pool[i] );  }
 
-        system::impl::System::memory().free(tab_pool);
+        FREE (tab_pool);
     }
 
     /**  allocate cell, return internal pointer type ( 32bits) */
@@ -103,7 +100,7 @@ public:
                 // will happen when  4G cells are allocated, representing 64 Go
                 throw system::Exception ("Internal memory allocator is full!");
             }
-            pool_courante =(cell*)  system::impl::System::memory().malloc(TAI_POOL*sizeof(cell) );
+            pool_courante =(cell*)  MALLOC (TAI_POOL*sizeof(cell) );
             tab_pool[n_pools] = pool_courante;
             n_pools++;
             n_cells = 1;
@@ -129,7 +126,7 @@ public:
     {
         for(size_t i=2;i<n_pools;i++) // garde la premiere pool pour usage futur
         {
-            system::impl::System::memory().free( tab_pool[i] );
+            FREE ( tab_pool[i] );
         }
 
         //on repasse sur premiere pool
@@ -154,6 +151,71 @@ private:
 
     size_t TAI_POOL;
     size_t N_POOL;
+};
+
+/********************************************************************************/
+
+//make it an allocator usable by std vector ?
+class MemAllocator
+{
+public:
+
+    //clear all previous allocs, and alloc pool capacity
+    void reserve(u_int64_t size)
+    {
+        if(size ==0 && mainbuffer !=NULL)
+        {
+            FREE (mainbuffer);
+            capacity = used_space = 0;
+            mainbuffer = NULL ;
+        }
+
+        mainbuffer = (char*) MALLOC(size);
+        capacity   = size;
+        used_space = 0;
+    }
+
+    //should be thread safe
+    char* pool_malloc(u_int64_t requested_size, const char* message="")
+    {
+        u_int64_t synced_used_space = __sync_fetch_and_add(&used_space, requested_size);
+
+        if (requested_size> (capacity - synced_used_space))
+        {
+            __sync_fetch_and_add(&used_space, -requested_size);
+
+            throw system::Exception ("Pool allocation failed for %lld bytes (%s). Current usage is %lld and capacity is %lld",
+                requested_size, message, used_space, capacity
+            );
+
+            return NULL;
+        }
+
+        return mainbuffer + synced_used_space;
+    }
+
+    u_int64_t getCapacity ()  {  return capacity;   }
+
+    u_int64_t getUsedSpace()  {  return used_space; }
+
+
+    void free_all()
+    {
+        used_space = 0;
+    }
+
+    MemAllocator() : capacity(0),used_space(0),mainbuffer(NULL)  {}
+
+
+    ~MemAllocator()
+    {
+        if (mainbuffer != NULL)  {  FREE (mainbuffer);  }
+    }
+
+private :
+    char*     mainbuffer;
+    u_int64_t capacity; //in bytes
+    u_int64_t used_space;
 };
 
 /********************************************************************************/

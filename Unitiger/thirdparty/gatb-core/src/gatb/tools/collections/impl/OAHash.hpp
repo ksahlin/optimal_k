@@ -33,6 +33,7 @@
 #include <gatb/tools/designpattern/api/Iterator.hpp>
 #include <gatb/system/impl/System.hpp>
 #include <gatb/tools/misc/api/Abundance.hpp>
+#include <algorithm>
 
 /********************************************************************************/
 namespace gatb          {
@@ -42,31 +43,41 @@ namespace collections   {
 namespace impl          {
 /********************************************************************************/
 
+/** \brief Hash table implementation
+ */
 template <typename Item> class OAHash
 {
     typedef misc::Abundance<Item> element_pair;
 
 public:
 
-    /** */
+    /** Get the size (in byte) of an item.
+     * \return the item size.
+     */
     static int size_entry ()  {  return sizeof(element_pair); }
 
-    /** */
+    /** Get the max number of items for the hash table
+     * \return the max items number.
+     */
     int getMaxNbItems ()  { return hash_size; }
 
     /** Constructor.
-     * \param[in] max_memory : max memory for the hash table.*/
+     * \param[in] max_memory : max memory for the hash table.
+     */
     OAHash (u_int64_t max_memory)
     {
         hash_size = max_memory / sizeof(element_pair);
         if (hash_size == 0)  {  throw system::Exception ("empty OAHash allocated");  }
-        data = (element_pair *) calloc( hash_size, sizeof(element_pair));  //create hashtable
+        data = (element_pair *) CALLOC ( hash_size, sizeof(element_pair));  //create hashtable
     }
 
     /** Destructor. */
-    ~OAHash()  {  free (data);  }
+    ~OAHash()  {  FREE (data);  }
 
-    /** */
+    /** Insert an item with its value into the hash table.
+     * \param[in] graine : key
+     * \param[in] value : value
+     */
     void insert (const Item& graine, int value)
     {
         element_pair *element = find_slot(graine);
@@ -75,7 +86,9 @@ public:
         element->abundance = value;
     }
 
-    /** */
+    /** Increment the value for a given key.
+     * \param[in] graine : key
+     */
     void increment (const Item& graine)
     {
         element_pair *element = find_slot(graine);
@@ -85,7 +98,11 @@ public:
         element->abundance = element->abundance + 1;
     }
 
-    /** */
+    /** Get the value for a given key
+     * \param[in] graine : key
+     * \param[out] val : value to be retrieved
+     * \return true if the key is found, false otherwise.
+     */
     bool get (const Item& graine, int * val=0)
     {
         element_pair *element = find_slot(graine, false);
@@ -99,13 +116,20 @@ public:
         return true;
     }
 
-    /** */
+    /** Tells whether or not the given key is in the table
+     * \param[in] graine : key to be checked
+     * \return true if present, false otherwise.
+     */
     bool has_key (const Item& graine)  {     return get(graine,NULL) == 1;  }
 
-    /** */
+    /** Get the memory usage of the hash table
+     * \return the memory usage (in bits).
+     */
     u_int64_t memory_usage() {     return hash_size* sizeof(element_pair); /* in bits */ }
 
-    /** */
+    /** Get the load factor of the hash table
+     * \return the load factor.
+     */
     float load_factor()
     {
         u_int64_t ptr = 0;
@@ -124,8 +148,12 @@ public:
         return (float)nbKeys/(float)hash_size;
     }
 
-    /** */
-    dp::Iterator <misc::Abundance<Item> >* iterator ()  {  return new Iterator (*this);  }
+    /** Get an iterator for the hash table.
+     * \param[in] sorted : if true, items are iterated in a sorted way
+     * \return an iterator over the items of the hash table.
+     */
+    dp::Iterator <misc::Abundance<Item> >* iterator (bool sorted=false)
+    {  if (sorted==false) { return new Iterator(*this); } else { return new IteratorSorted (*this);  } }
 
 
     /************************************************************/
@@ -170,6 +198,53 @@ public:
         element_pair*  iterator;
         element_pair*  iteratorMax;
         bool           done;
+    };
+
+    /************************************************************/
+    class IteratorSorted : public tools::dp::Iterator <misc::Abundance<Item> >
+    {
+    public:
+
+        IteratorSorted (OAHash<Item>& aRef) : _ref(aRef), _idx(0), _nb(0)
+        {
+            if (_ref.hash_size > (1ULL<<32))  { throw system::Exception ("OAHash::sort  too many items..."); }
+
+            for (u_int64_t idx=0; idx<_ref.hash_size; idx++)
+            {
+                if (_ref.data[idx].abundance != 0)  { _offsets.push_back (idx); }
+            }
+
+            _nb = _offsets.size();
+
+            std::sort (_offsets.begin(), _offsets.end(), CmpPair(_ref,_offsets));
+        }
+
+        /** \copydoc tools::dp::Iterator::first */
+        void first()  {  _idx = -1;  next ();  }
+
+        /** \copydoc tools::dp::Iterator::next */
+        void next()  {  ++_idx;  if (_idx < _nb ) { *(this->_item) = (_ref.data[_offsets[_idx]]); }
+        }
+
+        /** \copydoc tools::dp::Iterator::isDone */
+        bool isDone ()   {  return _idx >= _nb; }
+
+        /** \copydoc tools::dp::Iterator::item */
+        misc::Abundance<Item>& item ()     { return *this->_item; }
+
+    private:
+        OAHash<Item>&           _ref;
+        std::vector<u_int32_t>  _offsets;
+        int64_t                 _idx;
+        int64_t                 _nb;
+
+        struct CmpPair
+        {
+            element_pair*           _data;
+            std::vector<u_int32_t>& _offsets;
+            CmpPair (OAHash<Item>& ref, std::vector<u_int32_t>& offsets) : _data(ref.data), _offsets(offsets) {}
+            bool operator() (u_int32_t i1, u_int32_t i2)  {  return _data[i1].value < _data[i2].value;  }
+        };
     };
 
 protected:

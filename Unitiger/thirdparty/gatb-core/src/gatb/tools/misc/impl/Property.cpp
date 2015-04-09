@@ -19,6 +19,7 @@
 
 #include <gatb/tools/misc/impl/Property.hpp>
 #include <gatb/tools/misc/impl/XmlReader.hpp>
+#include <gatb/tools/misc/impl/Tokenizer.hpp>
 #include <gatb/system/impl/System.hpp>
 #include <sstream>
 #include <fstream>
@@ -29,6 +30,8 @@ using namespace std;
 using namespace gatb::core::system;
 using namespace gatb::core::system::impl;
 using namespace gatb::core::tools::dp;
+
+#define PROP_BUFFER_SIZE (2*1024)
 
 /********************************************************************************/
 namespace gatb {  namespace core { namespace tools {  namespace misc {  namespace impl {
@@ -180,7 +183,7 @@ IProperty* Properties::add (size_t depth, const std::string& aKey, const char* f
 
     if (format != 0)
     {
-        char buffer[256];
+        char buffer[PROP_BUFFER_SIZE];
         va_list ap;
         va_start (ap, format);
         vsnprintf (buffer, sizeof(buffer), format, ap);
@@ -232,6 +235,22 @@ void Properties::add (size_t depth, IProperties* properties)
         InsertionVisitor v (depth, this, nokeys);
         properties->accept (&v);
     }
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void Properties::add (size_t depth, IProperties& properties)
+{
+    /** We accept a visitor. */
+    set<string>  nokeys;
+    InsertionVisitor v (depth, this, nokeys);
+    properties.accept (&v);
 }
 
 /*********************************************************************
@@ -299,13 +318,17 @@ IProperty* Properties::operator[] (const std::string& key)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-IProperty* Properties::get (const std::string& key)
+IProperty* Properties::get (const std::string& key) const
 {
     IProperty* result = 0;
 
-    for (list<IProperty*>::iterator it = _properties.begin(); !result  &&  it != _properties.end(); it++)
+    list<IProperty*>::const_iterator it = _properties.begin();
+
+    TokenizerIterator token (key.c_str(), ".");
+    for (token.first(); !token.isDone(); token.next())
     {
-        if (key.compare ((*it)->key)==0)    { result = *it; }
+        result = getRecursive (token.item(), it);
+        if (!result) { break; }
     }
 
     return result;
@@ -319,7 +342,25 @@ IProperty* Properties::get (const std::string& key)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-std::string Properties::getStr (const std::string& key)
+IProperty* Properties::getRecursive (const std::string& key, std::list<IProperty*>::const_iterator& it) const
+{
+    IProperty* result = 0;
+    for (; !result  &&  it != _properties.end(); it++)
+    {
+        if (key.compare ((*it)->key)==0)    { result = *it; }
+    }
+    return result;
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+std::string Properties::getStr (const std::string& key) const
 {
     IProperty* prop = get (key);
 
@@ -336,7 +377,7 @@ std::string Properties::getStr (const std::string& key)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-int64_t Properties::getInt (const std::string& key)
+int64_t Properties::getInt (const std::string& key) const
 {
     IProperty* prop = get (key);
 
@@ -353,7 +394,7 @@ int64_t Properties::getInt (const std::string& key)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-double Properties::getDouble (const std::string& key)
+double Properties::getDouble (const std::string& key) const
 {
     IProperty* prop = get (key);
 
@@ -440,11 +481,14 @@ void Properties::readFile (const string& filename)
             while (file->gets (buffer, sizeof(buffer) ) != 0)
             {
                 char* key = strtok (buffer, " \t\n");
-                if (key != 0  &&  isalpha(key[0]))
+                if (key != 0  &&  isgraph(key[0]))
                 {
                     char* value = key + strlen (key) + 1;
 
                     for ( ;  value; ++value)  {  if (*value != ' '  &&  *value != '\t')  { break; }  }
+
+                    /** We remove the end of line. */
+                    value[strlen(value)-1] = 0;
 
                     add (0, key, (value ? value : ""));
                 }
@@ -466,7 +510,7 @@ void Properties::readFile (const string& filename)
 void Properties::dump (std::ostream& s)
 {
     /** We dump some execution information. */
-    RawDumpPropertiesVisitor visit;
+    RawDumpPropertiesVisitor visit (s);
     this->accept (&visit);
 }
 
@@ -909,7 +953,7 @@ void XmlDumpPropertiesVisitor::safeprintf (const char* format, ...)
     /** A safe printf method that check that the output file is ok. */
     if (_stream != 0)
     {
-        char buffer[4*1024];
+        char buffer[PROP_BUFFER_SIZE];
 
         va_list ap;
         va_start (ap, format);
@@ -928,11 +972,9 @@ void XmlDumpPropertiesVisitor::safeprintf (const char* format, ...)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-RawDumpPropertiesVisitor::RawDumpPropertiesVisitor (const std::string& filename)
-    : _file(0), _fileToClose(true)
+RawDumpPropertiesVisitor::RawDumpPropertiesVisitor (std::ostream& os, int width)
+    : _os(os), _width(width)
 {
-    /** We open the file. */
-    _file = fopen (filename.c_str(), "w");
 }
 
 /*********************************************************************
@@ -945,7 +987,7 @@ RawDumpPropertiesVisitor::RawDumpPropertiesVisitor (const std::string& filename)
 *********************************************************************/
 RawDumpPropertiesVisitor::~RawDumpPropertiesVisitor ()
 {
-    if (_fileToClose  &&  _file)  { fclose (_file); }
+    _os.flush();
 }
 
 /*********************************************************************
@@ -958,22 +1000,23 @@ RawDumpPropertiesVisitor::~RawDumpPropertiesVisitor ()
 *********************************************************************/
 void RawDumpPropertiesVisitor::visitProperty (IProperty* prop)
 {
-    if (_file != 0)
+    int width = _width;
+
+    char buffer[1024];
+
+    string indent;
+    for (size_t i=0; i<prop->depth; i++)  { indent += "    "; }
+
+    if (prop->getValue().empty() == false)
     {
-        int width = 40;
-
-        string indent;
-        for (size_t i=0; i<prop->depth; i++)  { indent += "    "; }
-
-        if (prop->getValue().empty() == false)
-        {
-            fprintf (_file, "%s%-*s : %s\n", indent.c_str(), width, prop->key.c_str(), prop->value.c_str());
-        }
-        else
-        {
-            fprintf (_file, "%s%-*s\n", indent.c_str(), width, prop->key.c_str());
-        }
+        snprintf (buffer, sizeof(buffer), "%s%-*s : %s\n", indent.c_str(), width, prop->key.c_str(), prop->value.c_str());
     }
+    else
+    {
+        snprintf (buffer, sizeof(buffer), "%s%-*s\n", indent.c_str(), width, prop->key.c_str());
+    }
+
+    _os << buffer;
 }
 
 /********************************************************************************/

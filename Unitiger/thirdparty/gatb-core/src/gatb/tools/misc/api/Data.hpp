@@ -52,6 +52,9 @@ namespace misc      {
  *
  * It is implemented as a subclass of the Vector class, which allows to define Data
  * as a sub part of a referred Data instance.
+ *
+ * For instance, Data is used for storing nucleotides sequences inside the Sequence
+ * structure.
  */
 class Data : public Vector<char>
 {
@@ -77,14 +80,35 @@ public:
     /** Constructor. */
     Data (size_t len, Encoding_e encode = BINARY)  : Vector<char>(len), encoding(encode)  {}
 
-    /** */
+    /** Affectation operator.
+     * \param[in] d : object to be copied.
+     * \return the instance
+     */
     Data& operator= (const Data& d)
     {
-        if (this != &d)  {  this->set (d.getBuffer(), d.size());  }
+        if (this != &d)
+        {
+            /** Special case for binary encoding => we have 4 nucleotides in one byte. */
+            if (d.getEncoding() == BINARY)
+            {
+                this->set (d.getBuffer(), d.size()/4+1);
+                this->setSize(d.size());
+                this->encoding = BINARY;
+            }
+            else
+            {
+                this->set (d.getBuffer(), d.size());
+                this->encoding = d.getEncoding();
+            }
+        }
         return *this;
     }
 
-    /**  */
+    /** Set the content of this data as a referenced of another Data object.
+     * \param[in] ref : referred data
+     * \param[in] offset : position to be used in the referred data
+     * \param[in] length : length of the data
+     */
     void setRef (Data* ref, size_t offset, size_t length)
     {
         /** We call the parent method. */
@@ -101,11 +125,17 @@ public:
         Vector<char>::setRef (buffer, length);
     }
 
-    /** \return format of the data. */
+    /** Get the encoding scheme of the data.
+     * \return format of the data. */
     Encoding_e getEncoding ()  const  { return encoding; }
 
+    /** Set the encoding scheme of the data.
+     * \param[in] encoding : encoding scheme to be used.
+     */
+    void setEncoding (Encoding_e encoding)  { this->encoding = encoding; }
+
     /** Conversion from one encoding scheme to another.
-     *  TO BE IMPROVED (support only one kind of conversion, from binary to ascii)
+     *  TO BE IMPROVED (support only one kind of conversion, from binary to integer)
      * \param[in] in  : input data
      * \param[in] out : output data */
     static void convert (Data& in, Data& out)
@@ -125,6 +155,18 @@ public:
         out.encoding = Data::INTEGER;
         out.setSize (in.size());
     }
+
+    /** Shortcut.
+     *  - first  : the nucleotide value (A=0, C=1, T=2, G=3)
+     *  - second : 0 if valid, 1 if invalid (in case of N character for instance) */
+    typedef std::pair<char,char> ConvertChar;
+
+    /** Note for the ASCII conversion: the 4th bit is used to tell whether it is invalid or not.
+     * => it finds out that 'N' character has this 4th bit equals to 1, which is not the case
+     * for 'A', 'C', 'G' and 'T'. */
+    struct ConvertASCII    { static ConvertChar get (const char* buffer, size_t idx)  { return ConvertChar((buffer[idx]>>1) & 3, (buffer[idx]>>3) & 1); }};
+    struct ConvertInteger  { static ConvertChar get (const char* buffer, size_t idx)  { return ConvertChar(buffer[idx],0); }         };
+    struct ConvertBinary   { static ConvertChar get (const char* buffer, size_t idx)  { return ConvertChar(((buffer[idx>>2] >> ((3-(idx&3))*2)) & 3),0); } };
 
 private:
 

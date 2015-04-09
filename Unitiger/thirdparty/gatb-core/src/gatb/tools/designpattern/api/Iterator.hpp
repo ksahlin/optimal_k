@@ -60,7 +60,7 @@ namespace dp    {
  *  methods and so can't be faster that the 'classic' way. But specific implementations of Iterator may implement 'iterate'
  *  directly by using inner state of the class, and so without call to  first/isDone/next/currentItem methods.
  *
- *  Note that for optimization point of view, PLAST algorithm prefers to use the 'iterate' way with optimized implementations.
+ *  Note that for optimization point of view, an algorithm prefers to use the 'iterate' way with optimized implementations.
  *
  *  Sample of use:
  *  \code
@@ -68,7 +68,7 @@ namespace dp    {
  *   for (it->first(); ! it->isDone(); it->next() )
  *   {
  *      // retrieve the current item of some type
- *      MyType* item = it->currentItem ();
+ *      MyType* item = it->item ();
  *   }
  *  \endcode
  *
@@ -109,7 +109,7 @@ template <class Item> class Iterator : public system::SmartPointer
 public:
 
     /** */
-    Iterator () : _item(&_default), _isRunning(false) {}
+    Iterator () : _item(&_default), _isRunning(IDDLE) {}
 
     /** Method that initializes the iteration. */
     virtual void first() = 0;
@@ -136,27 +136,36 @@ public:
     Item& operator*  ()  { return item();  }
 
     /** Another way to iterate: push model, ie a functor is called for each item. */
-    template <typename Functor> void iterate (const Functor& f)   {  for (first(); !isDone(); next())  { f (item()); }  }
+    template <typename Functor> void iterate (/* R: removed const for convenience */ /*const*/ Functor& f)   {  for (first(); !isDone(); next())  { f (item()); }  }
 
     /** Get a reference on the object to be configured as the currently iterated item.
      * \param[in] i : object to be referred. */
     virtual void setItem (Item& i)  {  _item = &i;  }
 
     /** Retrieve some iterated items in a vector.
+     * NOTE: In general, this method should be protected against concurrent accesses (IteratorCommand::execute)
      * \param[in] current : vector to be filled with iterated items. May be resized if not enough items available
      * \return true if the iteration is not finished, false otherwise. */
     bool get (std::vector<Item>& current)
     {
+        /** We must check first that the iterator is not already finished.
+         * This is important when several threads are calling at the same time this method; if one thread consumes
+         * all the items, the other threads should not go into the 'for' loop below (otherwise, 'first' or 'next'
+         * would be called, which must not be)
+         */
+        if (_isRunning==FINISHED)  {  current.clear(); return false; }
+
         size_t i=0;
         for (i=0; i<current.size(); i++)
         {
             setItem (current[i]);
 
-            if (_isRunning == false)  { first ();  _isRunning=true; }
-            else                      { next  ();                   }
+            if (_isRunning == IDDLE)  { first ();  _isRunning=STARTED; }
+            else                      { next  ();                      }
 
             if (isDone())
             {
+                _isRunning=FINISHED;
                 current.resize (i);
                 return false;
             }
@@ -167,16 +176,21 @@ public:
     /** Reset the iterator. */
     virtual void reset ()
     {
-        _isRunning = false;
+        _isRunning = IDDLE;
         _item      = &_default;
     }
+
+    /** Get a vector holding the composite structure of the iterator. */
+    virtual std::vector<Iterator<Item>*> getComposition()   {   std::vector<Iterator<Item>*> res;  res.push_back (this);  return res;    }
 
 protected:
     Item* _item;
 
 private:
     Item  _default;
-    bool  _isRunning;
+
+    enum Status { IDDLE, STARTED, FINISHED };
+    Status  _isRunning;
 };
 
 /********************************************************************************/
@@ -227,12 +241,16 @@ public:
     virtual void inc (u_int64_t ntasks_done) {}
 
     /** Associate a message to the listener.
-     * \param[in] format : printf-like argument for building the message */
-    virtual void setMessage (const char* format, ...)  {}
+     * \param[in] msg : message to be set. */
+    virtual void setMessage (const std::string& msg)  {}
 
     /** Set the current number of tasks done.
      * \param[in] ntasks_done :  sets the current number of job done. */
     virtual void set (u_int64_t ntasks_done) {}
+
+    /** Set the total number of tasks done.
+     * \param[in] ntasks :  sets the total number of job. */
+    virtual void reset (u_int64_t ntasks) {}
 };
 
 /********************************************************************************/

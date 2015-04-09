@@ -454,7 +454,7 @@ public:
     /** Get a parser object that knows the user options for building a graph.
      * \return the options parser object.
      */
-    static tools::misc::impl::OptionsParser getOptionsParser (bool includeMandatory=true);
+    static tools::misc::IOptionsParser* getOptionsParser (bool includeMandatory=true, bool enablemphf=false );
 
     /********************************************************************************/
     template<typename Item, int NB=8>
@@ -725,6 +725,11 @@ public:
      * \return the fake node. */
     Node buildNode (const tools::misc::Data& data, size_t offset=0) const;
 
+    /** Build a fake node (ie. not necessarily in the De Bruijn graph). Mainly for test purpose.
+     * \param[in] sequence : a sequence of nucleotides in ASCII format
+     * \return the fake node. */
+    Node buildNode (const char* sequence) const;
+
     /** Return the reverse complement node of the provided one.
      * param[in] node : the node to be reverted
      * \return the reverted node.  */
@@ -858,9 +863,9 @@ private:
     tools::misc::impl::Properties _info;
 
     /** */
-    tools::misc::BankConvertKind _bankConvertKind;
     tools::misc::BloomKind       _bloomKind;
     tools::misc::DebloomKind     _debloomKind;
+    tools::misc::DebloomImpl     _debloomImpl;
     tools::misc::BranchingKind   _branchingKind;
     tools::misc::MPHFKind        _mphfKind;
 

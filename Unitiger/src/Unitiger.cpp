@@ -53,9 +53,9 @@ struct ExploreBranchingNodeFunctor {
             the_set_of_unitigs(the_set_of_unitigs)
         {}
 
-    void operator() (BranchingNode current_node2)
+    void operator() (BranchingNode current_node)
     {
-        BranchingNode current_node = current_node2;
+        BranchingNode first_node = current_node;
         string current_unitig;
         current_unitig.reserve(10000);
 
@@ -63,27 +63,18 @@ struct ExploreBranchingNodeFunctor {
         {
             if (strand == 1)
             {
-                current_node = graph.reverse(current_node);
+                first_node = graph.reverse(first_node);
             }
         
             // for each out-neighbor, we traverse as long as we see unary nodes
-            Graph::Vector<Node> out_neighbors = graph.successors<Node>(current_node);
-            bool self_loop_isolated = false;
+            Graph::Vector<Node> out_neighbors = graph.successors<Node>(first_node);
             for (size_t i = 0; i < out_neighbors.size(); i++)
             {
-                current_unitig = graph.toString(current_node);
+                current_unitig = graph.toString(first_node);
                 string last_node;
-                string last_node_previous = graph.toString(current_node);
+                string last_node_previous = graph.toString(first_node);
                 bool start_of_unitig = true;
                 Node current_successor = out_neighbors[i];
-                if ( is_unary_node(graph,current_node) and 
-                     (current_node == current_successor) )
-                {
-                    self_loop_isolated = true;
-                    /*LOCK*/ synchro->lock();
-                    cout << "found isolated self-loop" << endl;
-                    /*UNLOCK*/ synchro->unlock();
-                }
 
                 // if current extension has been reported before, abandon it
                 string fingerprint = last_node_previous;
@@ -98,19 +89,15 @@ struct ExploreBranchingNodeFunctor {
                 {
                     last_node = graph.toString(current_successor);
                     merge_kmer_at_end(current_unitig, graph.toString(current_successor));    
-                    if (is_unary_node(graph,current_successor) and (not self_loop_isolated))
+                    if (is_unary_node(graph,current_successor) and (current_successor != first_node))
                     {
                         current_successor = graph.successors<Node> (current_successor)[0];
-                        last_node_previous = last_node;
-                        last_node = graph.toString(current_successor); 
+                        last_node_previous = last_node; 
                     }
                     else
-                    {
-                        // this is the end of the unitig
-                        merge_kmer_at_end(last_node_previous, last_node);
-                        
+                    {                    
                         /*LOCK*/ synchro->lock();
-                        // make sure that no other thread has processed this unitig from the other side in the mean time
+                        // make sure that no other thread has processed this unitig from the other side in the meanwhile
                         if (fingerprints_of_unitigs.count(reverse_complement(fingerprint)) != 0)
                         {
                             /*LOCK*/ synchro->unlock();
@@ -119,6 +106,7 @@ struct ExploreBranchingNodeFunctor {
 
                         // we are here if we actually assembled a new unitig
                         // /*LOCK*/ synchro->lock();
+                        merge_kmer_at_end(last_node_previous, last_node);
                         fingerprints_of_unitigs.insert(last_node_previous);
                         unitigsCounter++;
                         if (print_output_unitigs)
@@ -154,9 +142,9 @@ struct ExploreBranchingNodeFunctor {
             }
 
             // if it was isolated node
-            if ((graph.outdegree(current_node) == 0) and (graph.indegree(current_node) == 0) and (strand == 0))
+            if ((graph.outdegree(first_node) == 0) and (graph.indegree(first_node) == 0) and (strand == 0))
             {
-                string current_unitig = graph.toString(current_node);
+                string current_unitig = graph.toString(first_node);
                 /*LOCK*/ synchro->lock();
                 unitigsCounter++;    
                 if (print_output_unitigs)

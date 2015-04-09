@@ -75,22 +75,8 @@ public:
  *  may still be more efficient to have two loops. The CartesianIterator is just here
  *  for easing the product iteration on small sets.
  *
- *  \code
- *  // We declare a Bank instance.
- *  Bank b (filename);
- *
- *  // We declare two iterators on the bank
- *  Bank::Iterator it1 (b);
- *  Bank::Iterator it2 (b);
- *
- *  // We build a product iterator from the two iterators
- *  ProductIterator<Sequence,Sequence> prodIt (it1, it2);
- *
- *  for (prodIt.first(); !prodIt.isDone(); prodIt.next())
- *  {
- *      printf ("'%s'\n'%s'\n\n", prodIt->first.getData(), prodIt->second.getData());
- *  }
- *  \endcode
+ * Example:
+ * \snippet iterators2.cpp  snippet1
  */
 template <class T1, class T2> class ProductIterator : public Iterator < std::pair<T1,T2> >
 {
@@ -176,8 +162,12 @@ private:
  *
  * We define a an iterator for two iterators, by iterating each of the two iterators
  * and providing a pair of the two currently iterated items.
+ *
+ *  Example:
+ * \snippet iterators7.cpp  snippet1
+ *
  */
-template <template<class> class IteratorType, class T1, class T2>
+template <class T1, class T2=T1>
 class PairedIterator : public Iterator < std::pair<T1,T2> >
 {
 public:
@@ -186,36 +176,60 @@ public:
      * \param[in] it1 : first iterator.
      * \param[in] it2 : second iterator.
      */
-    PairedIterator (IteratorType<T1>& it1, IteratorType<T2>& it2)  : _it1(it1), _it2(it2) { }
+    PairedIterator (Iterator<T1>* it1, Iterator<T2>* it2)  : _it1(0), _it2(0), _isDone(true)
+    {
+        setIt1 (it1);   setIt2 (it2);
+    }
 
     /** Destructor. */
-    virtual ~PairedIterator ()  {}
+    virtual ~PairedIterator ()  {  setIt1 (0);   setIt2 (0);  }
 
     /** \copydoc Iterator::first */
-    void first()  {  _it1.first();  _it2.first();  }
+    void first()
+    {
+        _it1->first();
+        _it2->first();
+
+        _isDone = _it1->isDone() || _it2->isDone();
+
+        if (_isDone==false)
+        {
+            _current.first  = _it1->item();
+            _current.second = _it2->item();
+        }
+    }
 
     /** \copydoc Iterator::next */
-    void next()  {  _it1.next ();  _it2.next ();  }
+    void next()
+    {
+        _it1->next ();  _it2->next ();
+
+        _isDone = _it1->isDone() || _it2->isDone();
+        if (_isDone==false)
+        {
+            _current.first  = _it1->item();
+            _current.second = _it2->item();
+        }
+    }
 
     /** \copydoc Iterator::isDone */
-    bool isDone() { return _it1.isDone() || _it2.isDone(); }
+    bool isDone() { return _isDone;  }
 
     /** \copydoc Iterator::item */
-    std::pair<T1,T2>& item ()
-    {
-        _current.first  = _it1.item();
-        _current.second = _it2.item();
-
-        return _current;
-    }
+    std::pair<T1,T2>& item () { return _current; }
 
 private:
 
     /** First iterator. */
-    IteratorType<T1>& _it1;
+    Iterator<T1>* _it1;
+    void setIt1 (Iterator<T1>* it1)  { SP_SETATTR(it1); }
 
     /** Second iterator. */
-    IteratorType<T2>& _it2;
+    Iterator<T2>* _it2;
+    void setIt2 (Iterator<T2>* it2)  { SP_SETATTR(it2); }
+
+    /** Finish status. */
+    bool _isDone;
 
     /** Current item in the iteration. */
     std::pair<T1,T2> _current;
@@ -267,6 +281,16 @@ public:
             (*lookup)->forget();
             _listeners.erase (lookup);
             _hasListeners = _listeners.empty() == false;
+        }
+    }
+
+    /** Set a message to the observers. */
+    void setMessage (const std::string& message)
+    {
+        /** We remove all observers. */
+        for (std::set<IteratorListener*>::iterator it = _listeners.begin(); it != _listeners.end(); it++)
+        {
+            (*it)->setMessage (message);
         }
     }
 
@@ -362,7 +386,7 @@ public:
         setRef (0);
     }
 
-    /** \copydoc Iterator::first */
+    /* \copydoc Iterator::first */
     void first ()
     {
         notifyInit ();
@@ -370,13 +394,13 @@ public:
         _ref->first ();
     }
 
-    /** \copydoc Iterator::isDone */
+    /* \copydoc Iterator::isDone */
     bool isDone ()
     {
         bool res = _ref->isDone();  if (res)  { notifyFinish(); }  return res;
     }
 
-    /** \copydoc Iterator::next */
+    /* \copydoc Iterator::next */
     void next ()
     {
         _ref->next ();
@@ -384,13 +408,13 @@ public:
         _current++;
     }
 
-    /** \copydoc Iterator::item */
+    /* \copydoc Iterator::item */
     Item& item ()  { return _ref->item(); }
 
-    /** */
+    /* */
     void setItem (Item& current)  { _ref->setItem(current); }
 
-    /** */
+    /* */
     void reset ()  { _ref->reset(); }
 
 private:
@@ -461,6 +485,9 @@ private:
  * This iterator iterates a referred iterator and will finish:
  *      - when the referred iterator is over
  *   or - when a limit number of iterations is reached.
+ *
+ *  Example:
+ * \snippet iterators3.cpp  snippet1
  */
 template <class Item> class TruncateIterator : public Iterator<Item>
 {
@@ -468,29 +495,57 @@ public:
 
     /** Constructor.
      * \param[in] ref : the referred iterator
-     * \param[in] limit : the maximal number of iterations. */
-    TruncateIterator (Iterator<Item>& ref, u_int64_t limit) : _ref(ref), _limit(limit), _currentIdx(0) {}
+     * \param[in] limit : the maximal number of iterations.
+     * \param[in] initRef : will call 'first' on the reference if true
+     */
+    TruncateIterator (Iterator<Item>& ref, u_int64_t limit, bool initRef=true)
+        : _ref(ref), _limit(limit), _currentIdx(0), _initRef(initRef), _isDone(true)  {}
 
     /** \copydoc  Iterator::first */
-    void first() { _currentIdx=0;  _ref.first(); }
+    void first()
+    {
+        _currentIdx=0;
+        if (_initRef)  { _ref.first(); }
+
+        /** We check whether the iteration is finished or not. */
+        _isDone = _ref.isDone() || _currentIdx >= _limit;
+
+        /** IMPORTANT : we need to copy the referred item => we just can't rely on a simple
+         * pointer (in case of usage of Dispatcher for instance where a buffer of items is kept
+         * and could be wrong if the referred items doesn't exist any more when accessing the
+         * buffer). */
+        if (!_isDone)  { *(this->_item) = _ref.item(); }
+    }
 
     /** \copydoc  Iterator::next */
-    void next()  { _currentIdx++;  _ref.next(); }
+    void next()
+    {
+        _currentIdx++;
+        _ref.next();
+
+        /** We check whether the iteration is finished or not. */
+        _isDone = _ref.isDone() || _currentIdx >= _limit;
+
+        /** IMPORTANT : we need to copy the referred item => we just can't rely on a simple
+         * pointer (in case of usage of Dispatcher for instance where a buffer of items is kept
+         * and could be wrong if the referred items doesn't exist any more when accessing the
+         * buffer). */
+        if (!_isDone)  { *(this->_item) = _ref.item(); }
+    }
 
     /** \copydoc  Iterator::isDone */
-    bool isDone() { return _ref.isDone() || _currentIdx >= _limit; }
+    bool isDone()  {  return _isDone;  }
 
     /** \copydoc  Iterator::item */
-    Item& item ()  { return _ref.item(); }
-
-    /** \copydoc  Iterator::setItem */
-    void setItem (Item& i)  { _ref.setItem(i); }
+    Item& item ()  {  return *(this->_item);  }
 
 private:
 
     Iterator<Item>& _ref;
     u_int64_t       _limit;
     u_int64_t       _currentIdx;
+    bool            _initRef;
+    bool            _isDone;
 };
 
 /********************************************************************************/
@@ -498,6 +553,9 @@ private:
  *
  * This iterator iterates a referred iterator and will filter out some items according
  * to a functor provided at construction.
+ *
+ * Example:
+ * \snippet iterators6.cpp  snippet1
  */
 template <class Item, typename Filter> class FilterIterator : public ISmartIterator<Item>
 {
@@ -744,6 +802,12 @@ public:
 /********************************************************************************/
 
 /** \brief Composite iterator
+ *
+ * This iterator takes a list of iterators as input and iterates each one of these
+ * iterators.
+ *
+ *  Example:
+ * \snippet iterators9.cpp  snippet1
  */
 template <class Item>
 class CompositeIterator : public Iterator <Item>
@@ -798,6 +862,9 @@ public:
      * we make point the delegate current item to this provided Item argument. */
     void setItem (Item& i)  {  _currentIt->setItem (i);  }
 
+    /** Get a vector holding the composite structure of the iterator. */
+    virtual std::vector<Iterator<Item>*> getComposition() { return _iterators; }
+
 private:
 
     std::vector <Iterator<Item>*>  _iterators;
@@ -809,13 +876,20 @@ private:
 
     void update (bool isFirst)
     {
+        if (_currentIdx >= _iterators.size()) { _isDone=true;  return; }
+
         if (!isFirst)  { _currentIdx++; }
 
         while (_currentIdx<(int)_iterators.size() && _isDone == true)
         {
+            Iterator<Item>* previous = _currentIt;
+
             /** We get the next iterator. */
             _currentIt = _iterators[_currentIdx];
             assert (_currentIt != 0);
+
+            /** We have to take the reference of the previous iterator. */
+            _currentIt->setItem (previous->item());
 
             /** We have to "first" this iterator. */
             _currentIt->first();
@@ -823,8 +897,45 @@ private:
             /** We update the 'isDone' status. */
             _isDone = _currentIt->isDone();
 
+            if (_isDone==true) { _currentIdx++; }
         }
     }
+};
+
+/********************************************************************************/
+/** \brief Iterator adaptation from one type to another one
+ */
+template <class T1, class T2, class Adaptor>
+class IteratorAdaptor : public Iterator <T2>
+{
+public:
+
+    /** Constructor. */
+    IteratorAdaptor (Iterator<T1>* ref) : _ref(0) { setRef(ref); }
+
+    /** Destructor. */
+    ~IteratorAdaptor ()  { setRef(0); }
+
+    /** Method that initializes the iteration. */
+    void first() {  _ref->first(); }
+
+    /** Method that goes to the next item in the iteration.
+     * \return status of the iteration
+     */
+    void next()  { _ref->next(); }
+
+    /** Method telling whether the iteration is finished or not.
+     * \return true if iteration is finished, false otherwise.
+     */
+    bool isDone()  { return _ref->isDone(); }
+
+    /** */
+    T2& item ()  { return Adaptor() (_ref->item()); }
+
+private:
+
+    Iterator<T1>* _ref;
+    void setRef (Iterator<T1>* ref)  { SP_SETATTR(ref); }
 };
 
 /********************************************************************************/
@@ -832,3 +943,4 @@ private:
 /********************************************************************************/
 
 #endif /* _GATB_CORE_DP_ITERATOR_IMPL_ITERATOR_HELPERS_HPP_ */
+

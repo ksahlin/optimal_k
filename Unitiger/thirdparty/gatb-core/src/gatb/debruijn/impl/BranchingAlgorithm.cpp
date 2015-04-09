@@ -21,6 +21,8 @@
 #include <gatb/system/impl/System.hpp>
 #include <gatb/tools/designpattern/impl/Command.hpp>
 
+#include <queue>
+
 // We use the required packages
 using namespace std;
 
@@ -29,6 +31,9 @@ using namespace gatb::core::system::impl;
 
 using namespace gatb::core::tools::collections;
 using namespace gatb::core::tools::collections::impl;
+
+using namespace gatb::core::tools::misc;
+using namespace gatb::core::tools::misc::impl;
 
 using namespace gatb::core::tools::math;
 
@@ -101,32 +106,86 @@ BranchingAlgorithm<span>::~BranchingAlgorithm ()
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-#ifndef WITH_LAMBDA_EXPRESSION
+template<size_t span>
+IOptionsParser* BranchingAlgorithm<span>::getOptionsParser ()
+{
+    IOptionsParser* parser = new OptionsParser ("branching");
+
+    parser->push_back (new OptionOneParam (STR_BRANCHING_TYPE,    "branching type ('none' or 'stored')",      false, "stored"));
+    parser->push_back (new OptionOneParam (STR_TOPOLOGY_STATS,    "topological information level (0 for none)", false, "0"));
+
+    return parser;
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+typedef pair<size_t,size_t> InOut_t;
+bool CompareFct (const pair<InOut_t,size_t>& a, const pair<InOut_t,size_t>& b) { return a.second > b.second; }
+
+template<typename Count, typename Type>
+struct FunctorData
+{
+	FunctorData() {  }
+    std::vector<Count> branchingNodes;
+    map <InOut_t, size_t> topology;
+};
+
 template<typename Count, typename Type>
 struct FunctorNodes
 {
-    const Graph* graph; ThreadObject<u_int64_t>& count; ThreadObject <vector<Count> >& branchingNodes;
-    FunctorNodes (const Graph* graph, ThreadObject<u_int64_t>& count, ThreadObject <vector<Count> >& branchingNodes)
-        : graph(graph), count(count), branchingNodes(branchingNodes)  {}
+    const Graph* graph;
+    ThreadObject<FunctorData<Count,Type> >& functorData;
+
+    FunctorNodes (const Graph* graph, ThreadObject<FunctorData<Count,Type> >& functorData)
+        : graph(graph), functorData(functorData)  {}
+
     void operator() (const Node& node)
     {
-        if (graph->isBranching(node))
+        // We get branching nodes neighbors for the current branching node.
+        Graph::Vector<Node> successors   = graph->successors  <Node> (node);
+        Graph::Vector<Node> predecessors = graph->predecessors<Node> (node);
+
+        if ( ! (successors.size()==1 && predecessors.size()==1) )
         {
-            count() ++;
-            branchingNodes().push_back (Count (node.kmer.get<Type>(), node.abundance));
+        	FunctorData<Count,Type>& data = functorData();
+
+        	data.branchingNodes.push_back (Count (node.kmer.get<Type>(), node.abundance));
+
+        	data.topology [make_pair(predecessors.size(), successors.size())] ++;
         }
     }
 };
-#endif
+
 /*********************************************************************/
+
+template<typename Count>
+class SortCmd : public tools::dp::ICommand, public system::SmartPointer
+{
+public:
+    vector<Count>& vec;
+    SortCmd (vector<Count>& vec) : vec(vec) {}
+    void execute ()  {  std::sort (vec.begin(), vec.end());  }
+};
+
+/*********************************************************************/
+
+template <typename T>
+struct Compare
+{
+    /** Biggest values first. */
+    bool operator() (const T& a, const T& b)  {  return ! (*(a.first) < *(b.first));  }
+};
+
 
 template<size_t span>
 void BranchingAlgorithm<span>::execute ()
 {
-    /** We get a synchronized cache on the branching bag to be built. */
-    ThreadObject<BagCache<Count> > branching = BagCache<Count> (_branchingCollection, 8*1024, System::thread().newSynchronizer());
-    ThreadObject<u_int64_t> count;
-
     /** We get an iterator over all graph nodes. */
     Graph::Iterator<Node> itNodes = _graph->iterator<Node>();
 
@@ -138,53 +197,113 @@ void BranchingAlgorithm<span>::execute ()
     );
     LOCAL (iter);
 
-    ThreadObject <vector<Count> > branchingNodes;
+    /** We get a synchronized object on the data handled by functors. */
+    ThreadObject <FunctorData<Count,Type> > functorData;
 
-#ifdef WITH_LAMBDA_EXPRESSION
-    auto functorNodes = [&] (const Node& node)
-    {
-        if (this->_graph->isBranching(node))
-        {
-            count() ++;
-            branchingNodes().push_back (Count (node.kmer.get<Type>(), node.abundance));
-        }
-    };
-#else
-    FunctorNodes<Count,Type> functorNodes (this->_graph, count, branchingNodes);
-#endif
+    FunctorNodes<Count,Type> functorNodes (this->_graph, functorData);
 
     /** We iterate the nodes. */
     tools::dp::IDispatcher::Status status = getDispatcher()->iterate (iter, functorNodes);
 
-    /** We concate the kmers. */
-    for (size_t i=0; i<branchingNodes.size(); i++)
+    /** Now, we have N vector of branching nodes. (N=nbcores used by the dispatcher)
+     *  The next step are:
+     *      1) sort each vector
+     *      2) sort/merge the N vectors in the final collection
+     */
+
+    /** Step 1 : sorting the N branching nodes vectors (with the dispatcher). */
+    vector<tools::dp::ICommand*> sortCmds;
+    for (size_t i=0; i<functorData.size(); i++)  {  sortCmds.push_back (new SortCmd<Count> (functorData[i].branchingNodes));  }
+    getDispatcher()->dispatchCommands (sortCmds);
+
+    /** Step 2 : sort/merge the N vectors.
+     * We use a priority queue for the merge process. */
+    typedef typename vector<Count>::iterator BranchingIterator;
+    typedef pair<BranchingIterator,BranchingIterator> BranchingIteratorPair;
+
+    /** We use a cache to improve IO performances. */
+    CollectionCache<Count> branchingCache (*_branchingCollection, 16*1024, 0);
+
+    Type checksum = 0;
+
+    /** We initialize our priority queue. */
+    priority_queue <BranchingIteratorPair, vector<BranchingIteratorPair>, Compare<BranchingIteratorPair> > pq;
+    for (size_t i=0; i<functorData.size(); i++)
     {
-        vector<Count>& v = branchingNodes[i];
-        branchingNodes->insert (branchingNodes->end(), v.begin(), v.end());
-        v.clear ();
-    };
+        if (functorData[i].branchingNodes.empty() == false)
+        {
+            pq.push (make_pair (functorData[i].branchingNodes.begin(), functorData[i].branchingNodes.end()));
+        }
+    }
 
-    /** We sort the kmers. */
-    sort (branchingNodes->begin(), branchingNodes->end());
+    /** We process the merge/sort. */
+    while (!pq.empty())
+    {
+        /** We get the top iterators pair from the priority queue and remove from it. */
+        BranchingIteratorPair it = pq.top();
+        pq.pop();
 
-    /** We put the kmers into the final bag. */
-    _branchingCollection->insert (branchingNodes->data(), branchingNodes->size());
+        /** We check that the current iterator is not finished. */
+        if (it.first != it.second)
+        {
+            /** We insert the Count object into the final bag. */
+            branchingCache.insert (*it.first);
+
+            /** Stats */
+            checksum += it.first->value;
+
+            /** We update the priority queue. */
+            ++(it.first); if (it.first != it.second)  {  pq.push (it); }
+        }
+    }
+
+    /** We have to flush the cache to be sure every items is put into the cached collection. */
+    branchingCache.flush ();
 
     /** We save the kind in the storage. */
     _storage(getName()).addProperty ("kind", toString(_kind));
 
-    /** We gather the information collected during iteration. */
-    for (size_t i=0; i<count.size(); i++)  {  *count += count[i];  }
+    /* print the number of branching nodes (could be important for debugging, if a user experiences a crash and copypastes stdout) */
+    cout << "Graph has " << _branchingCollection->getNbItems() << " branching nodes." << endl;
 
     /** We gather some statistics. */
     getInfo()->add (1, "stats");
-    getInfo()->add (2, "nb_branching", "%ld", *count);
-    getInfo()->add (2, "percentage",   "%.1f", (itNodes.size() > 0 ? 100.0*(float)*count/(float)itNodes.size() : 0));
+    getInfo()->add (2, "nb_branching", "%ld", _branchingCollection->getNbItems());
+    getInfo()->add (2, "percentage",   "%.1f", (itNodes.size() > 0 ? 100.0*(float)_branchingCollection->getNbItems()/(float)itNodes.size() : 0));
+
+    stringstream ss;  ss << checksum;
+    getInfo()->add (2, "checksum_branching", "%s", ss.str().c_str());
+
+    if (getInput()->get(STR_TOPOLOGY_STATS) && getInput()->getInt(STR_TOPOLOGY_STATS) > 0)
+    {
+        /** We get some topological information. */
+        for (size_t i=0; i<functorData.size(); i++)
+        {
+            for (map<InOut_t, size_t>::iterator it = functorData[i].topology.begin();  it != functorData[i].topology.end(); ++it)
+            {
+                functorData->topology[it->first] += it->second;
+            }
+        }
+
+        /** We sort the statistics. */
+        vector < pair<InOut_t,size_t> >  topologyStats;
+        for (map<InOut_t, size_t>::iterator it = functorData->topology.begin();  it != functorData->topology.end(); ++it)  { topologyStats.push_back (*it); }
+        sort (topologyStats.begin(), topologyStats.end(), CompareFct);
+
+        getInfo()->add (1, "topology");
+        for (size_t i=0; i<topologyStats.size(); i++)
+        {
+            getInfo()->add (3, "neighborhood", "[in=%ld out=%ld]  nb : %8ld   percent. : %5.2f",
+                topologyStats[i].first.first, topologyStats[i].first.second, topologyStats[i].second,
+                _branchingCollection->getNbItems() > 0 ?
+                100.0*(float)topologyStats[i].second / (float)_branchingCollection->getNbItems() : 0
+            );
+        }
+    }
 
     getInfo()->add (1, "time");
     getInfo()->add (2, "build", "%.3f", status.time / 1000.0);
 }
-
 
 /********************************************************************************/
 

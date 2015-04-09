@@ -35,14 +35,14 @@ namespace tools     {
 namespace misc      {
 /********************************************************************************/
 
-/** \brief Pool of strings
+/* \brief Pool of strings
  *
  * This class provides constant strings used throughout the code. It may be interesting
  * in order to have a central point for constant strings management:
  *      - ease translation in different languages
  *      - entry point for strings obfuscation if needed
  *
- * // rayan's remark: I respecfully disagree, this is not useful: we won't translate and we won't obfuscate
+ * // rayan's remark: I respectfully disagree, this is not useful: we won't translate and we won't obfuscate
  *
  * It could also be possible to read the strings from a configuration file.
  *
@@ -71,7 +71,7 @@ public:
 
 /********************************************************************************/
 
-/** \brief Pool of strings
+/* \brief Pool of strings
  */
 class StringRepository
 {
@@ -80,8 +80,12 @@ public:
 
     const char* db             ()  { return "-db";             }
     const char* file           ()  { return "-file";           }
+    const char* graph          ()  { return "-graph";          }
     const char* kmer_size      ()  { return "-kmer-size";      }
+    const char* minimizer_size ()  { return "-minimizer-size"; }
     const char* kmer_abundance ()  { return "-abundance"; }
+    const char* kmer_abundance_min ()  { return "-abundance-min"; }
+    const char* kmer_abundance_max ()  { return "-abundance-max"; }
     const char* max_memory     ()  { return "-max-memory";     }
     const char* max_disk       ()  { return "-max-disk";       }
     const char* kmer_solid     ()  { return "-kmer-solid";     }
@@ -90,7 +94,7 @@ public:
     const char* progress_bar   ()  { return "-bargraph";       }
     const char* nb_cores       ()  { return "-nb-cores";       }
     const char* partition_type ()  { return "-partition-type"; }
-    const char* uri_histogram  ()  { return "-histo";          }
+    const char* histogram_max  ()  { return "-histo-max";      }
     const char* uri_debloom    ()  { return "-debloom";        }
     const char* uri_input      ()  { return "-in";             }
     const char* uri_output     ()  { return "-out";            }
@@ -101,10 +105,16 @@ public:
     const char* version        ()  { return "-version";        }
     const char* bloom_type     ()  { return "-bloom";          }
     const char* debloom_type   ()  { return "-debloom";        }
+    const char* debloom_impl   ()  { return "-debloom-impl";   }
     const char* branching_type ()  { return "-branching-nodes";}
+    const char* topology_stats ()  { return "-topology-stats";}
     const char* mphf_type ()       { return "-mphf";}
     const char* uri_solid_kmers()  { return "-solid-kmers-out";    }
     const char* bank_convert_type ()  { return "-bank-convert";   }
+    const char* integer_precision ()  { return "-integer-precision";}
+    const char* solidity_kind  ()  { return "-solidity-kind"; }
+    const char* minimizer_type ()  { return "-minimizer-type"; }
+    const char* repartition_type() { return "-repartition-type"; }
 
     const char* attr_uri_input      ()  { return "input";           }
     const char* attr_kmer_size      ()  { return "kmer_size";       }
@@ -118,8 +128,13 @@ public:
 /** Shortcuts. */
 #define STR_URI_DB              gatb::core::tools::misc::StringRepository::singleton().db ()
 #define STR_URI_FILE            gatb::core::tools::misc::StringRepository::singleton().file ()
+#define STR_URI_GRAPH           gatb::core::tools::misc::StringRepository::singleton().graph ()
 #define STR_KMER_SIZE           gatb::core::tools::misc::StringRepository::singleton().kmer_size ()
+#define STR_MINIMIZER_SIZE      gatb::core::tools::misc::StringRepository::singleton().minimizer_size ()
+#define STR_INTEGER_PRECISION   gatb::core::tools::misc::StringRepository::singleton().integer_precision ()
 #define STR_KMER_ABUNDANCE      gatb::core::tools::misc::StringRepository::singleton().kmer_abundance ()
+#define STR_KMER_ABUNDANCE_MIN  gatb::core::tools::misc::StringRepository::singleton().kmer_abundance_min ()
+#define STR_KMER_ABUNDANCE_MAX  gatb::core::tools::misc::StringRepository::singleton().kmer_abundance_max ()
 #define STR_MAX_MEMORY          gatb::core::tools::misc::StringRepository::singleton().max_memory ()
 #define STR_MAX_DISK            gatb::core::tools::misc::StringRepository::singleton().max_disk ()
 #define STR_KMER_SOLID          gatb::core::tools::misc::StringRepository::singleton().kmer_solid ()
@@ -128,7 +143,7 @@ public:
 #define STR_PROGRESS_BAR        gatb::core::tools::misc::StringRepository::singleton().progress_bar ()
 #define STR_NB_CORES            gatb::core::tools::misc::StringRepository::singleton().nb_cores ()
 #define STR_PARTITION_TYPE      gatb::core::tools::misc::StringRepository::singleton().partition_type ()
-#define STR_URI_HISTOGRAM       gatb::core::tools::misc::StringRepository::singleton().uri_histogram ()
+#define STR_HISTOGRAM_MAX       gatb::core::tools::misc::StringRepository::singleton().histogram_max ()
 #define STR_URI_DEBLOOM         gatb::core::tools::misc::StringRepository::singleton().uri_debloom ()
 #define STR_URI_INPUT           gatb::core::tools::misc::StringRepository::singleton().uri_input ()
 #define STR_URI_OUTPUT          gatb::core::tools::misc::StringRepository::singleton().uri_output ()
@@ -139,10 +154,15 @@ public:
 #define STR_VERSION             gatb::core::tools::misc::StringRepository::singleton().version ()
 #define STR_BLOOM_TYPE          gatb::core::tools::misc::StringRepository::singleton().bloom_type()
 #define STR_DEBLOOM_TYPE        gatb::core::tools::misc::StringRepository::singleton().debloom_type()
+#define STR_DEBLOOM_IMPL        gatb::core::tools::misc::StringRepository::singleton().debloom_impl()
 #define STR_BRANCHING_TYPE      gatb::core::tools::misc::StringRepository::singleton().branching_type()
+#define STR_TOPOLOGY_STATS      gatb::core::tools::misc::StringRepository::singleton().topology_stats()
 #define STR_MPHF_TYPE           gatb::core::tools::misc::StringRepository::singleton().mphf_type()
 #define STR_URI_SOLID_KMERS     gatb::core::tools::misc::StringRepository::singleton().uri_solid_kmers()
 #define STR_BANK_CONVERT_TYPE   gatb::core::tools::misc::StringRepository::singleton().bank_convert_type()
+#define STR_SOLIDITY_KIND       gatb::core::tools::misc::StringRepository::singleton().solidity_kind()
+#define STR_MINIMIZER_TYPE      gatb::core::tools::misc::StringRepository::singleton().minimizer_type()
+#define STR_REPARTITION_TYPE    gatb::core::tools::misc::StringRepository::singleton().repartition_type()
 
 /********************************************************************************/
 

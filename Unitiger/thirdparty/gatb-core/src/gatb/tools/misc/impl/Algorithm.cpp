@@ -45,11 +45,12 @@ namespace gatb {  namespace core { namespace tools {  namespace misc {  namespac
 ** REMARKS :
 *********************************************************************/
 Algorithm::Algorithm (const std::string& name, int nbCores, gatb::core::tools::misc::IProperties* input)
-    : _name(name), _input(0), _output(0), _info(0), _dispatcher(0)
+    : _name(name), _input(0), _output(0), _info(0), _systemInfo(0), _dispatcher(0)
 {
-    setInput  (input ? input : new Properties());
-    setOutput (new Properties());
-    setInfo   (new Properties());
+    setInput      (input ? input : new Properties());
+    setOutput     (new Properties());
+    setInfo       (new Properties());
+    setSystemInfo (new Properties());
 
     if (nbCores < 0)  {  nbCores = _input->get(STR_NB_CORES)  ? _input->getInt(STR_NB_CORES) : 0;  }
     setDispatcher (new Dispatcher (nbCores) );
@@ -70,7 +71,33 @@ Algorithm::~Algorithm ()
     setInput      (0);
     setOutput     (0);
     setInfo       (0);
+    setSystemInfo (0);
     setDispatcher (0);
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void Algorithm::run ()
+{
+    ISystemInfo::CpuInfo* cpuinfo = System::info().createCpuInfo();
+    LOCAL (cpuinfo);
+
+    cpuinfo->start();
+
+    /** We execute the algorithm. */
+    this->execute ();
+
+    cpuinfo->stop();
+
+    /** We gather some system information. */
+    getSystemInfo()->add (1, "system");
+    getSystemInfo()->add (2, "cpu",         "%.1f", cpuinfo->getUsage());
 }
 
 /*********************************************************************
@@ -88,8 +115,9 @@ dp::IteratorListener* Algorithm::createIteratorListener (size_t nbIterations, co
     switch (getInput()->getInt(STR_VERBOSE))
     {
         case 0: default:    return new IteratorListener ();
-        case 1:             return new ProgressTimer (nbIterations, message);
-        case 2:             return new Progress      (nbIterations, message);
+        case 1:             return new ProgressTimerAndSystem   (nbIterations, message);
+        case 2:             return new ProgressTimer            (nbIterations, message);
+        case 3:             return new Progress                 (nbIterations, message);
     }
 }
 

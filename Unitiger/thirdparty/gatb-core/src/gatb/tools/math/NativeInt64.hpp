@@ -45,8 +45,6 @@ namespace tools {
 namespace math  {
 /********************************************************************************/
 
-/** \brief Large integer class
- */
 class NativeInt64 : private misc::ArrayData<u_int64_t, 1>
 {
 public:
@@ -156,6 +154,22 @@ public:
         return (res >> (2*( 32 - sizeKmer))) ;
     }
 
+	
+	/********************************************************************************/
+    inline static u_int64_t revcomp8 (const u_int64_t& x, size_t sizeKmer)
+    {
+        u_int64_t res = x;
+		
+        unsigned char* kmerrev  = (unsigned char *) (&(res));
+        unsigned char* kmer     = (unsigned char *) (&(x));
+		
+        for (size_t i=0; i<2; ++i)  {  kmerrev[8-1-i] = revcomp_4NT [kmer[i]];  }
+		
+        return (res >> (2*( 32 - sizeKmer))) ;
+    }
+
+	
+	
     /********************************************************************************/
     inline static u_int64_t hash64 (u_int64_t key, u_int64_t seed)
     {
@@ -168,6 +182,7 @@ public:
         hash = (hash + (hash << 2)) + (hash << 4); // hash * 21
         hash = hash ^ (hash >> 28);
         hash = hash + (hash << 31);
+
         return hash;
     }
 
@@ -182,8 +197,10 @@ public:
         code = code ^ (code >> 11);
         code = code + (code << 6);
         code = code ^ (code >> 22);
+		
         return code;
     }
+
 
     /********************************************************************************/
     /** computes a simple, naive hash using only 16 bits from input key
@@ -226,6 +243,7 @@ inline NativeInt64 revcomp (const NativeInt64& x, size_t sizeKmer)
 /********************************************************************************/
 inline u_int64_t hash1 (const NativeInt64& key, u_int64_t seed=0)
 {
+
     return NativeInt64::hash64 (key.value[0], seed);
 }
 
@@ -234,7 +252,8 @@ inline u_int64_t oahash (const NativeInt64& key)
 {
     return NativeInt64::oahash64 (key.value[0]);
 }
-    
+   
+	
 /********************************************************************************/
 inline u_int64_t simplehash16 (const NativeInt64& key, int  shift)
 {

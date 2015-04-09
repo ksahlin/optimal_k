@@ -29,8 +29,8 @@
  *  disk or on memory, look elsewhere!
  */
 
-#ifndef _GATB_CORE_TOOLS_STORAGE_IMPL_PRODUCT_HPP_
-#define _GATB_CORE_TOOLS_STORAGE_IMPL_PRODUCT_HPP_
+#ifndef _GATB_CORE_TOOLS_STORAGE_IMPL_STORAGE_HPP_
+#define _GATB_CORE_TOOLS_STORAGE_IMPL_STORAGE_HPP_
 
 /********************************************************************************/
 
@@ -42,11 +42,16 @@
 
 #include <gatb/tools/misc/api/IProperty.hpp>
 
+#include <gatb/tools/math/NativeInt8.hpp>
+
+#include <gatb/tools/designpattern/impl/IteratorHelpers.hpp>
+
 #include <string>
 #include <sstream>
 #include <list>
 #include <vector>
 #include <map>
+#include <cstring>
 
 /********************************************************************************/
 namespace gatb      {
@@ -57,8 +62,18 @@ namespace storage   {
 namespace impl      {
 /********************************************************************************/
 
-/** */
-enum StorageMode_e { STORAGE_FILE, STORAGE_HDF5, STORAGE_GZFILE, STORAGE_COMPRESSED_FILE };
+/** Enumeration of the supported storage mechanisms.*/
+enum StorageMode_e
+{
+    /** Simple file. */
+    STORAGE_FILE,
+    /** HDF5 file. */
+    STORAGE_HDF5,
+    /** Experimental. */
+    STORAGE_GZFILE,
+    /** Experimental. */
+    STORAGE_COMPRESSED_FILE
+};
 
 /********************************************************************************/
 
@@ -97,6 +112,7 @@ public:
      *      - its bag part
      *      - its iterable part
      *      - its remove part
+     * \param[in] factory : factory to be used
      * \param[in] parent : parent node
      * \param[in] id  : identifier of the collection to be created
      * \param[in] ref : referred collection.
@@ -106,16 +122,18 @@ public:
     /** Destructor. */
     virtual ~CollectionNode();
 
-    /** \copydoc dp::ICell::remove */
+    /** \copydoc tools::storage::ICell::remove */
     void remove ();
 
-    /** */
+    /** \copydoc collections::impl::CollectionAbstract::addProperty */
     void addProperty (const std::string& key, const std::string value);
 
-    /** */
+    /** \copydoc collections::impl::CollectionAbstract::getProperty */
     std::string getProperty (const std::string& key);
 
-    /**  */
+    /** Get a pointer to the delegate Collection instance
+     * \return the delegate instance.
+     */
     collections::Collection<Item>* getRef ();
 
 private:
@@ -136,7 +154,15 @@ private:
              #####   #     #  #######   #####   #
 **********************************************************************/
 
-/** */
+/** \brief Group concept.
+ *
+ * This class define a container concept for other items that can be stored
+ * in a storage (like groups, partitions, collections).
+ *
+ * In a regular implementation, a Group could be a directory.
+ *
+ * In a HDF5 implementation, a group could be a HDF5 group.
+ */
 class Group : public Cell
 {
 public:
@@ -147,22 +173,40 @@ public:
     /** Destructor. */
     ~Group();
 
-    /** */
+    /** Get a child group from its name. Created if not already exists.
+     * \param[in] name : name of the child group to be retrieved.
+     * \return the child group.
+     */
     Group& getGroup (const std::string& name);
 
-    /** */
-    template <class Type>  Partition<Type>& getPartition (const std::string& name, size_t nb);
+    /** Get a child partition from its name. Created if not already exists.
+     * \param[in] name : name of the child partition to be retrieved.
+     * \param[in] nb : in case of creation, tells how many collection belong to the partition.
+     * \return the child partition.
+     */
+    template <class Type>  Partition<Type>& getPartition (const std::string& name, size_t nb=0);
 
-    /** */
+    /** Get a child collection from its name. Created if not already exists.
+     * \param[in] name : name of the child collection to be retrieved.
+     * \return the child collection .
+     */
     template <class Type>  CollectionNode<Type>& getCollection (const std::string& name);
 
-    /** */
+    /** \copydoc Cell::remove */
     void remove ();
 
-    /** */
+    /** Associate a [key,value] to the group. Note: according to the kind of storage,
+     * this feature may be not supported.
+     * \param[in] key : key
+     * \param[in] value : value
+     */
     virtual void addProperty (const std::string& key, const std::string value) { /*throw system::ExceptionNotImplemented ();*/ }
 
-    /** */
+    /** Get a [key,value] from the group. Note: according to the kind of storage,
+     * this feature may be not supported.
+     * \param[in] key : key
+     * \return the value associated to the string.
+     */
     virtual std::string getProperty (const std::string& key)  { return "?"; /*throw system::ExceptionNotImplemented ();*/  }
 
 protected:
@@ -191,11 +235,12 @@ protected:
  * It is defined as a subclass of Group.
  */
 template<typename Type>
-class Partition : public Group
+class Partition : public Group, public tools::collections::Iterable<Type>
 {
 public:
 
     /** Constructor.
+     * \param[in] factory : factory to be used
      * \param[in] parent : the parent node
      * \param[in] id : the identifier of the instance to be created
      * \param[in] nbCollections : number of collections for this partition
@@ -214,6 +259,15 @@ public:
      * \return the wanted collection.
      */
     collections::Collection<Type>& operator[] (size_t idx);
+
+    /** \copydoc tools::collections::Iterable::iterator */
+    dp::Iterator<Type>* iterator ();
+
+    /** \copydoc tools::collections::Iterable::getNbItems */
+    int64_t getNbItems ();
+
+    /** \copydoc tools::collections::Iterable::estimateNbItems */
+    int64_t estimateNbItems ();
 
     /** Flush the whole partition (ie flush each collection). */
     void flush ();
@@ -280,8 +334,7 @@ protected:
     std::vector <collections::impl::CollectionCache<Type>* > _cachedCollections;
 };
 
-    
-    
+/********************************************************************************/
 template<typename Type>
 class PartitionCacheSorted
 {
@@ -328,16 +381,17 @@ protected:
     bool _own_synchros;
     bool _own_outsynchros;
 
-
     std::vector <collections::impl::CollectionCacheSorted<Type>* > _cachedCollections;
 };
     
-
-    
 /********************************************************************************
-        
-           S t o r a g e
-
+         #####   #######  #######  ######      #      #####   #######
+        #     #     #     #     #  #     #    # #    #     #  #
+        #           #     #     #  #     #   #   #   #        #
+         #####      #     #     #  ######   #     #  #  ####  #####
+              #     #     #     #  #   #    #######  #     #  #
+        #     #     #     #     #  #    #   #     #  #     #  #
+         #####      #     #######  #     #  #     #   #####   #######
 ********************************************************************************/
 
 /** \brief Storage class
@@ -360,12 +414,16 @@ class Storage : public Cell
 public:
 
     /** Constructor.
+     * \param[in] mode : storage mode
      * \param[in] name : name of the storage.
      * \param[in] autoRemove : tells whether the storage has to be physically deleted when this object is deleted. */
     Storage (StorageMode_e mode, const std::string& name, bool autoRemove=false);
 
     /** Destructor */
     ~Storage ();
+
+    /** Get the name of the storage. */
+    std::string getName() const { return _name; }
 
     Group& root () { return *getRoot(); }
 
@@ -383,7 +441,25 @@ public:
     /** */
     StorageFactory* getFactory() const { return _factory; }
 
+    /** WRAPPER C++ OUTPUT STREAM */
+    class ostream : public std::ostream
+    {
+    public:
+        ostream (Group& group, const std::string& name);
+        ~ostream ();
+    };
+
+    /** WRAPPER C++ INPUT STREAM */
+    class istream : public std::istream
+    {
+    public:
+        istream (Group& group, const std::string& name);
+        ~istream();
+    };
+
 protected:
+
+    std::string _name;
 
     StorageFactory* _factory;
     void setFactory (StorageFactory* factory);
@@ -406,30 +482,70 @@ protected:
                 #        #     #   #####      #     #######  #     #     #
 ********************************************************************************/
 
+/** \brief Factory that creates instances related to the storage feature.
+ *
+ * This class provides some createXXX methods for instantiations.
+ *
+ * It also provides a few general methods like exists and load, so the name 'factory'
+ * may be not well choosen...
+ *
+ * Example 1:
+ * \snippet storage1.cpp  snippet1_storage
+ *
+ * Example 2:
+ * \snippet storage3.cpp  snippet1_storage
+ */
 class StorageFactory : public system::SmartPointer
 {
 public:
 
-    /** Constructor */
+    /** Constructor
+     * \param[in] mode : kind of storage to be used (HDF5 for instance)
+     */
     StorageFactory (StorageMode_e mode) : _mode(mode)  {}
 
-    /** */
+    /** Create a Storage instance.
+     * \param[in] name : name of the instance to be created
+     * \param[in] deleteIfExist : if the storage exits in file system, delete it if true.
+     * \param[in] autoRemove : auto delete the storage from file system during Storage destructor.
+     * \return the created Storage instance
+     */
     Storage* create (const std::string& name, bool deleteIfExist, bool autoRemove);
 
-    /** */
+    /** Tells whether or not a Storage exists in file system given a name
+     * \param[in] name : name of the storage to be checked
+     * \return true if the storage exists in file system, false otherwise.
+     */
     bool exists (const std::string& name);
 
-    /** */
+    /** Create a Storage instance from an existing storage in file system.
+     * \param[in] name : name of the file in file system
+     * \return the created Storage instance
+     */
     Storage* load (const std::string& name) { return create (name, false, false); }
 
-    /** */
+    /** Create a Group instance and attach it to a cell in a storage.
+     * \param[in] parent : parent of the group to be created
+     * \param[in] name : name of the group to be created
+     * \return the created Group instance.
+     */
     Group* createGroup (ICell* parent, const std::string& name);
 
-    /** */
+    /** Create a Partition instance and attach it to a cell in a storage.
+     * \param[in] parent : parent of the partition to be created
+     * \param[in] name : name of the partition to be created
+     * \param[in] nb : number of collections of the partition
+     * \return the created Partition instance.
+     */
     template<typename Type>
     Partition<Type>* createPartition (ICell* parent, const std::string& name, size_t nb);
 
-    /** */
+    /** Create a Collection instance and attach it to a cell in a storage.
+     * \param[in] parent : parent of the collection to be created
+     * \param[in] name : name of the collection to be created
+     * \param[in] synchro : synchronizer instance if needed
+     * \return the created Collection instance.
+     */
     template<typename Type>
     CollectionNode<Type>* createCollection (ICell* parent, const std::string& name, system::ISynchronizer* synchro);
 
@@ -447,4 +563,4 @@ private:
 #include <gatb/tools/storage/impl/Storage.tpp>
 /********************************************************************************/
 
-#endif /* _GATB_CORE_TOOLS_STORAGE_IMPL_PRODUCT_HPP_ */
+#endif /* _GATB_CORE_TOOLS_STORAGE_IMPL_STORAGE_HPP_ */

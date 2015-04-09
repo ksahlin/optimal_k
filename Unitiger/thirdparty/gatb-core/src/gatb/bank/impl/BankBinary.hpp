@@ -20,7 +20,7 @@
 /** \file BankBinary.hpp
  *  \date 01/03/2013
  *  \author edrezen
- *  \brief Implementation of IBank interface with compressed format.
+ *  \brief Binary bank format
  */
 
 #ifndef _GATB_CORE_BANK__IMPL_BANK_BINARY_HPP_
@@ -43,14 +43,25 @@ namespace impl      {
 
 /** \brief Implementation of IBank for compressed format
  *
- * - a binary file is a list of blocks
- *    - a block is:
- *       - one block size (on 4 bytes)
- *       - a list of sequences
- *          - a sequence is:
- *             - a sequence length (on 4 bytes)
- *             - the nucleotides of the sequences (4 nucleotides encoded in 1 byte)
+ * - a binary file is made of:
+ *    - a magic number
+ *    - a list of blocks
+ *        - a block is:
+ *              - one block size (on 4 bytes)
+ *              - a list of sequences
+ *                  - a sequence is:
+ *                      - a sequence length (on 4 bytes)
+ *                      - the nucleotides of the sequences (4 nucleotides encoded in 1 byte)
  * - number of sequences (on 4 bytes)
+ *
+ * Historically, BinaryBank has been used in the first step of the DSK tool to convert
+ * one input FASTA file into a binary format. DSK used to read several times the reads
+ * so having a binary (and so compressed) format had the nice effect to have less I/O
+ * operations and therefore less execution time.
+ *
+ * In the following example, we can see how to convert any kind of bank into a binary bank:
+ * \snippet bank8.cpp  snippet8_binary
+ *
  */
 class BankBinary : public AbstractBank
 {
@@ -92,6 +103,17 @@ public:
     /** \copydoc IBank::estimate */
     void estimate (u_int64_t& number, u_int64_t& totalSize, u_int64_t& maxSize);
 
+    /** \copydoc IBank::remove. */
+    void remove ();
+
+    /** Set default buffer size (static method). 
+      * \param[in] bufferSize : size of the buffer.    
+      */
+    static void setBufferSize (u_int64_t bufferSize);
+
+    /** Check that the given uri is a correct binary bank. */
+    static bool check (const std::string& uri);
+
     /************************************************************/
 
     /** \brief Specific Iterator impl for BankBinary class
@@ -117,7 +139,11 @@ public:
         bool isDone ()  { return _isDone; }
 
         /** \copydoc tools::dp::Iterator::item */
-        Sequence& item ()     { return *_item; }
+        Sequence& item ()
+        {
+            _item->getData().setEncoding (tools::misc::Data::BINARY);
+            return *_item;
+        }
 
         /** Estimation of the sequences information. */
         void estimate (u_int64_t& number, u_int64_t& totalSize, u_int64_t& maxSize);
@@ -163,12 +189,16 @@ protected:
 
 /********************************************************************************/
 
-/** */
+/* \brief Factory for the BankBinary class. */
 class BankBinaryFactory : public IBankFactory
 {
 public:
 
-    IBank* createBank (const std::string& uri) { return new BankBinary (uri); }
+    /** \copydoc IBankFactory::createBank */
+    IBank* createBank (const std::string& uri)
+    {
+        return BankBinary::check(uri) ? new BankBinary (uri) : 0;
+    }
 };
 
 /********************************************************************************/

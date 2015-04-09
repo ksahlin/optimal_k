@@ -45,11 +45,24 @@ Progress::Progress (u_int64_t ntasks, const char * msg, std::ostream& output)
     : os(output)
 {
     message = (msg != NULL ? msg : "?");
+    reset (ntasks);
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void Progress::reset (u_int64_t ntasks)
+{
     todo    = ntasks;
     done    = 0;
     partial = 0;
     subdiv  = 100;
-    steps   = (double)todo / (double)subdiv;
+    steps   = (double)(ntasks>0 ? ntasks : 1) / (double)subdiv;
 }
 
 /*********************************************************************
@@ -109,7 +122,7 @@ void Progress::inc (u_int64_t ntasks_done)
 
     while (partial >= steps)
     {
-        update ();
+        update (false);
         partial -= steps;
     }
 }
@@ -138,18 +151,11 @@ void Progress::set (u_int64_t ntasks_done)
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-void Progress::setMessage (const char* format, ...)
+void Progress::setMessage (const std::string& msg)
 {
-    char buffer[256];
+    message = msg;
 
-    va_list args;
-    va_start(args, format);
-    vsprintf (buffer, format, args);
-    va_end(args);
-
-    message.assign (buffer);
-
-    update ();
+    update (false);
 }
 
 /*********************************************************************
@@ -188,7 +194,7 @@ void Progress::postFinish ()
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-void Progress::update ()
+void Progress::update (bool first)
 {
     os << "-";
     os.flush();
@@ -221,6 +227,8 @@ void ProgressTimer::postInit ()
 
     /** We get the current hour (in msec) */
     heure_debut = System::time().getTimeStamp();
+
+    update (true);
 }
 
 /*********************************************************************
@@ -245,7 +253,7 @@ void ProgressTimer::postFinish ()
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-void ProgressTimer::update ()
+void ProgressTimer::update (bool force)
 {
     /** We get the current hour (in msec) */
     heure_actuelle = System::time().getTimeStamp();
@@ -254,28 +262,116 @@ void ProgressTimer::update ()
     double elapsed = (heure_actuelle - heure_debut) / 1000.0;
 
     /** A little check. */
-    if (elapsed > 0  &&  done > 0)
+    if (force || (done > 0))
     {
-        double speed  = done        / elapsed;
-        double rem    = (todo-done) / speed;
-
-        if (done>todo) rem=0;
-        int min_e  = (int)(elapsed / 60) ;
-        elapsed -= min_e*60;
-        int min_r  = (int)(rem / 60) ;
-        rem -= min_r*60;
-
-        /** We format the string to be displayed. */
-        snprintf (buffer, sizeof(buffer), "%c[%s]  %-5.3g  %%     elapsed: %6i min %-4.0f  sec      estimated remaining: %6i min %-4.0f  sec ",
-            13,
-            message.c_str(),
-            100*(double)done/todo,
-            min_e,elapsed,min_r,rem
-        );
+        fillBuffer (elapsed);
 
         /** We dump the string. */
         os << buffer;
+        os.flush();
     }
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void ProgressTimer::fillBuffer (double elapsed)
+{
+    double speed  = elapsed > 0 ?  done / elapsed     : 0;
+    double rem    = elapsed > 0 ? (todo-done) / speed : 0;
+
+    if (done>todo) rem=0;
+
+    int min_e  = (int)(elapsed / 60) ;
+    elapsed -= min_e*60;
+    int min_r  = (int)(rem / 60) ;
+    rem -= min_r*60;
+
+    /** We format the string to be displayed. */
+    snprintf (buffer, sizeof(buffer), "%c[%s]  %-5.3g%%   elapsed: %3i min %-2.0f sec    estimated remaining: %3i min %-2.0f sec",
+        13,
+        message.c_str(),
+        100*(double)done/todo,
+        min_e,elapsed,min_r,rem
+    );
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+ProgressTimerAndSystem::ProgressTimerAndSystem (u_int64_t ntasks, const char* msg, std::ostream& os)
+    : ProgressTimer (ntasks, msg, os), _cpuinfo(0), _memMax(0)
+{
+    setCpuInfo(System::info().createCpuInfo());
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+ProgressTimerAndSystem::~ProgressTimerAndSystem ()
+{
+    setCpuInfo (0);
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void ProgressTimerAndSystem::fillBuffer (double elapsed)
+{
+    /** We get the memory used by the current process. */
+    u_int64_t mem = System::info().getMemorySelfUsed() / 1024;
+    if (_memMax<mem)  { _memMax=mem; }
+
+    u_int64_t memMaxProcess = System::info().getMemorySelfMaxUsed() / 1024;
+
+    /** We format the string to be displayed. */
+    char tmp[128];
+    snprintf (tmp, sizeof(tmp), "   cpu: %6.1f %%   mem: [%3lld, %3lld, %3lld] MB ",
+        _cpuinfo->getUsage(),
+        mem, _memMax, memMaxProcess
+    );
+
+    /** We call the parent method. */
+    ProgressTimer::fillBuffer (elapsed);
+
+    /** We concat to the final buffer. */
+    strcat (buffer, tmp);
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void ProgressTimerAndSystem::postInit ()
+{
+    _cpuinfo->start();
+    _memMax = 0;
+
+    ProgressTimer::postInit ();
 }
 
 /********************************************************************************/

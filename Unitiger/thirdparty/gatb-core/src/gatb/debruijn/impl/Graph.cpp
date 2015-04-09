@@ -28,22 +28,22 @@
 #include <gatb/tools/misc/impl/Property.hpp>
 #include <gatb/tools/misc/impl/LibraryInfo.hpp>
 #include <gatb/tools/misc/impl/Stringify.hpp>
+#include <gatb/tools/misc/impl/Tool.hpp>
 
 #include <gatb/tools/designpattern/impl/IteratorHelpers.hpp>
 #include <gatb/tools/designpattern/impl/Command.hpp>
 
 #include <gatb/bank/impl/Banks.hpp>
-#include <gatb/bank/impl/BankRegistery.hpp>
+#include <gatb/bank/impl/Bank.hpp>
 #include <gatb/bank/impl/BankConverterAlgorithm.hpp>
 
 #include <gatb/kmer/impl/SortingCountAlgorithm.hpp>
 #include <gatb/kmer/impl/BloomAlgorithm.hpp>
-#include <gatb/kmer/impl/DebloomAlgorithm.hpp>
+#include <gatb/kmer/impl/DebloomAlgorithmFactory.hpp>
 #include <gatb/kmer/impl/BloomBuilder.hpp>
 
-#ifdef WITH_MPHF
 #include <gatb/kmer/impl/MPHFAlgorithm.hpp>
-#endif
+#include <gatb/tools/collections/impl/MPHF.hpp>
 
 using namespace std;
 
@@ -58,6 +58,9 @@ using namespace gatb::core::kmer::impl;
 
 using namespace gatb::core::tools::collections;
 using namespace gatb::core::tools::collections::impl;
+
+using namespace gatb::core::tools::dp;
+using namespace gatb::core::tools::dp::impl;
 
 using namespace gatb::core::tools::storage::impl;
 
@@ -86,15 +89,10 @@ struct GraphData
     typedef typename Kmer<span>::ModelCanonical Model;
     typedef typename Kmer<span>::Type           Type;
     typedef typename Kmer<span>::Count          Count;
-#ifdef WITH_MPHF
-    typedef typename MPHFAlgorithm<span>::MPHF MPHF;
-#endif
-#ifndef WITH_MPHF
-    #define setMPHF(x) x
-#endif
+    typedef typename MPHFAlgorithm<span>::Map   Map;
 
     /** Constructor. */
-    GraphData () : _model(0), _solid(0), _container(0), _branching(0), _mphf(0) {}
+    GraphData () : _model(0), _solid(0), _container(0), _branching(0), _abundance(0) {}
 
     /** Destructor. */
     ~GraphData ()
@@ -103,17 +101,17 @@ struct GraphData
         setSolid     (0);
         setContainer (0);
         setBranching (0);
-        setMPHF (0);
+        setAbundance (0);
     }
 
     /** Constructor (copy). */
-    GraphData (const GraphData& d) : _model(0), _solid(0), _container(0), _branching(0), _mphf(0)
+    GraphData (const GraphData& d) : _model(0), _solid(0), _container(0), _branching(0), _abundance(0)
     {
         setModel     (d._model);
         setSolid     (d._solid);
         setContainer (d._container);
         setBranching (d._branching);
-        setMPHF (d._mphf);
+        setAbundance (d._abundance);
     }
 
     /** Assignment operator. */
@@ -125,30 +123,24 @@ struct GraphData
             setSolid     (d._solid);
             setContainer (d._container);
             setBranching (d._branching);
-            setMPHF (d._mphf);
+            setAbundance (d._abundance);
         }
         return *this;
     }
 
     /** Required attributes. */
     Model*                _model;
-    Collection<Count>*    _solid;
+    Partition<Count>*     _solid;
     IContainerNode<Type>* _container;
     Collection<Count>*    _branching;
-#ifdef WITH_MPHF
-    MPHF*       _mphf;
-#else
-    void *_mphf;
-#endif
+    Map*                  _abundance;
 
     /** Setters. */
     void setModel       (Model*                 model)      { SP_SETATTR (model);     }
-    void setSolid       (Collection<Count>*     solid)      { SP_SETATTR (solid);     }
+    void setSolid       (Partition<Count>*      solid)      { SP_SETATTR (solid);     }
     void setContainer   (IContainerNode<Type>*  container)  { SP_SETATTR (container); }
     void setBranching   (Collection<Count>*     branching)  { SP_SETATTR (branching); }
-#ifdef WITH_MPHF
-    void setMPHF        (MPHF*           mphf)  { SP_SETATTR (mphf) ;}
-#endif
+    void setAbundance   (Map*                   abundance)  { SP_SETATTR (abundance); }
 
     /** Shortcut. */
     bool contains (const Type& item)  const  {  return _container->contains (item);  }
@@ -182,8 +174,11 @@ typedef boost::variant <
  * each Graph instance has its data variant correctly set thanks to this "setVariant"
  * function.
  */
-static void setVariant (GraphDataVariant& data, size_t kmerSize)
+static void setVariant (GraphDataVariant& data, size_t kmerSize, size_t integerPrecision=0)
 {
+	/** We may force the kmer size and not use the optimized KSIZE value. */
+	if (integerPrecision > 0)  { kmerSize = integerPrecision*32 - 1; }
+
     /** Here is the link between the kmer size (or precision) and the specific type to be used for the variant. */
          if (kmerSize < KSIZE_1)  {  data = GraphData<KSIZE_1> (); }
     else if (kmerSize < KSIZE_2)  {  data = GraphData<KSIZE_2> (); }
@@ -198,7 +193,7 @@ static void setVariant (GraphDataVariant& data, size_t kmerSize)
 
 /********************************************************************************/
 
-/** This visitor is used to configure a GraphDataVariant object (ie configure its attributes).
+/* This visitor is used to configure a GraphDataVariant object (ie configure its attributes).
  * The information source used to configure the variant is a kmer size and a storage.
  *
  * If the storage is null, only the kmer model is set.
@@ -220,19 +215,12 @@ struct configure_visitor : public boost::static_visitor<>    {
         /** We create the kmer model. */
         data.setModel (new typename Kmer<span>::ModelCanonical (kmerSize));
 
-        if (graph.getState() & Graph::STATE_BANKCONVERTER_DONE)
-        {
-            /** We set the iterable for the solid kmers. */
-            BankConverterAlgorithm algo (storage);
-            graph.getInfo().add (1, algo.getInfo());
-        }
-
         if (graph.getState() & Graph::STATE_SORTING_COUNT_DONE)
         {
             /** We set the iterable for the solid kmers. */
             SortingCountAlgorithm<span> algo (storage);
             graph.getInfo().add (1, algo.getInfo());
-            data.setSolid (algo.getSolidKmers());
+            data.setSolid (algo.getSolidCounts());
        }
 
         if (graph.getState() & Graph::STATE_BLOOM_DONE)
@@ -258,23 +246,27 @@ struct configure_visitor : public boost::static_visitor<>    {
             data.setBranching (algo.getBranchingCollection());
         }
 
-        if (graph.getState() & Graph::STATE_MPHF_DONE)
+        if ((graph.getState() & Graph::STATE_MPHF_DONE) &&  (graph.getState() & Graph::STATE_SORTING_COUNT_DONE))
         {
-#ifdef WITH_MPHF
-            // TODO get solid kmers from storage..
-            SortingCountAlgorithm<span> algo_sortingcount (storage); // actually need to get solid kmers (as a way to reconstruct abundance data in the mphf) so i'm calling this as a temporary hack. later: remove that line, just save/load the MPHF abundance array to disk
-            /** Set the MPHF */
-            MPHFAlgorithm<span> mphf_algo (storage, algo_sortingcount.getSolidKmers(), kmerSize, "CHANGEME.mphf" /* that's also an obvious temporary hack */, 0, true);   /* this constructor should be modified later, when mphf serialization is taken care of */
-            data.setMPHF (mphf_algo.getMPHF());
-#endif
-        }
+            // actually need to get solid kmers (as a way to reconstruct abundance data in the mphf) so i'm calling this as a temporary hack. later: remove that line, just save/load the MPHF abundance array to disk
+            SortingCountAlgorithm<span> sortingCount (storage);
 
+            MPHFAlgorithm<span> mphf_algo (
+                sortingCount.getStorageGroup(),
+                "mphf",
+                sortingCount.getSolidCounts(),
+                sortingCount.getSolidKmers(),
+                false  // build=true, load=false
+            );
+
+            data.setAbundance (mphf_algo.getMap());
+        }
     }
 };
 
 /********************************************************************************/
 
-/** This visitor is used to build a graph. In particular, the data variant of the graph will
+/* This visitor is used to build a graph. In particular, the data variant of the graph will
  * be configured through this boost visitor.
  *
  * The skeleton of the graph building is the following:
@@ -304,8 +296,12 @@ struct build_visitor : public boost::static_visitor<>    {
 
         LOCAL (bank);
 
-        size_t kmerSize = props->get(STR_KMER_SIZE)      ? props->getInt(STR_KMER_SIZE)       : 31;
-        size_t nks      = props->get(STR_KMER_ABUNDANCE) ? props->getInt(STR_KMER_ABUNDANCE)  : 3;
+        size_t kmerSize      = props->get(STR_KMER_SIZE)          ? props->getInt(STR_KMER_SIZE)           : 31;
+        size_t minimizerSize = props->get(STR_MINIMIZER_SIZE)     ? props->getInt(STR_MINIMIZER_SIZE)      : 8;
+        size_t nksMin        = props->get(STR_KMER_ABUNDANCE_MIN) ? props->getInt(STR_KMER_ABUNDANCE_MIN)  : 3;
+        size_t nksMax        = props->get(STR_KMER_ABUNDANCE_MAX) ? props->getInt(STR_KMER_ABUNDANCE_MAX)  : 0; // if max<min, we use max=MAX
+        size_t minimizerType = props->get(STR_MINIMIZER_TYPE)     ? props->getInt(STR_MINIMIZER_TYPE)      : 0;
+        size_t repartitionType = props->get(STR_REPARTITION_TYPE)  ? props->getInt(STR_REPARTITION_TYPE)   : 0;
 
         string output = props->get(STR_URI_OUTPUT) ?
             props->getStr(STR_URI_OUTPUT)   :
@@ -342,8 +338,10 @@ struct build_visitor : public boost::static_visitor<>    {
         if (props->get(STR_URI_SOLID_KMERS) != 0)
         {
             string solidsName = props->getStr(STR_URI_SOLID_KMERS);
-            /** By convention, the file will be deleted if its name is "none". */
-            bool autoDelete = (solidsName == "none") || (solidsName == "null");
+            /** Historically (by convention), the file was deleted if its name is "none".
+             * Now, since debloom may use the minimizer repartition function (stored in the solid file),
+             * we must not delete the solid file. */
+            bool autoDelete = false; // (solidsName == "none") || (solidsName == "null");
             solidStorage = StorageFactory(graph._storageMode).create (solidsName, true, autoDelete);
         }
         else
@@ -353,35 +351,37 @@ struct build_visitor : public boost::static_visitor<>    {
         LOCAL (solidStorage);
 
         /************************************************************/
-        /*                         Bank conversion                  */
-        /************************************************************/
-        /** We create the binary bank. */
-        BankConverterAlgorithm converter (bank, kmerSize, binaryBankUri);
-        executeAlgorithm (converter, *solidStorage, props, graph._info);
-        graph.setState(Graph::STATE_BANKCONVERTER_DONE);
-
-        /************************************************************/
         /*                         Sorting count                    */
         /************************************************************/
+        KmerSolidityKind solidityKind;  parse (props->getStr(STR_SOLIDITY_KIND), solidityKind);
+
         /** We create a DSK instance and execute it. */
         SortingCountAlgorithm<span> sortingCount (
             solidStorage,
-            converter.getResult(),
+            bank,
             kmerSize,
-            nks,
-            props->get(STR_MAX_MEMORY) ? props->getInt(STR_MAX_MEMORY) : 0,
-            props->get(STR_MAX_DISK)   ? props->getInt(STR_MAX_DISK)   : 0,
-            props->get(STR_NB_CORES)   ? props->getInt(STR_NB_CORES)   : 0
+            make_pair (nksMin, nksMax),
+            props->get(STR_MAX_MEMORY)    ? props->getInt(STR_MAX_MEMORY) : 0,
+            props->get(STR_MAX_DISK)      ? props->getInt(STR_MAX_DISK)   : 0,
+            props->get(STR_NB_CORES)      ? props->getInt(STR_NB_CORES)   : 0,
+            solidityKind,
+            props->get(STR_HISTOGRAM_MAX) ? props->getInt(STR_HISTOGRAM_MAX) : 0,
+            0,
+            minimizerType,
+            repartitionType,
+            minimizerSize
         );
         executeAlgorithm (sortingCount, *solidStorage, props, graph._info);
         graph.setState(Graph::STATE_SORTING_COUNT_DONE);
 
         /** We configure the variant. */
-        data.setSolid (sortingCount.getSolidKmers());
+        data.setSolid (sortingCount.getSolidCounts());
+
+        /* always print number of solid kmers: this is important information in case a use reports that Graph construction failed/took too long */
+        cout << "Found " << sortingCount.getSolidCounts()->getNbItems() << " solid kmers." << endl;
 
         /** We check that we got solid kmers. */
-        if (sortingCount.getSolidKmers()->getNbItems() == 0)  {  throw "NO SOLID KMERS FOUND...";  }
-
+        if (sortingCount.getSolidCounts()->getNbItems() == 0)  {  return;  /*throw "NO SOLID KMERS FOUND...";*/  }
 
         /************************************************************/
         /*                         MPHF                             */
@@ -391,17 +391,16 @@ struct build_visitor : public boost::static_visitor<>    {
         /** We create an instance of the MPHF Algorithm class (why is that a class, and not a function?) and execute it. */
         if (graph._mphfKind != MPHF_NONE)
         {
-#ifdef WITH_MPHF
             MPHFAlgorithm<span> mphf_algo (
-                    graph.getStorage(),
-                    sortingCount.getSolidKmers(),
-                    kmerSize,
-                    "CHANGEME.mphf"
-                    );
+                sortingCount.getStorageGroup(),
+                "mphf",
+                sortingCount.getSolidCounts(),
+                sortingCount.getSolidKmers(),
+                true  // build=true, load=false
+            );
             executeAlgorithm (mphf_algo, graph.getStorage(), props, graph._info);
-            data.setMPHF(mphf_algo.getMPHF());
+            data.setAbundance(mphf_algo.getMap());
             graph.setState(Graph::STATE_MPHF_DONE);
-#endif
         }
 
         /************************************************************/
@@ -413,7 +412,7 @@ struct build_visitor : public boost::static_visitor<>    {
             {
                 BloomAlgorithm<span> bloomAlgo (
                     graph.getStorage(),
-                    sortingCount.getSolidKmers(),
+                    data._solid,
                     kmerSize,
                     DebloomAlgorithm<span>::getNbBitsPerKmer (kmerSize, graph._debloomKind),
                     props->get(STR_NB_CORES)   ? props->getInt(STR_NB_CORES)   : 0,
@@ -430,21 +429,25 @@ struct build_visitor : public boost::static_visitor<>    {
         if (graph.checkState(Graph::STATE_BLOOM_DONE))
         {
             /** We create a debloom instance and execute it. */
-            DebloomAlgorithm<span> debloom (
+            DebloomAlgorithm<span>* debloom = DebloomAlgorithmFactory<span>::create (
+                graph._debloomImpl,
                 graph.getStorage(),
-                sortingCount.getSolidKmers(),
+                *solidStorage,
+                data._solid,
                 kmerSize,
                 props->get(STR_MAX_MEMORY) ? props->getInt(STR_MAX_MEMORY) : 0,
                 props->get(STR_NB_CORES)   ? props->getInt(STR_NB_CORES)   : 0,
                 graph._bloomKind,
                 graph._debloomKind
             );
-            executeAlgorithm (debloom, graph.getStorage(), props, graph._info);
+            LOCAL (debloom);
+
+            executeAlgorithm (*debloom, graph.getStorage(), props, graph._info);
 
             graph.setState(Graph::STATE_DEBLOOM_DONE);
 
             /** We configure the variant. */
-            data.setContainer (debloom.getContainerNode());
+            data.setContainer (debloom->getContainerNode());
         }
 
         /************************************************************/
@@ -454,7 +457,13 @@ struct build_visitor : public boost::static_visitor<>    {
         {
             if (graph._branchingKind != BRANCHING_NONE)
             {
-                BranchingAlgorithm<span> branchingAlgo (graph, graph.getStorage(), graph._branchingKind);
+                BranchingAlgorithm<span> branchingAlgo (
+                    graph,
+                    graph.getStorage(),
+                    graph._branchingKind,
+                    props->get(STR_NB_CORES)   ? props->getInt(STR_NB_CORES)   : 0,
+                    props
+                );
                 executeAlgorithm (branchingAlgo, graph.getStorage(), props, graph._info);
 
                 graph.setState(Graph::STATE_BRANCHING_DONE);
@@ -486,11 +495,6 @@ struct build_visitor : public boost::static_visitor<>    {
         /************************************************************/
         /*                        Clean up                          */
         /************************************************************/
-        if (graph._bankConvertKind == BANK_CONVERT_TMP)
-        {
-            /** We can get rid of the binary bank. */
-            System::file().remove (binaryBankUri);
-        }
     }
 
     /** Algorithm configuration. */
@@ -498,9 +502,10 @@ struct build_visitor : public boost::static_visitor<>    {
     {
         algorithm.getInput()->add (0, STR_VERBOSE, props->getStr(STR_VERBOSE));
 
-        algorithm.execute();
+        algorithm.run ();
 
         info.add (1, algorithm.getInfo());
+        info.add (1, algorithm.getSystemInfo());
 
         /** We memorize information of the algorithm execution as a property of the corresponding group. */
         storage.getGroup(algorithm.getName()).addProperty("xml", string("\n") + algorithm.getInfo()->getXML());
@@ -526,31 +531,33 @@ struct build_visitor : public boost::static_visitor<>    {
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
-tools::misc::impl::OptionsParser Graph::getOptionsParser (bool includeMandatory)
+IOptionsParser* Graph::getOptionsParser (bool includeMandatory, bool enableMphf)
 {
-    tools::misc::impl::OptionsParser parser;
 
-    if (includeMandatory == true)
+    /** We build the root options parser. */
+    OptionsParser* parser = new OptionsParser ("graph");
+
+    /** We add children parser to it (kmer count, bloom/debloom, branching). */
+    parser->push_back (SortingCountAlgorithm<>::getOptionsParser(includeMandatory));
+    parser->push_back (DebloomAlgorithm<>::getOptionsParser());
+    parser->push_back (BranchingAlgorithm<>::getOptionsParser());
+
+    /** We activate MPHF option only if available. */
+    if (MPHF<char>::enabled)
     {
-        parser.push_back (new tools::misc::impl::OptionOneParam (STR_URI_INPUT, "reads file", true ));
+        IOptionsParser* parserEmphf  = new OptionsParser ("emphf");
+        parserEmphf->push_back (new tools::misc::impl::OptionOneParam (STR_MPHF_TYPE, "mphf type ('none' or 'emphf')", false,  enableMphf ? "emphf":"none"));
+        parser->push_back  (parserEmphf);
     }
 
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_KMER_SIZE,         "size of a kmer",                       false,  "31"    ));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_KMER_ABUNDANCE,    "abundance threshold for solid kmers",  false,  "3"     ));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_BANK_CONVERT_TYPE, "convert the bank ('none', 'tmp', 'keep')",     false,  "tmp"   ));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_URI_OUTPUT,        "output file",                          false));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_URI_OUTPUT_DIR,    "output directory",                     false,  "."));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_VERBOSE,           "verbosity level",                      false,  "1"));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_MAX_MEMORY,        "max memory (in MBytes)",               false, "2000"));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_MAX_DISK,          "max disk   (in MBytes)",               false, "0"));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_NB_CORES,          "nb cores (0 for all)",                 false, "0"));
-    parser.push_back (new tools::misc::impl::OptionNoParam  (STR_HELP,              "help",                                 false));
-    parser.push_back (new tools::misc::impl::OptionNoParam  (STR_VERSION,           "version",                              false));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_BLOOM_TYPE,        "bloom type ('basic' or 'cache')",      false, "cache"));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_DEBLOOM_TYPE,      "debloom type ('none', 'original' or 'cascading')", false, "cascading"));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_BRANCHING_TYPE,    "branching type ('none' or 'stored')", false, "stored"));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_MPHF_TYPE,         "mphf type ('none' or 'emphf')", false, "emphf"));
-    parser.push_back (new tools::misc::impl::OptionOneParam (STR_URI_SOLID_KMERS,   "output file for solid kmers ('none' means delete by convention)", false));
+    /** We create a "general options" parser. */
+    IOptionsParser* parserGeneral  = new OptionsParser ("general");
+    parserGeneral->push_front (new OptionOneParam (STR_INTEGER_PRECISION, "integers precision (0 for optimized value)", false, "0", false));
+    parserGeneral->push_front (new OptionOneParam (STR_VERBOSE,           "verbosity level",      false, "1"  ));
+    parserGeneral->push_front (new OptionOneParam (STR_NB_CORES,          "number of cores",      false, "0"  ));
+
+    /** We add it to the root parser. */
+    parser->push_back  (parserGeneral);
 
     return parser;
 }
@@ -565,18 +572,27 @@ tools::misc::impl::OptionsParser Graph::getOptionsParser (bool includeMandatory)
 *********************************************************************/
 Graph  Graph::create (bank::IBank* bank, const char* fmt, ...)
 {
-    OptionsParser parser = getOptionsParser (false);
+    IOptionsParser* parser = getOptionsParser (false);   LOCAL(parser);
 
     /** We build the command line from the format and the ellipsis. */
     std::string commandLine;
     char* buffer = 0;
     va_list args;
     va_start (args, fmt);
-    vasprintf (&buffer, fmt, args);
+    int res = vasprintf (&buffer, fmt, args);
     va_end (args);
-    if (buffer != NULL)  {  commandLine = buffer;  free (buffer);  }
+    if (buffer != NULL)  {  commandLine = buffer;  FREE (buffer);  }
 
-    return  Graph (bank, parser.parse(commandLine));
+    try
+    {
+        return  Graph (bank, parser->parseString(commandLine));
+    }
+    catch (OptionFailure& e)
+    {
+        e.displayErrors (std::cout);
+
+        throw system::Exception ("Graph construction failure because of bad parameters (notify a developer)");
+    }
 }
 
 /*********************************************************************
@@ -589,18 +605,26 @@ Graph  Graph::create (bank::IBank* bank, const char* fmt, ...)
 *********************************************************************/
 Graph  Graph::create (const char* fmt, ...)
 {
-    OptionsParser parser = getOptionsParser (true);
+    IOptionsParser* parser = getOptionsParser (true);   LOCAL (parser);
 
     /** We build the command line from the format and the ellipsis. */
     std::string commandLine;
     char* buffer = 0;
     va_list args;
     va_start (args, fmt);
-    vasprintf (&buffer, fmt, args);
+    int res = vasprintf (&buffer, fmt, args);
     va_end (args);
-    if (buffer != NULL)  {  commandLine = buffer;  free (buffer);  }
+    if (buffer != NULL)  {  commandLine = buffer;  FREE (buffer);  }
 
-    return  Graph (parser.parse(commandLine));
+    try
+    {
+        return  Graph (parser->parseString(commandLine));
+    }
+    catch (OptionFailure& e)
+    {
+        e.displayErrors (std::cout);
+        throw system::Exception ("Graph construction failure because of bad parameters (notify a developer)");
+    }
 }
 
 /*********************************************************************
@@ -615,7 +639,8 @@ Graph::Graph (size_t kmerSize)
     : _storageMode(PRODUCT_MODE_DEFAULT), _storage(0),
       _variant(new GraphDataVariant()), _kmerSize(kmerSize), _info("graph"),
       _state(Graph::STATE_INIT_DONE),
-      _bankConvertKind(BANK_CONVERT_TMP), _bloomKind(BLOOM_DEFAULT), _debloomKind(DEBLOOM_DEFAULT), _branchingKind(BRANCHING_STORED), _mphfKind(MPHF_EMPHF)
+      _bloomKind(BLOOM_DEFAULT), _debloomKind(DEBLOOM_DEFAULT), _debloomImpl(DEBLOOM_IMPL_DEFAULT),
+      _branchingKind(BRANCHING_STORED), _mphfKind(MPHF_NONE)
 {
     /** We configure the data variant according to the provided kmer size. */
     setVariant (*((GraphDataVariant*)_variant), _kmerSize);
@@ -673,15 +698,20 @@ Graph::Graph (bank::IBank* bank, tools::misc::IProperties* params)
     /** We get the kmer size from the user parameters. */
     _kmerSize = params->getInt (STR_KMER_SIZE);
 
+    size_t integerPrecision = params->getInt (STR_INTEGER_PRECISION);
+
     /** We get other user parameters. */
-    parse (params->getStr(STR_BANK_CONVERT_TYPE), _bankConvertKind);
     parse (params->getStr(STR_BLOOM_TYPE),        _bloomKind);
     parse (params->getStr(STR_DEBLOOM_TYPE),      _debloomKind);
+    parse (params->getStr(STR_DEBLOOM_IMPL),      _debloomImpl);
     parse (params->getStr(STR_BRANCHING_TYPE),    _branchingKind);
-    parse (params->getStr(STR_MPHF_TYPE),         _mphfKind);
+
+    /** This one is conditional. */
+    if (params->get(STR_MPHF_TYPE)) {  parse (params->getStr(STR_MPHF_TYPE), _mphfKind); }
+    else                            { _mphfKind = MPHF_NONE; }
 
     /** We configure the data variant according to the provided kmer size. */
-    setVariant (*((GraphDataVariant*)_variant), _kmerSize);
+    setVariant (*((GraphDataVariant*)_variant), _kmerSize, integerPrecision);
 
     /** We build the graph according to the wanted precision. */
     boost::apply_visitor (build_visitor (*this, bank,params),  *(GraphDataVariant*)_variant);
@@ -703,18 +733,23 @@ Graph::Graph (tools::misc::IProperties* params)
     /** We get the kmer size from the user parameters. */
     _kmerSize = params->getInt (STR_KMER_SIZE);
 
+    size_t integerPrecision = params->getInt (STR_INTEGER_PRECISION);
+
     /** We get other user parameters. */
-    parse (params->getStr(STR_BANK_CONVERT_TYPE), _bankConvertKind);
     parse (params->getStr(STR_BLOOM_TYPE),        _bloomKind);
     parse (params->getStr(STR_DEBLOOM_TYPE),      _debloomKind);
+    parse (params->getStr(STR_DEBLOOM_IMPL),      _debloomImpl);
     parse (params->getStr(STR_BRANCHING_TYPE),    _branchingKind);
-    parse (params->getStr(STR_MPHF_TYPE),         _mphfKind);
+
+    /** This one is conditional. */
+    if (params->get(STR_MPHF_TYPE)) {  parse (params->getStr(STR_MPHF_TYPE), _mphfKind); }
+    else                            { _mphfKind = MPHF_NONE; }
 
     /** We configure the data variant according to the provided kmer size. */
-    setVariant (*((GraphDataVariant*)_variant), _kmerSize);
+    setVariant (*((GraphDataVariant*)_variant), _kmerSize, integerPrecision);
 
     /** We build a Bank instance for the provided reads uri. */
-    bank::IBank* bank = BankRegistery::singleton().createBank (params->getStr(STR_URI_INPUT));
+    bank::IBank* bank = Bank::open (params->getStr(STR_URI_INPUT));
 
     /** We build the graph according to the wanted precision. */
     boost::apply_visitor (build_visitor (*this, bank,params),  *(GraphDataVariant*)_variant);
@@ -732,7 +767,8 @@ Graph::Graph ()
     : _storageMode(PRODUCT_MODE_DEFAULT), _storage(0),
       _variant(new GraphDataVariant()), _kmerSize(0), _info("graph"),
       _state(Graph::STATE_INIT_DONE),
-      _bankConvertKind(BANK_CONVERT_TMP), _bloomKind(BLOOM_DEFAULT), _debloomKind(DEBLOOM_DEFAULT), _branchingKind(BRANCHING_STORED), _mphfKind(MPHF_EMPHF)
+      _bloomKind(BLOOM_DEFAULT),
+      _debloomKind(DEBLOOM_DEFAULT), _debloomImpl(DEBLOOM_IMPL_DEFAULT), _branchingKind(BRANCHING_STORED), _mphfKind(MPHF_NONE)
 {
 }
 
@@ -769,9 +805,9 @@ Graph& Graph::operator= (const Graph& graph)
         _storageMode     = graph._storageMode;
         _name            = graph._name;
         _info            = graph._info;
-        _bankConvertKind = graph._bankConvertKind;
         _bloomKind       = graph._bloomKind;
         _debloomKind     = graph._debloomKind;
+        _debloomImpl     = graph._debloomImpl;
         _mphfKind        = graph._mphfKind;
         _branchingKind   = graph._branchingKind;
         _state           = graph._state;
@@ -1182,7 +1218,7 @@ struct getItemsCouple_visitor : public boost::static_visitor<Graph::Vector<pair<
 
         if (direction & DIR_INCOMING)
         {
-            throw ExceptionNotImplemented();
+            throw system::ExceptionNotImplemented();
         }
 
         /** We update the size of the container according to the number of found items. */
@@ -1280,6 +1316,21 @@ struct buildNode_visitor : public boost::static_visitor<Node>    {
 Node Graph::buildNode (const tools::misc::Data& data, size_t offset)  const
 {
     return boost::apply_visitor (buildNode_visitor(data,offset),  *(GraphDataVariant*)_variant);
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+Node Graph::buildNode (const char* sequence)  const
+{
+    Data data ((char*)sequence);
+
+    return boost::apply_visitor (buildNode_visitor(data,0),  *(GraphDataVariant*)_variant);
 }
 
 /*********************************************************************
@@ -2376,11 +2427,19 @@ Nucleotide Graph::getNT (const Node& node, size_t idx) const
 }
 
 
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
 
 // I don't understand fully this visitor pattern, was it needed for this method? -r
 struct queryAbundance_visitor : public boost::static_visitor<int>    {
 
-    const Node& node;  size_t idx;
+    const Node& node;
 
     queryAbundance_visitor (const Node& node) : node(node){}
 
@@ -2390,21 +2449,17 @@ struct queryAbundance_visitor : public boost::static_visitor<int>    {
         unsigned char res = 0;
 
         /** We get the specific typed value from the generic typed value. */
-        const Type& nodeVal = node.kmer.get<Type>();
-#ifdef WITH_MPHF
-        data._mphf->get(nodeVal, &res);
-#endif
+        res = (*(data._abundance))[node.kmer.get<Type>()];
+
         return res;
     }
 };
 
-
-
+/** */
 int Graph::queryAbundance (const Node& node) const
 {
     return boost::apply_visitor (queryAbundance_visitor(node),  *(GraphDataVariant*)_variant);
 }
-
 
 /********************************************************************************/
 } } } } /* end of namespaces. */

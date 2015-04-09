@@ -10,9 +10,9 @@
 //
 // See http://www.boost.org/libs/mpl for documentation.
 
-// $Id: for_each.hpp,v 1.1 2014/12/19 07:36:04 lmsalmel Exp $
-// $Date: 2014/12/19 07:36:04 $
-// $Revision: 1.1 $
+// $Id: for_each.hpp 55648 2009-08-18 05:16:53Z agurtovoy $
+// $Date: 2009-08-18 01:16:53 -0400 (Tue, 18 Aug 2009) $
+// $Revision: 55648 $
 
 #include <boost/mpl/is_sequence.hpp>
 #include <boost/mpl/begin_end.hpp>

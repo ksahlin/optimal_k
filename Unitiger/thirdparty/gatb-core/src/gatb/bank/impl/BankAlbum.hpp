@@ -20,7 +20,7 @@
 /** \file BankAlbum.hpp
  *  \date 01/03/2013
  *  \author edrezen
- *  \brief Interface definition for genomic databases management
+ *  \brief Bank format that holds other banks URI
  */
 
 #ifndef _GATB_CORE_BANK_IMPL_BANK_ALBUM_HPP_
@@ -40,13 +40,18 @@ namespace bank      {
 namespace impl      {
 /********************************************************************************/
 
-/** \brief Interface for reading genomic databases.
+/** \brief Genomic bank file made of a list of other bank files URI
  *
  * This class allows to define a list of banks URI in two ways:
  *  1) the album URI is a comma separated list of banks URI
  *  2) the album is a text file holding a list of banks URI
  *
- * Using a BankAlbum object is the same as using a list of banks defined by the banks.
+ * Example of a BankAlbum file content:
+ * \code
+ * somefile1.fasta
+ * somefile2.fasta
+ * somefile3.fasta
+ * \endcode
  *
  * An album A is defined by N filepath Pi.
  * An album is valid if each Pi is present in filesystem
@@ -56,7 +61,20 @@ namespace impl      {
  * if the banks referred by Pi are moved; in such a case, one just has to move the album file
  * in the same location of the moved banks.
  *
- * BankAlbum is a composite bank.
+ * BankAlbum is a composite bank so iterating the sequences of a BankAlbum instance consists in
+ * iterating the sequences of each referred bank (in the order of the album file).
+ *
+ * The BankAlbum follows the Composite design pattern, so it is possible to have album of albums
+ * for instance; it is also possible to mix composite and leaf banks like this:
+ * \code
+ * someAlbum.txt
+ * somefile1.fasta
+ * somefile2.fasta
+ * \endcode
+ *
+ * Example of use:
+ * \snippet bank17.cpp  snippet17_album
+ *
  */
 class BankAlbum : public BankComposite
 {
@@ -66,8 +84,19 @@ public:
     static const char* name()  { return "album"; }
 
     /** Constructor.
-     * \param[in] name : uri of the album. */
+     * \param[in] name : uri of the album.
+     * \param[in] deleteIfExists : delete the album file if it exists. */
     BankAlbum (const std::string& name, bool deleteIfExists=false);
+
+    /** Constructor.
+     * \param[in] name : uri of the album.
+     * \param[in] banks : vector of banks instance to be added to the album. */
+    BankAlbum (const std::string& name, const std::vector<IBank*>& banks)
+        : BankComposite (banks), _name(name) {}
+
+    /** Constructor.
+     * \param[in] filenames: uri of the files to be used. */
+    BankAlbum (const std::vector<std::string>& filenames);
 
     /** \copydoc IBank::getId. */
     std::string getId ()  { return _name; }
@@ -77,6 +106,9 @@ public:
 
     /** Add a bank to the album. */
     IBank* addBank (const std::string& directory, const std::string& bankName);
+
+    /** \copydoc IBank::remove. */
+    void remove ();
 
 private:
 
@@ -96,7 +128,7 @@ private:
 
 /********************************************************************************/
 
-/** \brief Factory for the BankAlbum class. */
+/* \brief Factory for the BankAlbum class. */
 class BankAlbumFactory : public IBankFactory
 {
 public:

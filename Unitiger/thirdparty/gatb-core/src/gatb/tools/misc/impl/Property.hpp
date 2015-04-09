@@ -31,6 +31,7 @@
 #include <gatb/tools/misc/api/IProperty.hpp>
 
 #include <string>
+#include <iostream>
 #include <sstream>
 #include <stack>
 #include <cstdio>
@@ -99,6 +100,9 @@ public:
     /** \copydoc IProperties::add(size_t,IProperties*)  */
     void add (size_t depth, IProperties* prop);
 
+    /** \copydoc IProperties::add(size_t,IProperties*)  */
+    void  add (size_t depth, IProperties& prop);
+
     /**  */
     void add (IProperty* p, va_list args);
 
@@ -109,15 +113,24 @@ public:
     IProperty* operator[] (const std::string& key);
 
     /** \copydoc IProperties::get */
-    IProperty* get (const std::string& key);
+    IProperty* get (const std::string& key) const ;
 
-    /** */
-    std::string getStr    (const std::string& key);
-    int64_t     getInt    (const std::string& key);
-    double      getDouble (const std::string& key);
-    /** */
+    /** \copydoc IProperties::getStr */
+    std::string getStr    (const std::string& key) const ;
+
+    /** \copydoc IProperties::getInt */
+    int64_t     getInt    (const std::string& key) const ;
+
+    /** \copydoc IProperties::getDouble */
+    double      getDouble (const std::string& key) const ;
+
+    /** \copydoc IProperties::setStr */
     void setStr    (const std::string& key, const std::string& value);
+
+    /** \copydoc IProperties::setInt */
     void setInt    (const std::string& key, const int64_t& value);
+
+    /** \copydoc IProperties::setDouble */
     void setDouble (const std::string& key, const double& value);
 
     /** \copydoc IProperties::clone  */
@@ -140,21 +153,24 @@ public:
      * \param[in] xmlString: the XML string to be read (file, string...) */
     void readXML (const std::string& xmlString)  {  std::stringstream ss;  ss << xmlString; readXML (ss);  }
 
-    /** */
+    /** \copydoc IProperties::getXML  */
+    std::string getXML ();
+
+    /* */
     void dump (std::ostream& s);
 
-    /** */
-    std::string getXML ();
+    /** Read a file holding [key,value] entries and add them through 'add' method.
+     * \param[in] file : the file to be read
+     */
+    void readFile (const std::string& file);
 
 private:
 
     /** List of IProperty instances. */
     std::list<IProperty*> _properties;
 
-    /** Read a file holding [key,value] entries and add them through 'add' method.
-     * \param[in] file : the file to be read
-     */
-    void readFile (const std::string& file);
+    /* */
+    IProperty* getRecursive (const std::string& key, std::list<IProperty*>::const_iterator& it) const ;
 };
 
 /** Overload output stream operator. */
@@ -162,16 +178,13 @@ inline std::ostream& operator<< (std::ostream& os, Properties& props)  { props.d
 
 /********************************************************************************/
 
+/* Factorization of common stuf for IPropertiesVisitor implementations. */
 class AbstractOutputPropertiesVisitor : public IPropertiesVisitor
 {
 public:
-    /** */
-    AbstractOutputPropertiesVisitor (std::ostream& aStream);
 
-    /** */
-    AbstractOutputPropertiesVisitor (const std::string& filename);
-
-    /** */
+     AbstractOutputPropertiesVisitor (std::ostream& aStream);
+     AbstractOutputPropertiesVisitor (const std::string& filename);
     ~AbstractOutputPropertiesVisitor ();
 
 protected:
@@ -251,19 +264,15 @@ private:
  * (separated by a space character). Note that the depth information is lost.
  *
  * This kind of output is perfect for keeping properties in a configuration file for instance.
- * This is used by PLAST for its configuration file '.plastrc'
+ * This is used by a tool for its configuration file '.toolrc'
  */
 class RawDumpPropertiesVisitor : public IPropertiesVisitor
 {
 public:
 
     /** Constructor.
-     * \param file : file where to serialize the instance. */
-    RawDumpPropertiesVisitor (FILE* file = stdout) : _file(file),_fileToClose(false) {}
-
-    /** Constructor.
-     * \param filename : uri of the file where to serialize the instance. */
-    RawDumpPropertiesVisitor (const std::string& filename);
+     * \param os : output stream where the visitor can dump information. */
+    RawDumpPropertiesVisitor (std::ostream& os = std::cout, int width=40);
 
     /** Desctructor. */
     virtual ~RawDumpPropertiesVisitor ();
@@ -278,10 +287,9 @@ public:
     void visitProperty (IProperty* prop);
 
 private:
-    FILE* _file;
-    bool _fileToClose;
+    std::ostream& _os;
+    int _width;
 };
-
 
 /********************************************************************************/
 } } } } } /* end of namespaces. */

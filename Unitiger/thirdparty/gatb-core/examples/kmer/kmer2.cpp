@@ -11,6 +11,10 @@
 
 int main (int argc, char* argv[])
 {
+    // We set the maximal span of the kmers. We use here a constant of gatb-core
+    // that gives a default span for kmers up to KSIZE_2 (likely 64)
+    const size_t span = KSIZE_2;
+
     // We define some nucleotides sequence.
     const char* seq = argc<2 ? "CTACGAATT" : argv[1];
 
@@ -19,9 +23,11 @@ int main (int argc, char* argv[])
     // We set the kmer size as the length of our sequence.
     size_t kmerSize = strlen(seq);
 
-    // We set the maximal span of the kmers. We use here a constant of gatb-core
-    // that gives a default span for kmers up to KSIZE_2 (likely 128)
-    const size_t span = KSIZE_4;
+    if (kmerSize >= span)
+    {
+        std::cerr << "STRING TOO BIG (" << kmerSize << "),  must be less than " << span << std::endl;
+        return EXIT_FAILURE;
+    }
 
     // Once we have defined our span, we define some typedefs
     // Note : such definitions are not mandatory but provides better code readability
@@ -33,6 +39,7 @@ int main (int argc, char* argv[])
     // FIRST EXAMPLE : model direct
     ////////////////////////////////////////////////////////////
     {
+//! [snippet1_direct]
         // We declare a kmer model with kmer size big enough to represent our sequence.
         ModelDirect model (kmerSize);
 
@@ -43,12 +50,14 @@ int main (int argc, char* argv[])
         std::cout << "-------------------- DIRECT --------------------" << std::endl;
         std::cout << "kmer  value is: " << kmer.value()                 << std::endl;
         std::cout << "kmer string is: " << model.toString(kmer.value()) << std::endl;
+//! [snippet1_direct]
     }
 
     ////////////////////////////////////////////////////////////
     // SECOND EXAMPLE : model canonical
     ////////////////////////////////////////////////////////////
     {
+//! [snippet1_canonical]
         // We declare a kmer model with kmer size big enough to represent our sequence.
         ModelCanonical model (kmerSize);
 
@@ -65,15 +74,20 @@ int main (int argc, char* argv[])
         std::cout << "forward string is: " << model.toString(kmer.forward())    << std::endl;
         std::cout << "revcomp value  is: " << kmer.revcomp()                    << std::endl;
         std::cout << "revcomp string is: " << model.toString(kmer.revcomp())    << std::endl;
+        std::cout << "used strand is   : " << toString(kmer.strand())           << std::endl;
+
+
+//! [snippet1_canonical]
     }
 
     ////////////////////////////////////////////////////////////
     // THIRD EXAMPLE : model minimizer
     ////////////////////////////////////////////////////////////
     {
+//! [snippet1_minimizer]
         // We declare a kmer model with kmer size big enough to represent our sequence.
         // Note that we give a second size, which is the size of the minimizers
-        ModelMinimizer model (kmerSize, kmerSize/2);
+        ModelMinimizer model (kmerSize, 8);
 
         // We get a reference on the minimizer model, which will be useful for dumping
         // string value of a minimizer. Recall that 'model' is a model configured with
@@ -94,6 +108,7 @@ int main (int argc, char* argv[])
         std::cout << "forward string is: " << model.toString(kmer.forward())    << std::endl;
         std::cout << "revcomp value  is: " << kmer.revcomp()                    << std::endl;
         std::cout << "revcomp string is: " << model.toString(kmer.revcomp())    << std::endl;
+        std::cout << "used strand is   : " << toString(kmer.strand())           << std::endl;
 
         // We can also have information about minimizers.
         // Note :  kmer.minimizer() is of type ModelCanonical, ie the type provided as
@@ -103,6 +118,7 @@ int main (int argc, char* argv[])
         std::cout << "minimizer string is        : " << modelMinimizer.toString(kmer.minimizer().value()) << std::endl;
         std::cout << "minimizer position in kmer : " << kmer.position()   << std::endl;
         std::cout << "minimizer changed          : " << kmer.hasChanged() << std::endl;
+//! [snippet1_minimizer]
     }
 }
 //! [snippet1]

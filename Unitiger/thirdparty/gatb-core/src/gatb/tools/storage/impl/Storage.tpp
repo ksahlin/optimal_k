@@ -170,8 +170,6 @@ inline void Group::remove ()
     for (size_t i=0; i<_groups.size(); i++)       { _groups[i]->remove(); }
 }
 
-
-
 /**********************************************************************
 ######      #     ######   #######  ###  #######  ###  #######  #     #
 #     #    # #    #     #     #      #      #      #   #     #  ##    #
@@ -229,6 +227,34 @@ template<typename Type>
 inline collections::Collection<Type>& Partition<Type>::operator[] (size_t idx)  
 {  
     return  * _typedCollections[idx]->getRef();  
+}
+
+/*********************************************************************
+*********************************************************************/
+template<typename Type>
+inline dp::Iterator<Type>* Partition<Type>::iterator ()
+{
+    std::vector <dp::Iterator<Type>*> iterators;
+    for (size_t i=0; i<this->size(); i++) { iterators.push_back ((*this)[i].iterator()); }
+    return new dp::impl::CompositeIterator<Type> (iterators);
+}
+
+/*********************************************************************
+*********************************************************************/
+template<typename Type>
+inline int64_t Partition<Type>::getNbItems ()
+{
+    int64_t result = 0;   for (size_t i=0; i<this->size(); i++) { result += (*this)[i].getNbItems(); }
+    return result;
+}
+
+/*********************************************************************
+*********************************************************************/
+template<typename Type>
+inline int64_t Partition<Type>::estimateNbItems ()
+{
+    int64_t result = 0;   for (size_t i=0; i<this->size(); i++) { result += (*this)[i].estimateNbItems(); }
+    return result;
 }
 
 /*********************************************************************
@@ -336,8 +362,6 @@ inline void PartitionCache<Type>::remove ()
 {  
     for (size_t i=0; i<_cachedCollections.size(); i++)  { _cachedCollections[i]->remove ();  } 
 }
-
-    
     
 /*********************************************************************
  *********************************************************************/
@@ -468,65 +492,9 @@ inline void PartitionCacheSorted<Type>::remove ()
     for (size_t i=0; i<_cachedCollections.size(); i++)  { _cachedCollections[i]->remove ();  } 
 }
 
-    
-/********************************************************************************
-        ######   ######   #######  ######   #     #   #####   #######
-        #     #  #     #  #     #  #     #  #     #  #     #     #
-        #     #  #     #  #     #  #     #  #     #  #           #
-        ######   ######   #     #  #     #  #     #  #           #
-        #        #   #    #     #  #     #  #     #  #           #
-        #        #    #   #     #  #     #  #     #  #     #     #
-        #        #     #  #######  ######    #####    #####      #
-********************************************************************************/
-
-/*********************************************************************
-*********************************************************************/
-inline Storage::Storage (StorageMode_e mode, const std::string& name, bool autoRemove)
-    : Cell(0, ""), _factory(0), _root(0), _autoRemove(autoRemove)  
-{
-    setFactory (new StorageFactory (mode));
-}
-
-inline Storage::~Storage ()
-{
-    setRoot    (0);
-    setFactory (0);
-}
-
-/*********************************************************************
-*********************************************************************/
-inline Group* Storage::getRoot ()
-{
-    if (_root == 0)  { setRoot    (_factory->createGroup (this, "")); }
-    return _root;
-}
-
-/*********************************************************************
-*********************************************************************/
-inline Group& Storage::operator() (const std::string name)
-{
-    if (name.empty())  { return *getRoot(); }
-    else               { return getRoot ()->getGroup (name);  }
-}
-
-/*********************************************************************
-*********************************************************************/
-inline void Storage::remove ()  
-{  
-    getRoot()->remove(); 
-}
-
-/*********************************************************************
-*********************************************************************/
-inline void Storage::setFactory (StorageFactory* factory)  
-{ 
-    SP_SETATTR(factory); 
-}
-
 /********************************************************************************/
 } } } } } /* end of namespaces. */
 /********************************************************************************/
-
 
 #include <gatb/tools/storage/impl/StorageHDF5.hpp>
 #include <gatb/tools/storage/impl/StorageFile.hpp>
@@ -623,4 +591,3 @@ inline CollectionNode<Type>* StorageFactory::createCollection (ICell* parent, co
 /********************************************************************************/
 } } } } } /* end of namespaces. */
 /********************************************************************************/
-

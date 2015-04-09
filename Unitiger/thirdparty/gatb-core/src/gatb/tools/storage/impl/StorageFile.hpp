@@ -33,6 +33,8 @@
 #include <cassert>
 #include <gatb/tools/storage/impl/CollectionFile.hpp>
 
+#define DEBUG_STORAGE(a)  //printf a
+
 /********************************************************************************/
 namespace gatb      {
 namespace core      {
@@ -41,25 +43,42 @@ namespace storage   {
 namespace impl      {
 /********************************************************************************/
 
+/** \brief Factory used for storage of kind STORAGE_FILE
+ */
 class StorageFileFactory
 {
 public:
 
-    /** */
+    /** Create a Storage instance.
+     * \param[in] name : name of the instance to be created
+     * \param[in] deleteIfExist : if the storage exits in file system, delete it if true.
+     * \param[in] autoRemove : auto delete the storage from file system during Storage destructor.
+     * \return the created Storage instance
+     */
     static Storage* createStorage (const std::string& name, bool deleteIfExist, bool autoRemove)
     {
+        DEBUG_STORAGE (("StorageFileFactory::createStorage  name='%s'\n", name.c_str()));
         return new Storage (STORAGE_FILE, name, autoRemove);
     }
 
-    /** */
+    /** Tells whether or not a Storage exists in file system given a name
+     * \param[in] name : name of the storage to be checked
+     * \return true if the storage exists in file system, false otherwise.
+     */
     static bool exists (const std::string& name)
     {
         return false;
     }
 
-    /** */
+    /** Create a Group instance and attach it to a cell in a storage.
+     * \param[in] parent : parent of the group to be created
+     * \param[in] name : name of the group to be created
+     * \return the created Group instance.
+     */
     static Group* createGroup (ICell* parent, const std::string& name)
     {
+        DEBUG_STORAGE (("StorageFileFactory::createGroup  name='%s'\n", name.c_str()));
+
         ICell* root = ICell::getRoot (parent);
         Storage* storage = dynamic_cast<Storage*> (root);
         assert (storage != 0);
@@ -67,10 +86,17 @@ public:
         return new Group (storage->getFactory(), parent, name);
     }
 
-    /** */
+    /** Create a Partition instance and attach it to a cell in a storage.
+     * \param[in] parent : parent of the partition to be created
+     * \param[in] name : name of the partition to be created
+     * \param[in] nb : number of collections of the partition
+     * \return the created Partition instance.
+     */
     template<typename Type>
     static Partition<Type>* createPartition (ICell* parent, const std::string& name, size_t nb)
     {
+        DEBUG_STORAGE (("StorageFileFactory::createPartition  name='%s'\n", name.c_str()));
+
         ICell* root = ICell::getRoot (parent);
         Storage* storage = dynamic_cast<Storage*> (root);
         assert (storage != 0);
@@ -79,23 +105,30 @@ public:
         return result;
     }
 
-    /** */
+    /** Create a Collection instance and attach it to a cell in a storage.
+     * \param[in] parent : parent of the collection to be created
+     * \param[in] name : name of the collection to be created
+     * \param[in] synchro : synchronizer instance if needed
+     * \return the created Collection instance.
+     */
     template<typename Type>
     static CollectionNode<Type>* createCollection (ICell* parent, const std::string& name, system::ISynchronizer* synchro)
     {
-        /** We define the full qualified id of the current collection to be created. */
-        std::string actualName = std::string("tmp.") + name;
-
         ICell* root = ICell::getRoot (parent);
         Storage* storage = dynamic_cast<Storage*> (root);
         assert (storage != 0);
+
+        /** We define the full qualified id of the current collection to be created. */
+        std::string actualName = storage->getName() + std::string(".") + parent->getFullId('.') + std::string(".") + name;
+
+        DEBUG_STORAGE (("StorageFileFactory::createCollection  name='%s'  actualName='%s' \n", name.c_str(), actualName.c_str() ));
 
         return new CollectionNode<Type> (storage->getFactory(), parent, name, new CollectionFile<Type>(actualName));
     }
 };
 
-
-
+/********************************************************************************/
+/* Experimental (not documented). */
 class StorageGzFileFactory
 {
 public:
@@ -149,6 +182,8 @@ public:
     }
 };
 
+/********************************************************************************/
+/* Experimental (not documented). */
 class StorageSortedFactory
 {
 public:

@@ -59,18 +59,14 @@ public:
     /** \copydoc ICell::getFullId  */
     std::string getFullId (char sep='.') const
     {
-        if (_parent != 0)   {  return _parent->getId() + sep + getId();  }
+        if (_parent != 0)   {  return _parent->getId().empty()==false ? _parent->getId() + sep + getId() : getId();  }
         else                {  return getId();  }
     }
 
 private:
 
     ICell* _parent;
-    void setParent (ICell* parent)
-    {
-        _parent = parent;
-        //SP_SETATTR(parent);
-    }
+    void setParent (ICell* parent)  {  _parent = parent;  }
 
     std::string _id;
 };

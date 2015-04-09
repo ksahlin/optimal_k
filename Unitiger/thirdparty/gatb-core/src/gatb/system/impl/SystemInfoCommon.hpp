@@ -41,6 +41,14 @@ namespace system    {
 namespace impl      {
 /********************************************************************************/
 
+/** \brief Abstract class for ISystemInfo interface.
+ *
+ * This class factorizes some methods with implementations common to
+ * several operating systems.
+ *
+ * It is still abstract since it doesn't implement all methods of
+ * ISystemInfo
+ */
 class SystemInfoCommon : public ISystemInfo
 {
 public:
@@ -54,24 +62,35 @@ public:
     /** \copydoc ISystemInfo::getBuildCompiler */
     std::string getBuildCompiler () const  { return STR_COMPILER; }
 
-    /** \copydoc ISystemInfo::buildOptions */
+    /** \copydoc ISystemInfo::getBuildOptions */
     std::string getBuildOptions () const { return STR_COMPILATION_FLAGS; }
 
-    /** \copydoc ISystemInfo::getOsName */
+    /** \copydoc ISystemInfo::getBuildSystem */
     std::string getBuildSystem () const { return STR_OPERATING_SYSTEM; }
 
     /** \copydoc ISystemInfo::getHomeDirectory */
     std::string getHomeDirectory ()  const {  return getenv("HOME") ? getenv("HOME") : ".";  }
-
-    /** \copydoc ISystemInfo::getMemoryProject */
+    
+    /** \copydoc ISystemInfo::getMemoryPhysicalFree */
     u_int64_t getMemoryPhysicalFree () const  { return getMemoryPhysicalTotal()-getMemoryPhysicalUsed(); }
 
     /** \copydoc ISystemInfo::getMemoryProject */
     u_int64_t getMemoryProject () const  {  return std::min (getMemoryPhysicalFree() / (2*MBYTE), (u_int64_t)(5*1024)); }
+
+    /** \copydoc ISystemInfo::getMemorySelfUsed */
+    u_int64_t getMemorySelfUsed() const  { return 0; }
+
+    /** \copydoc ISystemInfo::getMemorySelfUsed */
+    u_int64_t getMemorySelfMaxUsed() const  { return 0; }
+
+    /** \copydoc ISystemInfo::createCpuInfo */
+    virtual CpuInfo* createCpuInfo (); //  { return new CpuInfoCommon(); }
 };
 
 /********************************************************************************/
 
+/** \brief Linux implementation for ISystemInfo interface.
+ */
 class SystemInfoLinux : public SystemInfoCommon
 {
 public:
@@ -90,10 +109,18 @@ public:
 
     /** \copydoc ISystemInfo::getMemoryBuffers */
     u_int64_t getMemoryBuffers () const ;
+
+    /** \copydoc ISystemInfo::getMemorySelfUsed */
+    u_int64_t getMemorySelfUsed() const;
+
+    /** \copydoc ISystemInfo::getMemorySelfUsed */
+    u_int64_t getMemorySelfMaxUsed() const;
 };
 
 /********************************************************************************/
 
+/** \brief MacOs implementation for ISystemInfo interface.
+ */
 class SystemInfoMacos : public SystemInfoCommon
 {
 public:
@@ -112,10 +139,18 @@ public:
 
     /** \copydoc ISystemInfo::getMemoryBuffers */
     u_int64_t getMemoryBuffers () const        { throw ExceptionNotImplemented(); }
+
+    /** \copydoc ISystemInfo::getMemorySelfUsed */
+    u_int64_t getMemorySelfUsed() const;
 };
 
 /********************************************************************************/
 
+/** \brief Windows implementation for ISystemInfo interface.
+ *
+ * IMPORTANT ! Windows implementation is not fully done. Using it may lead to
+ * ExceptionNotImplemented exception.
+ */
 class SystemInfoWindows : public SystemInfoCommon
 {
 public:

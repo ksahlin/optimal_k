@@ -7,9 +7,9 @@
 // (See accompanying file LICENSE_1_0.txt or copy at 
 // http://www.boost.org/LICENSE_1_0.txt)
 
-// $Source: /home/tktl-csfs/home/lmsalmel/cvsroot/frag-assembly/src/gapclosing/Gap2Seq-2/thirdparty/gatb-core/thirdparty/boost/type_traits/detail/bool_trait_undef.hpp,v $
-// $Date: 2014/12/19 07:38:49 $
-// $Revision: 1.1 $
+// $Source$
+// $Date: 2004-09-02 11:41:37 -0400 (Thu, 02 Sep 2004) $
+// $Revision: 24874 $
 
 #undef BOOST_TT_AUX_BOOL_TRAIT_VALUE_DECL
 #undef BOOST_TT_AUX_BOOL_C_BASE

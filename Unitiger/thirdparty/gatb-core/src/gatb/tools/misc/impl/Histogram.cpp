@@ -48,8 +48,15 @@ void Histogram::save ()
     _bag->insert (_histogram + offset, (_length+1) - offset);
 }
 
-	
-void Histogram::compute_threshold ()
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void Histogram::compute_threshold (int min_auto_threshold)
 {
 	//printf("compute threshold \n");
 	u_int64_t sum_allk = 0 ;
@@ -60,7 +67,6 @@ void Histogram::compute_threshold ()
 		sum_allk += _histogram[1].abundance * 1 ;
 
 	}
-	
 	
 	int index_first_increase = -1;
 	int index_maxval_after_first_increase = -1;
@@ -87,21 +93,19 @@ void Histogram::compute_threshold ()
 			max_val = _histogram_smoothed[i].abundance ;
 			index_maxval_after_first_increase= i;
 		}
-		
 	}
 	
 	sum_allk += _histogram[_length].abundance  *  _length ;
-	
 
 	if(index_first_increase ==-1 )
 	{
-		_cutoff = 3; //def val
+		_cutoff = min_auto_threshold; //def val
 		return;
 	}
 	
-	
-	//printf("index first increase %i  idx maxval %i \n",index_first_increase,index_maxval_after_first_increase);
-	
+	_firstPeak = index_maxval_after_first_increase;
+
+	DEBUG (("index first increase %i  idx maxval %i \n",index_first_increase,index_maxval_after_first_increase));
 	
 	u_int64_t min_val = 10000000000LL;
 	
@@ -109,19 +113,16 @@ void Histogram::compute_threshold ()
 	
 	for (size_t i=index_first_increase; i<= index_maxval_after_first_increase   ; i++)
 	{
-		
 		if(_histogram_smoothed[i].abundance < min_val)
 		{
 			min_val = _histogram_smoothed[i].abundance;
 			index_minval = i;
 		}
-		
 	}
 	
 	if(index_minval !=-1)
 		_cutoff = index_minval;
 
-	
 	u_int64_t sum_elim = 0 ;
 	double ratio = 0.0;
 	int max_cutoff;
@@ -129,22 +130,23 @@ void Histogram::compute_threshold ()
 	{
 		sum_elim +=  _histogram[i].abundance * i ;
 		ratio = (double)sum_elim / sum_allk; // ratio elim for cutoff i+1
-		//printf("thre %i : %lli elim / %lli   : ratio %f \n",i,sum_elim,sum_allk,ratio );
 
-		if(ratio >= 0.4)
+		DEBUG (("thre %i : %lli elim / %lli   : ratio %f \n",i,sum_elim,sum_allk,ratio ));
+
+		if(ratio >= 0.25)
 		{
 			max_cutoff = i+1;
 			break;
 		}
-
 	}
 	
 	if (_cutoff > max_cutoff)
 		_cutoff = max_cutoff;
 	
+	if (_cutoff< min_auto_threshold)
+		_cutoff = min_auto_threshold;
 
-	
-	//printf("cutoff  %i  maxcutoff %i \n",index_minval,max_cutoff);
+	DEBUG (("cutoff  %i  maxcutoff %i \n",index_minval,max_cutoff));
 
 	/*
 	printf("raw values \n");
@@ -168,20 +170,8 @@ void Histogram::compute_threshold ()
 		_nbsolids += _histogram[i].abundance;
 		
 	}
-	
-
 }
 
-u_int16_t Histogram::get_solid_cutoff ()
-{
-	return _cutoff;
-}
-u_int64_t Histogram::get_nbsolids_auto ()
-{
-	return _nbsolids;
-}
-	
-	
 /********************************************************************************/
 } } } } } /* end of namespaces. */
 /********************************************************************************/

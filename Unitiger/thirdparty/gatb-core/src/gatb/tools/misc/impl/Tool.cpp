@@ -21,6 +21,7 @@
 #include <gatb/system/impl/System.hpp>
 #include <gatb/tools/misc/impl/Property.hpp>
 #include <gatb/tools/misc/impl/Progress.hpp>
+#include <gatb/tools/misc/impl/LibraryInfo.hpp>
 #include <gatb/tools/designpattern/impl/Command.hpp>
 
 #define DEBUG(a)  //printf a
@@ -52,15 +53,10 @@ Tool::Tool (const std::string& name) : _name(name), _input(0), _output(0), _info
     _info->add (0, _name);
 
     /** We create an options parser. */
-    setParser (new OptionsParser (_name));
+    setParser (new OptionsParser(name));
 
-    /** We configure this parser with some options useful for each tool. */
-    _parser->push_back (new OptionOneParam (STR_NB_CORES,       "number of cores",                      false, "0"  ));
-    _parser->push_back (new OptionOneParam (STR_VERBOSE,        "verbosity level",                      false,  "1"));
-    _parser->push_back (new OptionNoParam  (STR_HELP,           "display help about possible options",  false       ));
-    // _parser->push_back (new OptionOneParam (STR_PROGRESS_BAR,   "progress bar mode (0 none, 1 dash, 2 time)",  false, "2" ));
-    // _parser->push_back (new OptionOneParam (STR_PREFIX,         "prefix to be appended to temp files",  false, ""   ));
-    // _parser->push_back (new OptionOneParam (STR_STATS_XML,      "dump exec info into a XML file",       false       ));
+    getParser()->push_back (new OptionOneParam (STR_NB_CORES,    "number of cores",      false, "0"  ));
+    getParser()->push_back (new OptionOneParam (STR_VERBOSE,     "verbosity level",      false, "1"  ));
 }
 
 /*********************************************************************
@@ -88,6 +84,18 @@ Tool::~Tool ()
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
+void Tool::displayVersion(std::ostream& os){
+	LibraryInfo::displayVersion (os);
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
 IProperties* Tool::run (int argc, char* argv[])
 {
     DEBUG (("Tool::run(argc,argv) => tool='%s'  \n", getName().c_str() ));
@@ -95,24 +103,14 @@ IProperties* Tool::run (int argc, char* argv[])
     try
     {
         /** We parse the user parameters. */
-        IProperties* params = getParser()->parse (argc, argv);
+        IProperties* props = getParser()->parse (argc, argv);
 
-        if (getParser()->saw (STR_HELP))
-        {
-            /** We just display the help for the tool. */
-            getParser()->displayHelp (stdout);
-            return NULL;
-        }
-        else
-        {
-            /** We run the tool. */
-            return run (params);
-        }
+        /** We run the tool. */
+        return run (props);
     }
     catch (OptionFailure& e)
     {
-        e.getParser().displayErrors (stdout);
-        e.getParser().displayHelp   (stdout);
+        e.displayErrors (std::cout);
         return NULL;
     }
 }
@@ -129,6 +127,12 @@ IProperties* Tool::run (IProperties* input)
 {
     /** We keep the input parameters. */
     setInput (input);
+
+    if (getInput()->get(STR_VERSION) != 0)
+    {
+    	displayVersion(cout);
+        return _output;
+    }
 
     /** We define one dispatcher. */
     if (_input->getInt(STR_NB_CORES) == 1)
@@ -283,20 +287,23 @@ IProperties* ToolComposite::run (int argc, char* argv[])
         try
         {
             /** We parse the user parameters. */
-            IProperties* input = (*it)->getParser()->parse (argc, argv);
-
-            /** We may display the help for the tool. */
-            if ((*it)->getParser()->saw (STR_HELP))  {  (*it)->getParser()->displayHelp (stdout);  }
+            (*it)->getParser()->parse (argc, argv);
 
 
+			IProperties* input =  (*it)->getParser()->getProperties() ;
             /** We add the input into the vector that gather the tools inputs. */
             inputs.push_back (input);
         }
         catch (OptionFailure& e)
         {
-            e.getParser().displayErrors (stdout);
-            e.getParser().displayHelp   (stdout);
-            return NULL;
+			IProperties* input =  (*it)->getParser()->getProperties() ;
+
+			/** We add the input into the vector that gather the tools inputs. */
+			inputs.push_back (input);
+			
+//            e.getParser().displayErrors (stdout);
+//            e.getParser().displayHelp   (stdout);
+//            return NULL;
         }
 #endif
     }

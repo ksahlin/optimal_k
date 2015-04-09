@@ -47,7 +47,9 @@ namespace storage   {
 namespace impl      {
 /********************************************************************************/
 
-/** \brief Collection interface
+/** \brief Implementation of the Collection interface with a file.
+ *
+ * This implementation reads/writes Item objects in a file.
  */
 template <class Item> class CollectionFile : public collections::impl::CollectionAbstract<Item>, public system::SmartPointer
 {
@@ -64,7 +66,7 @@ public:
     /** Destructor. */
     virtual ~CollectionFile() {}
 
-    /** \copydoc Collection::remove */
+    /** \copydoc tools::collections::Collection::remove */
     void remove ()  {  gatb::core::system::impl::System::file().remove (_name);  }
 
 private:
@@ -72,8 +74,8 @@ private:
     std::string _name;
 };
 
-/** \brief Collection interface
- */
+/********************************************************************************/
+/* Experimental (not documented). */
 template <class Item> class CollectionGzFile : public collections::impl::CollectionAbstract<Item>, public system::SmartPointer
 {
 public:
@@ -89,7 +91,7 @@ public:
     /** Destructor. */
     virtual ~CollectionGzFile() {}
     
-    /** \copydoc Collection::remove */
+    /** \copydoc tools::collections::Collection::remove */
     void remove ()  {  gatb::core::system::impl::System::file().remove (_name);  }
     
 private:
@@ -97,8 +99,8 @@ private:
     std::string _name;
 };
   
-/** \brief Collection interface
- */
+/********************************************************************************/
+/* Experimental (not documented). */
 template <class Item> class CollectionCountFile : public collections::impl::CollectionAbstract<Item>, public system::SmartPointer
 {
 public:
@@ -113,7 +115,7 @@ public:
     /** Destructor. */
     virtual ~CollectionCountFile() {}
     
-    /** \copydoc Collection::remove */
+    /** \copydoc tools::collections::Collection::remove */
     void remove ()  {  gatb::core::system::impl::System::file().remove (_name);  }
     
 private:

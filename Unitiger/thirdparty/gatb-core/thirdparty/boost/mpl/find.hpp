@@ -10,9 +10,9 @@
 //
 // See http://www.boost.org/libs/mpl for documentation.
 
-// $Id: find.hpp,v 1.1 2014/12/19 07:36:04 lmsalmel Exp $
-// $Date: 2014/12/19 07:36:04 $
-// $Revision: 1.1 $
+// $Id: find.hpp 49267 2008-10-11 06:19:02Z agurtovoy $
+// $Date: 2008-10-11 02:19:02 -0400 (Sat, 11 Oct 2008) $
+// $Revision: 49267 $
 
 #include <boost/mpl/find_if.hpp>
 #include <boost/mpl/same_as.hpp>

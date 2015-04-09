@@ -10,9 +10,9 @@
 //
 // See http://www.boost.org/libs/mpl for documentation.
 
-// $Id: O1_size_fwd.hpp,v 1.1 2014/12/19 07:35:56 lmsalmel Exp $
-// $Date: 2014/12/19 07:35:56 $
-// $Revision: 1.1 $
+// $Id: O1_size_fwd.hpp 49267 2008-10-11 06:19:02Z agurtovoy $
+// $Date: 2008-10-11 02:19:02 -0400 (Sat, 11 Oct 2008) $
+// $Revision: 49267 $
 
 namespace boost { namespace mpl {
 

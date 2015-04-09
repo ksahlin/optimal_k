@@ -104,7 +104,7 @@ typedef IProperty  Property;
 
 /********************************************************************************/
 
-/** \brief Visitor for a IProperty instance.
+/** Visitor for a IProperty instance.
  *
  *  Define a Design Pattern Visitor for the IProperty instance.
  *
@@ -184,6 +184,13 @@ public:
      */
     virtual void       add (size_t depth, IProperties* prop) = 0;
 
+    /** Add all the IProperty instances contained in the provided IProperties instance. Note that a depth is provided
+     *  and is added to the depth of each added IProperty instance.
+     * \param[in] depth : depth to be added to each depth of added instances.
+     * \param[in] prop  : instance holding IProperty instances to be added
+     */
+    virtual void       add (size_t depth, IProperties& prop) = 0;
+
     /** */
     virtual void add (IProperty* prop, va_list args) = 0;
 
@@ -202,16 +209,42 @@ public:
      * \param[in] key : the key
      * \return the IProperty instance if found, 0 otherwise.
      */
-    virtual IProperty* get (const std::string& key) = 0;
+    virtual IProperty* get (const std::string& key) const = 0;
 
-    /** */
-    virtual std::string getStr    (const std::string& key) = 0;
-    virtual int64_t     getInt    (const std::string& key) = 0;
-    virtual double      getDouble (const std::string& key) = 0;
+    /** Get the value of a property given its key.
+     * \param[in] key : the key of the property
+     * \return the value of the key as a string.
+     */
+    virtual std::string getStr    (const std::string& key) const  = 0;
 
-    /** */
+    /** Get the value of a property given its key.
+     * \param[in] key : the key of the property
+     * \return the value of the key as an integer
+     */
+    virtual int64_t     getInt    (const std::string& key) const = 0;
+
+    /** Get the value of a property given its key.
+     * \param[in] key : the key of the property
+     * \return the value of the key as a double.
+     */
+    virtual double      getDouble (const std::string& key) const = 0;
+
+    /** Set the value of a property given its key.
+     * \param[in] key : the key of the property
+     * \param[in] value : value to be set.
+     */
     virtual void setStr    (const std::string& key, const std::string& value) = 0;
+
+    /** Set the value of a property given its key.
+     * \param[in] key : the key of the property
+     * \param[in] value : value to be set.
+     */
     virtual void setInt    (const std::string& key, const int64_t& value) = 0;
+
+    /** Set the value of a property given its key.
+     * \param[in] key : the key of the property
+     * \param[in] value : value to be set.
+     */
     virtual void setDouble (const std::string& key, const double& value) = 0;
 
     /** Clone the instance
@@ -234,10 +267,16 @@ public:
      */
     virtual void setToFront (const std::string& key) = 0;
 
-    /** */
+    /** Output the properties object through an output stream
+     * \param[in] s : the output stream
+     * \param[in] p : the properties object to output
+     * \return the modified output stream
+     */
     friend std::ostream & operator<<(std::ostream & s, IProperties& p)  {  p.dump(s);  return s;  }
 
-    /** */
+    /** Get the properties as an XML string
+     * \return the XML string.
+     */
     virtual std::string getXML () = 0;
 
     /** Fill a Properties instance from an XML stream.

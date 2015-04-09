@@ -22,8 +22,14 @@
 /********************************************************************************/
 namespace gatb { namespace core { namespace system { namespace impl {
 /********************************************************************************/
-
+	
 std::list<ThreadGroup*> ThreadGroup::_groups;
+
+static pthread_mutex_t groupsMutex;
+static int mutex_inited = 0;
+
+#define LOCK()      pthread_mutex_lock   (&groupsMutex);
+#define UNLOCK()    pthread_mutex_unlock (&groupsMutex);
 
 /*********************************************************************
 ** METHOD  :
@@ -36,6 +42,8 @@ std::list<ThreadGroup*> ThreadGroup::_groups;
 ThreadGroup::ThreadGroup()
 :  _startSynchro(0)
 {
+	init_mutex_if_needed();
+	
     _startSynchro = System::thread().newSynchronizer();
     if (_startSynchro)  { _startSynchro->lock(); }
 }
@@ -90,7 +98,7 @@ void ThreadGroup::start ()
     /** We join each thread. */
     for (std::vector<system::IThread*>::iterator it = _threads.begin(); it != _threads.end(); it++)
     {
-        (*it)->join ();
+        (*it)->join (); //un ici
     }
 }
 
@@ -102,10 +110,39 @@ void ThreadGroup::start ()
 ** RETURN  :
 ** REMARKS :
 *********************************************************************/
+void ThreadGroup::init_mutex_if_needed()
+{
+	int  already_inited = __sync_fetch_and_add(&mutex_inited, 1);
+	if(! already_inited)
+	{
+		pthread_mutex_init(&groupsMutex, NULL);
+	}
+	else
+	{
+        __sync_fetch_and_add(&mutex_inited, -1);
+	}
+}
+	
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
 IThreadGroup* ThreadGroup::create ()
 {
+	init_mutex_if_needed();
+
+    LOCK();
+
     ThreadGroup* tg = new ThreadGroup;
+
     _groups.push_back(tg);
+
+    UNLOCK();
+
     return tg;
 }
 
@@ -119,6 +156,10 @@ IThreadGroup* ThreadGroup::create ()
 *********************************************************************/
 void ThreadGroup::destroy (IThreadGroup* thr)
 {
+	init_mutex_if_needed();
+	
+    LOCK();
+
     /** We look for the provided thread group. */
     for (std::list<ThreadGroup*>::iterator it = _groups.begin(); it != _groups.end(); it++)
     {
@@ -129,6 +170,8 @@ void ThreadGroup::destroy (IThreadGroup* thr)
             break;
         }
     }
+	
+    UNLOCK();
 }
 
 /*********************************************************************
@@ -141,6 +184,10 @@ void ThreadGroup::destroy (IThreadGroup* thr)
 *********************************************************************/
 IThreadGroup* ThreadGroup::find (IThread::Id id)
 {
+	init_mutex_if_needed();
+
+	LOCK();
+
     /** We look for the provided thread group. */
     for (std::list<ThreadGroup*>::iterator it = _groups.begin(); it != _groups.end(); it++)
     {
@@ -148,9 +195,12 @@ IThreadGroup* ThreadGroup::find (IThread::Id id)
 
         for (std::vector<IThread*>::iterator itThread = group->_threads.begin();  itThread != group->_threads.end(); itThread++)
         {
-            if ((*itThread)->getId() == id)  { return group; }
+            if ((*itThread)->getId() == id)  {  UNLOCK();  return group;   }
         }
     }
+	
+	UNLOCK();
+
     return 0;
 }
 

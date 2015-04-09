@@ -18,7 +18,8 @@
 *****************************************************************************/
 
 #include <gatb/bank/impl/BankAlbum.hpp>
-#include <gatb/bank/impl/BankRegistery.hpp>
+#include <gatb/bank/impl/Bank.hpp>
+#include <gatb/bank/impl/BankFasta.hpp>
 #include <gatb/system/impl/System.hpp>
 #include <gatb/tools/misc/impl/Tokenizer.hpp>
 
@@ -77,7 +78,7 @@ BankAlbum::BankAlbum (const std::string& name, bool deleteIfExists) : _name(name
                 }
 
                 /** We add a new bank. */
-                BankComposite::addBank (BankRegistery::singleton().createBank(bankUri));
+                BankComposite::addBank (Bank::open(bankUri));
 
                 /** We memorize the uri of this bank. */
                 _banksUri.push_back (bankUri);
@@ -89,6 +90,26 @@ BankAlbum::BankAlbum (const std::string& name, bool deleteIfExists) : _name(name
     else
     {
         throw Exception ("Unable to use file '%s'", name.c_str());
+    }
+}
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+BankAlbum::BankAlbum (const std::vector<std::string>& filenames)
+{
+    for (vector<string>::const_iterator it = filenames.begin(); it != filenames.end(); ++it)
+    {
+        /** We add a new bank. */
+        BankComposite::addBank (Bank::open(*it));
+
+        /** We memorize the uri of this bank. */
+        _banksUri.push_back (*it);
     }
 }
 
@@ -174,7 +195,7 @@ IBank* BankAlbum::addBank (const std::string& bankUri)
         file->print ("%s\n", bankUri.c_str());
 
         /** We create a new bank. */
-        result = BankRegistery::singleton().createBank(bankUri);
+        result = Bank::open(bankUri);
 
         /** We put it into the album. */
         BankComposite::addBank (result);
@@ -214,8 +235,8 @@ IBank* BankAlbum::addBank (const std::string& directory, const std::string& bank
         /** We write the uri in the file. */
         file->print ("%s\n", bankName.c_str());
 
-        /** We add a new bank. */
-        result = BankRegistery::singleton().createBank(bankUri);
+        /** We create a new FASTA bank. */
+        result = new BankFasta (bankUri);
 
         /** We put it into the album. */
         BankComposite::addBank (result);
@@ -263,6 +284,21 @@ bool BankAlbum::isOnlyFilename (const std::string& path)
     return (path[0]!='/' && path[0]!='.');
 }
 
+
+/*********************************************************************
+** METHOD  :
+** PURPOSE :
+** INPUT   :
+** OUTPUT  :
+** RETURN  :
+** REMARKS :
+*********************************************************************/
+void BankAlbum::remove ()
+{
+    BankComposite::remove();
+    System::file().remove (_name);
+}
+
 /*********************************************************************
 ** METHOD  :
 ** PURPOSE :
@@ -291,7 +327,7 @@ IBank* BankAlbumFactory::createBank (const std::string& uri)
             DEBUG (("   %s\n", names[i].c_str()));
 
             /** We create a vector with the 'unitary' banks. */
-            banks.push_back (BankRegistery::singleton().createBank (names[i]));
+            banks.push_back (Bank::open (names[i]));
         }
         /** We return a composite bank. */
         return new BankComposite (banks);

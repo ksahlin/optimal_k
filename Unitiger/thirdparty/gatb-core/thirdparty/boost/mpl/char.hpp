@@ -10,9 +10,9 @@
 //
 // See http://www.boost.org/libs/mpl for documentation.
 
-// $Source: /home/tktl-csfs/home/lmsalmel/cvsroot/frag-assembly/src/gapclosing/Gap2Seq-2/thirdparty/gatb-core/thirdparty/boost/mpl/char.hpp,v $
-// $Date: 2014/12/19 07:36:00 $
-// $Revision: 1.1 $
+// $Source$
+// $Date: 2008-06-14 08:41:37 -0700 (Sat, 16 Jun 2008) $
+// $Revision: 24874 $
 
 #include <boost/mpl/char_fwd.hpp>
 

@@ -18,82 +18,43 @@ using namespace std;
 /** Kmer span definition. */
 const size_t span = KSIZE_1;
 
-/** Implementation of a functor that defines what is a minimizer according to
- *  the list of mmers within a kmer. We mimic here the default behavior
- *  (ie. minimum of the mmers within a kmer) but we could do anything we want to
- *  and we can more generally talk about 'optimizer' rather than 'minimizer'.
- *
- *  The purpose of such a functor is to select a mmer between M mmers in a
- *  specific kmer :
- *
- *      1) the 'init' method is called to initialize the default 'optimum' before looping
- *         over the mmers
- *
- *      2) the operator() method is called for each mmer with the current optimum
- *         value; we can choose here what kind of optimum we want (minimum for instance)
- *         by updating the 'optimum' value
- */
-struct CustomMinimizer
-{
-    template<class Model>  void init (const Model& model, Kmer<span>::Type& optimum) const
-    {
-        optimum = model.getKmerMax();
-    }
-
-    bool operator() (const Kmer<span>::Type& current, const Kmer<span>::Type& optimum) const
-    {
-        return current < optimum;
-    }
-};
-
-/** We define here a 'maximizer' in the mmers of a specific kmer. */
-struct CustomMaximizer
-{
-    template<class Model>  void init (const Model& model, Kmer<span>::Type& optimum) const
-    {
-        optimum = Kmer<span>::Type(0);
-    }
-
-    bool operator() (const Kmer<span>::Type& current, const Kmer<span>::Type& optimum) const
-    {
-        return !(current < optimum);
-    }
-};
-
 /** Some shortcuts. */
 typedef Kmer<span>::ModelDirect    ModelDirect;
-typedef Kmer<span>::ModelMinimizer<ModelDirect,CustomMinimizer> ModelMinimizer;
-typedef Kmer<span>::ModelMinimizer<ModelDirect,CustomMaximizer> ModelMaximizer;
-
+typedef Kmer<span>::ModelMinimizer<ModelDirect> ModelMinimizer;
 
 /********************************************************************************/
 int main (int argc, char* argv[])
 {
-    if (argc < 4)
-    {
-        cerr << "you must provide at least 3 arguments. Arguments are:" << endl;
-        cerr << "   1) kmer size"                   << endl;
-        cerr << "   2) minimizer size"              << endl;
-        cerr << "   3) FASTA file"                  << endl;
-        cerr << "   4) verbose (0/1, 0 by default)" << endl;
-        return EXIT_FAILURE;
-    }
+    static const char* STR_URI_DISTRIB = "-distrib";
 
-    // We get the kmer and minimizer sizes.
-    size_t kmerSize = atoi(argv[1]);
-    size_t mmerSize = atoi(argv[2]);
+    /** We create a command line parser. */
+    OptionsParser parser ("KmerTest");
+    parser.push_back (new OptionOneParam (STR_URI_INPUT,      "bank input",     true));
+    parser.push_back (new OptionOneParam (STR_KMER_SIZE,      "kmer size",      true));
+    parser.push_back (new OptionOneParam (STR_MINIMIZER_SIZE, "minimizer size", true));
+    parser.push_back (new OptionNoParam  (STR_URI_DISTRIB,    "compute distribution: number of times a read has X superkmers",  false));
+    parser.push_back (new OptionNoParam  (STR_VERBOSE,        "display kmers",  false));
 
-    // We define a try/catch block in case some method fails (bad filename for instance)
     try
     {
+        /** We parse the user options. */
+        IProperties* options = parser.parse (argc, argv);
+
+        string bankFilename = options->getStr(STR_URI_INPUT);
+
+        // We get the kmer and minimizer sizes.
+        size_t kmerSize = options->getInt(STR_KMER_SIZE);
+        size_t mmerSize = options->getInt(STR_MINIMIZER_SIZE);
+
+        // We define a try/catch block in case some method fails (bad filename for instance)
         u_int64_t nbSequences   = 0;
         u_int64_t nbKmers       = 0;
         u_int64_t nbMinimizers  = 0;
         u_int64_t nbMinimizers2 = 0;
-        bool display = argc>=5 ? atoi(argv[4]) : false;
+        bool display = options->get(STR_VERBOSE) != 0;
 
-        // We declare a Bank instance defined by a list of filenames
-        BankFasta b (argv[3]);
+        // We declare a bank instance defined by a list of filenames
+        IBank* bank = Bank::open (bankFilename);
 
         // We declare a kmer model and a minimizer model
         ModelMinimizer model (kmerSize, mmerSize);
@@ -101,8 +62,11 @@ int main (int argc, char* argv[])
         // We get a reference on the minimizer model, which will be useful for dumping
         const ModelDirect& modelMinimizer = model.getMmersModel();
 
+        // We compute a distribution : number of times a reads has X superkmers
+        map<size_t,size_t> distribSuperKmers;
+
         // We create an iterator over this bank.
-        ProgressIterator<Sequence> itSeq (b);
+        ProgressIterator<Sequence> itSeq (*bank);
 
         // We loop over sequences.
         for (itSeq.first(); !itSeq.isDone(); itSeq.next())
@@ -116,10 +80,10 @@ int main (int argc, char* argv[])
                 if (display)
                 {
                     std::cout << "KMER=" << model.toString(kmer.value()) << "  "
-                              << (kmer.hasChanged() ? "NEW" : "OLD") << " "
-                              << "MINIMIZER=" << modelMinimizer.toString(kmer.minimizer().value()) << " "
-                              << "at position " << kmer.position()
-                              << std::endl;
+                          << (kmer.hasChanged() ? "NEW" : "OLD") << " "
+                          << "MINIMIZER=" << modelMinimizer.toString(kmer.minimizer().value()) << " "
+                          << "at position " << kmer.position()
+                          << std::endl;
                 }
 
                 // We may have to update the number of different minimizer in the current sequence
@@ -127,6 +91,8 @@ int main (int argc, char* argv[])
 
                 nbKmers ++;
             });
+
+            distribSuperKmers [nbMinimizersPerRead]++;
 
             // We update global statistics
             nbSequences   ++;
@@ -141,7 +107,7 @@ int main (int argc, char* argv[])
         // We dump results
         Properties info;
         info.add (0, "info");
-        info.add (1, "bank",          "%s",   argv[3]);
+        info.add (1, "bank",          "%s",   bankFilename.c_str());
         info.add (1, "kmer_size",     "%ld",  kmerSize);
         info.add (1, "mmer_size",     "%ld",  mmerSize);
         info.add (1, "nb_sequences",  "%ld",  nbSequences);
@@ -150,11 +116,31 @@ int main (int argc, char* argv[])
         info.add (1, "mean",          "%.2f", mean);
         info.add (1, "deviation",     "%.2f", devia);
         cout << info << endl;
-    }
 
-    catch (gatb::core::system::Exception& e)
+        // We dump the superkmers distribution if any
+        if (options->get(STR_URI_DISTRIB))
+        {
+            string outputFilename = System::file().getBaseName(bankFilename) + string (".distrib");
+
+            FILE* output = fopen (outputFilename.c_str(), "w");
+            if (output)
+            {
+                for (map<size_t,size_t>::iterator it = distribSuperKmers.begin(); it != distribSuperKmers.end(); ++it)
+                {
+                    fprintf (output, "%ld %ld\n", it->first, it->second);
+                }
+
+                fclose (output);
+            }
+        }
+    }
+    catch (OptionFailure& e)
     {
-        cerr << "EXCEPTION: " << e.getMessage() << endl;
+        return e.displayErrors (std::cout);
+    }
+    catch (Exception& e)
+    {
+        std::cerr << "EXCEPTION: " << e.getMessage() << std::endl;
     }
 
     return EXIT_SUCCESS;
