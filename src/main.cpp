@@ -9,6 +9,8 @@
 
 #define LARGE_NUMBER 1048576
 
+#define SET_OF_REFERENCE_KMER_VALUES {21, 31, 41, 51, 61}
+
 #define _first_k 15
 #define _last_k 60
 #define _first_a 2
@@ -349,11 +351,12 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &avg_unitig_length_error,
 	vector<double> &e_size,
 	vector<double> &e_size_error,
-	const double &relative_error,
+	double relative_error,
 	const uint64_t &n_nodes_h,
 	const bool &verbose
 	)
 {
+
 	uint64_t total_kmers = reads_total_content - (k - 1) * reads_number;
 	//uint64_t n_reads = reads_number;
 	uint64_t n_sampled_reads = reads.size();
@@ -395,11 +398,20 @@ void sample_nodes(const RLCSA* rlcsa,
 	unordered_map<string, uint32_t> stored_abundance;
 	unordered_map<string, vector<uint32_t> > stored_in_degree;
 	unordered_map<string, vector<uint32_t> > stored_out_degree;
+
+	// heuristic for pruning the search space on (k,a)
+	double relative_error_n_unitigs = relative_error;
+	if (n_nodes_h == 0)
+	{
+		sampled_enough_unitigs = true;
+		relative_error_n_unitigs = LARGE_NUMBER;
+	}
+
 		
 	#pragma omp parallel for num_threads(N_THREADS)
 	for (uint64_t i = 0; i < 100 * n_sampled_reads; i++)
 	{
-		if ((not sampled_enough_unitigs) or (not sampled_enough_unitigs) or (not sampled_enough_for_n_unitigs))
+		if ((not sampled_enough_unitigs) or (not sampled_enough_for_n_unitigs))
 		{
 			unordered_set<uint32_t> e_size_alive_abundances_thread = e_size_alive_abundances;
 			uint64_t read_index;
@@ -543,7 +555,7 @@ void sample_nodes(const RLCSA* rlcsa,
     			n_unitigs,
     			n_unitigs_error,
     			sampled_enough_for_n_unitigs,
-    			relative_error);
+    			relative_error_n_unitigs);
     	} 
 	}
 
@@ -708,24 +720,70 @@ int main(int argc, char** argv)
     	outputFile[a] << std::setprecision(2);
     } 
 
-    bool computed_n_nodes_h = false;
     uint64_t sum_n_nodes_h = 0;
     uint32_t values_n_nodes_h = 0;
     uint64_t n_nodes_h = 0;
 
+    // some initial sampling in order to determina the "BEST" number of nodes of the graph
+    if (max_abundance >= _last_a)
+    {
+    	if (verbose)
+    	{
+    		cout << "*** Sampling for a few values of k to determine the 'best' number of nodes of the graph" << endl;	
+    	}
+    	
+	    for (uint32_t k = 21; k <= 61; k = k + 10)
+	    {
+	    	cout << "***    k = " << k << endl;
+	    	vector<double> n_nodes(max_abundance + 1,0); 
+			vector<double> n_nodes_error(max_abundance + 1,LARGE_NUMBER);
+			vector<double> n_unitigs(max_abundance + 1,0);
+			vector<double> n_unitigs_error(max_abundance + 1,LARGE_NUMBER);
+	 		vector<double> avg_unitig_length(max_abundance + 1,0);
+	 		vector<double> avg_unitig_length_error(max_abundance + 1,LARGE_NUMBER);
+	 		vector<double> e_size(max_abundance + 1,0);
+	 		vector<double> e_size_error(max_abundance + 1,LARGE_NUMBER);
+
+	 		// sampling
+	 		sample_nodes(rlcsa, 
+	 			k, 
+	 			min_abundance, 
+	 			_last_a,
+	 			reads, 
+	 			reads_total_content, 
+	 			reads_number, 
+	 			reads_max_length, 
+	 			n_nodes, 
+	 			n_nodes_error,
+	 			n_unitigs, 
+	 			n_unitigs_error,
+	 			avg_unitig_length,
+	 			avg_unitig_length_error,
+	 			e_size,
+	 			e_size_error,
+	 			relative_error,
+	 			n_nodes_h,
+	 			verbose);
+
+	 		for (uint32_t a = _first_a; a <= _last_a; a++)
+	 		{
+	 			sum_n_nodes_h += n_nodes[a];
+				values_n_nodes_h++;
+	 		}
+	
+	    }
+	    n_nodes_h = (double)sum_n_nodes_h / values_n_nodes_h;
+	    if (verbose)
+	    {
+	    	cout << "Number of nodes used in pruning the search space over pairs (k,a): " << n_nodes_h << endl;
+	    	cout << "If for a pair (k,a) the estimated number of nodes is less than " << _n_nodes_proportion << " * " << n_nodes_h << " = " << _n_nodes_proportion * n_nodes_h << ", then that pair is abandoned" << endl;
+	    }
+    }
+    ///////////////////////////////////////////////////////////////    
+
+
  	for (uint32_t k = mink; k <= maxk; k++)
  	{
- 		if ((k > _last_k) and (not computed_n_nodes_h)) 
- 		{
- 			n_nodes_h = (double)sum_n_nodes_h / values_n_nodes_h;
- 			if (verbose)
- 			{
- 				cout << "Number of nodes used in pruning the search space over pairs (k,a): " << n_nodes_h << endl;
- 				cout << "If for a pair (k,a) the estimated number of nodes is less than " << _n_nodes_proportion << " * " << n_nodes_h << " = " << _n_nodes_proportion * n_nodes_h << ", then that pair is abandoned" << endl;
- 			}
- 			computed_n_nodes_h = true;
- 		}
-
  		vector<double> n_nodes(max_abundance + 1,0); 
 		vector<double> n_nodes_error(max_abundance + 1,LARGE_NUMBER);
 		vector<double> n_unitigs(max_abundance + 1,0);
@@ -774,14 +832,6 @@ int main(int argc, char** argv)
 			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(e_size_error[a]) : "."); // rel_err e_size				
 			outputFile[a] << endl; 
 			//outputFile[a].flush();
-
-			if ((_first_k <= k) and (k <= _last_k) and
-				(_first_a <= a) and (a <= _last_a))
-			{
-				sum_n_nodes_h += n_nodes[a];
-				values_n_nodes_h++;
-			}
-				
 
 			if (verbose)
 			{
