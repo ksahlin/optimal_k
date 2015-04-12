@@ -343,6 +343,10 @@ inline void extend_unitig_from_node_SMART(const string& node,
 			// if unary
 			if ((out_degree[a] == 1) and (in_degree[a] == 1))
 			{
+				if ((u_length[a] >= 3000) and (current_node == node))
+				{
+					return;
+				}
 				if (not updated_current_node)
 				{
 					current_node = current_node.substr(1,current_node.length()-1) + out_neighbor_char[a];

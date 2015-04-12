@@ -6,10 +6,9 @@
 #define KMER_UPDATE_STATS_STEP 5000
 #define KMER_MAX_SAMPLE 500000
 #define ESIZE_UPDATE_STATS_STEP 9000
+// #define ESIZE_MAX_SAMPLED_UNITIGS_NONUNIQUEKMERS 100
 
 #define LARGE_NUMBER 1048576
-
-#define SET_OF_REFERENCE_KMER_VALUES {21, 31, 41, 51, 61}
 
 #define _first_k 15
 #define _last_k 60
@@ -411,7 +410,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	#pragma omp parallel for num_threads(N_THREADS)
 	for (uint64_t i = 0; i < 100 * n_sampled_reads; i++)
 	{
-		if ((not sampled_enough_unitigs) or (not sampled_enough_for_n_unitigs))
+		if ((not sampled_enough_unitigs) or (not sampled_enough_for_n_unitigs) or (not sampled_enough_kmers))
 		{
 			unordered_set<uint32_t> e_size_alive_abundances_thread = e_size_alive_abundances;
 			uint64_t read_index;
@@ -559,7 +558,7 @@ void sample_nodes(const RLCSA* rlcsa,
     	} 
 	}
 
-	if (verbose)
+	if (verbose and (n_nodes_h != 0))
 	{
 		cout << "Sampled:" << endl;
 		for (uint32_t a = min_abundance; a <= max_abundance; a++)
@@ -609,7 +608,7 @@ int main(int argc, char** argv)
 	parser.add_option("-l", "--loadindex"). type("string") .dest("loadindex") .action("store") .set_default("") .help("the filename from where the index should be loaded");
 	parser.add_option("-m", "--lowermemory") .dest("lowermemory") .action("store_true") .set_default(false) .help("force the index construction to use less RAM; this slows the construction (default %default)");	
 	parser.add_option("-e", "--relerror") .type("float") .dest("e") .action("store") .set_default(0.1) .help("relative error of the estimations (default: %default)");
-	parser.add_option("-h", "--heuristic") .type("float") .dest("h") .action("store") .set_default(0.7) .help("abandon sampling unitigs for a pair (k,a) if the estimated number of nodes for (k,a) is less than <h> * the estimated number of nodes of the genome (default: %default)");
+	parser.add_option("-h", "--heuristic") .type("float") .dest("h") .action("store") .set_default(0.90) .help("abandon sampling unitigs for a pair (k,a) if the estimated number of nodes for (k,a) is less than <h> * the estimated number of nodes of the genome (default: %default)");
 	parser.add_option("-s", "--samples") .type("int") .dest("s") .action("store") .set_default(15000) .help("maximum number of unique k-mers that are sampled (default: %default)");
 	parser.add_option("-v", "--nonverbose") .dest("nonverbose") .action("store_true") .set_default(false) .help("print some stats to stdout (default %default)");
 
@@ -732,7 +731,7 @@ int main(int argc, char** argv)
     		cout << "*** Sampling for a few values of k to determine the 'best' number of nodes of the graph" << endl;	
     	}
     	
-	    for (uint32_t k = 21; k <= 61; k = k + 10)
+	    for (uint32_t k = 21; k <= ((reads_total_content / reads_number) - 40); k = k + 10)
 	    {
 	    	cout << "***    k = " << k << endl;
 	    	vector<double> n_nodes(max_abundance + 1,0); 
@@ -769,6 +768,7 @@ int main(int argc, char** argv)
 	 		{
 	 			sum_n_nodes_h += n_nodes[a];
 				values_n_nodes_h++;
+				cout << k << " " << a << " n_nodes=" << n_nodes[a] << "±" << n_nodes_error[a] << "%" << endl;
 	 		}
 	
 	    }
@@ -814,6 +814,10 @@ int main(int argc, char** argv)
  			n_nodes_h,
  			verbose);
 
+ 		if (verbose)
+ 		{
+ 			cout << "*** " << currentDateTime() << endl;
+ 		}
  		// printing the results
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
  		{
@@ -824,20 +828,21 @@ int main(int argc, char** argv)
 	 		outputFile[a] << "." << ","; // average number of internal nodes in unitigs
 			outputFile[a] << (avg_unitig_length_error[a] != LARGE_NUMBER ? double_to_string(avg_unitig_length[a]) : ".") << ","; // average length of unitigs // OLD: avg_unitig_length + k + 1 << ","; 
 			outputFile[a] << "." << ","; // estimated sample size for kmers
-			outputFile[a] << (n_unitigs_error[a] != LARGE_NUMBER ? int_to_string(n_unitigs[a]) : "." ) << ","; // number of unitigs
+			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? int_to_string(n_unitigs[a]) : "." ) << ","; // number of unitigs: we don't print it if the number of nodes of the graph is too small
 			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(e_size[a]) : ".") << ","; // e-size	
 			outputFile[a] << n_nodes_error[a] << ","; // rel_err for n_nodes
 			outputFile[a] << (avg_unitig_length_error[a] != LARGE_NUMBER ? double_to_string(avg_unitig_length_error[a]) : ".") << ","; // rel_err avg_length_unitigs
-			outputFile[a] << (n_unitigs_error[a] != LARGE_NUMBER ? double_to_string(n_unitigs_error[a]) : ".") << ","; // rel_err n_unitigs
+			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(n_unitigs_error[a]) : ".") << ","; // rel_err n_unitigs
 			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(e_size_error[a]) : "."); // rel_err e_size				
 			outputFile[a] << endl; 
 			//outputFile[a].flush();
+
 
 			if (verbose)
 			{
 				cout << k << " " << a << " ";
 				cout << "n_nodes=" << (uint64_t)n_nodes[a] << "±" << (uint32_t)ceil(100 * n_nodes_error[a]) << "% ";
-				if (n_unitigs_error[a] != LARGE_NUMBER)
+				if (e_size_error[a] != LARGE_NUMBER)
 				{
 					cout << "n_unitigs=" << (uint64_t)n_unitigs[a] << "±" << (uint32_t)ceil(100 * n_unitigs_error[a]) << "% ";
 				}

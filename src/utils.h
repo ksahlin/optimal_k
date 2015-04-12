@@ -16,6 +16,7 @@
 #include <random>
 #include <zlib.h>
 #include <math.h>
+#include <time.h>
 
 #include "rlcsa/rlcsa.h"
 #include "rlcsa/rlcsa_builder.h"
@@ -96,13 +97,25 @@ inline string double_to_string(double x)
     return ss.str();
 }
 
-
 inline void make_upper_case(string& s)
 {
     for (uint i = 0; i < s.length(); i++)
     {
         s[i] = toupper(s[i]);
     }
+}
+
+// Get current date/time, format is YYYY-MM-DD HH:mm:ss
+inline string currentDateTime() {
+    time_t     now = time(0);
+    struct tm  tstruct;
+    char       buf[80];
+    tstruct = *localtime(&now);
+    // Visit http://en.cppreference.com/w/cpp/chrono/c/strftime
+    // for more information about date/time format
+    strftime(buf, sizeof(buf), "%Y-%m-%d %X", &tstruct);
+
+    return buf;
 }
 
 inline string decode_substring(const compact_read_t& cread, const uint32_t &start, uint32_t length)
