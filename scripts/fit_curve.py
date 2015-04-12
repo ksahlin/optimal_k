@@ -19,7 +19,15 @@ except ImportError:
 def main(csvfile, plot=False):
 	lines = open(csvfile,'r').readlines()[1:]
 	vals = [line.strip().split(',') for line in lines]
-	points = map(lambda x: ( int(x[0]) , float(x[8])), vals)
+	points = []
+	for val in vals:
+		try:
+			point = (int(val[0]), float(val[8]))
+			points.append(point)
+		except ValueError:
+			pass
+
+	#points = map(lambda x: ( int(x[0]) , float(x[8])), vals)
 	points = np.array(points)
 	# get x and y vectors
 	x = points[:,0]
