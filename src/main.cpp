@@ -12,7 +12,7 @@
 
 #define _first_k 15
 #define _last_k 60
-#define _first_a 2
+#define _first_a 3
 #define _last_a 5
 
 
@@ -746,7 +746,7 @@ int main(int argc, char** argv)
 	 		// sampling
 	 		sample_nodes(rlcsa, 
 	 			k, 
-	 			min_abundance, 
+	 			_first_a, 
 	 			_last_a,
 	 			reads, 
 	 			reads_total_content, 
@@ -821,17 +821,22 @@ int main(int argc, char** argv)
  		// printing the results
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
  		{
+ 			if (n_nodes[a] < _n_nodes_proportion * n_nodes_h)
+ 			{
+ 				e_size_error[a] = LARGE_NUMBER;
+ 			}
+
 	 		outputFile[a] << k << ",";
 	 		outputFile[a] << a << ",";
 	 		outputFile[a] << (uint64_t)n_nodes[a] << ","; // number of nodes
 	 		outputFile[a] << "." << ","; // number of edges
 	 		outputFile[a] << "." << ","; // average number of internal nodes in unitigs
-			outputFile[a] << (avg_unitig_length_error[a] != LARGE_NUMBER ? double_to_string(avg_unitig_length[a]) : ".") << ","; // average length of unitigs // OLD: avg_unitig_length + k + 1 << ","; 
+			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(avg_unitig_length[a]) : ".") << ","; // average length of unitigs // OLD: avg_unitig_length + k + 1 << ","; 
 			outputFile[a] << "." << ","; // estimated sample size for kmers
 			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? int_to_string(n_unitigs[a]) : "." ) << ","; // number of unitigs: we don't print it if the number of nodes of the graph is too small
 			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(e_size[a]) : ".") << ","; // e-size	
 			outputFile[a] << n_nodes_error[a] << ","; // rel_err for n_nodes
-			outputFile[a] << (avg_unitig_length_error[a] != LARGE_NUMBER ? double_to_string(avg_unitig_length_error[a]) : ".") << ","; // rel_err avg_length_unitigs
+			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(avg_unitig_length_error[a]) : ".") << ","; // rel_err avg_length_unitigs
 			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(n_unitigs_error[a]) : ".") << ","; // rel_err n_unitigs
 			outputFile[a] << (e_size_error[a] != LARGE_NUMBER ? double_to_string(e_size_error[a]) : "."); // rel_err e_size				
 			outputFile[a] << endl; 
@@ -846,7 +851,7 @@ int main(int argc, char** argv)
 				{
 					cout << "n_unitigs=" << (uint64_t)n_unitigs[a] << "±" << (uint32_t)ceil(100 * n_unitigs_error[a]) << "% ";
 				}
-				if (avg_unitig_length_error[a] != LARGE_NUMBER)
+				if (e_size_error[a] != LARGE_NUMBER)
 				{
 					cout << "avg_length=" << avg_unitig_length[a] << "±" << (uint32_t)ceil(100 * avg_unitig_length_error[a]) << "% ";	
 				}
