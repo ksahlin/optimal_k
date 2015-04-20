@@ -28,11 +28,15 @@ def main(csvfile, plot=False):
 			pass
 
 	#points = map(lambda x: ( int(x[0]) , float(x[8])), vals)
-	points = np.array(points)
-	# get x and y vectors
-	x = points[:,0]
-	y = points[:,1]
+	try:
 
+		points = np.array(points)
+		# get x and y vectors
+		x = points[:,0]
+		y = points[:,1]
+	except IndexError:
+		print -1, -1
+		return -1, -1
 
 	# go through all polynomial fits and take the one with highest fit that 
 	# does not throw a warning
@@ -68,7 +72,7 @@ def main(csvfile, plot=False):
 		plt.savefig(plot+'.png')
 
 	print max_x, max(y_new)
-	return max_x
+	return max_x, max(y_new)
 if __name__ == '__main__':
 
 	parser = argparse.ArgumentParser()#prog="Infer variants with simple p-value test using theory of GetDistr - proof of concept.")
