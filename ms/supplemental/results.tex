@@ -1,0 +1,97 @@
+\documentclass{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{url}
+\usepackage{color}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{subfig}
+\usepackage{graphicx}
+\usepackage{amsthm}
+\usepackage{epstopdf}
+
+\begin{document}
+
+\section{Results and discussion}
+\label{sec:Results and discussion}
+(write in introduction about software preqc and Hydra-vista, VelvetOptimizer and Velvet-... mentioned in kmergenie paper as estimating k but not a).
+
+Our objective of maximizing E-size is chosen because it best reflects how good quality the initial DBG have. It is also our assumption that a DBG with long unary paths provides a better basis for applying assembly methods such as bubble popping, tip removal and path extensions for creating contigs.
+
+We evaluated optimal\_k against kmergenie as the two programs are able to infer suggested values on both k and a.  The evaluation consisted of four data sets with references provided; Staphylococcus aureus, Rhodobacter sphaeroides, Plasmodium falciparum and Homo sapiens chromosome 14 denoted staph, rhodo, plasm and hs14 respectively. After estimations were done by optimal\_k and kmergenie, we used an in-house made unitiger that given $k$ and $a$ constructed the DBG and returns all unitigs as output. Since we are estimating unitig E-size, this serves both as an evaluation of the accuracy of our sampling method, and as benchmarking the quality of unitigs provided by optimal\_k's and kmergenie's and predictions. As unitigs are rarely the final output of a contig assembly, it is interesting to see how the estimations of $k$ and $a$ are reflected in the contig output. We therefore also used minia to assemble contigs from the predictions of $k$ and $a$ and ABySS (provided only $k$). We used minia because it is the closest we can get to a fair comparison, as we are able to take both $k$ and $a$ as input. As we cannot provide $a$ to ABySS, it is mainly used it to illustrate how different graph heuristics varies in the final contig output. For instance, ABySS seems more aggressive than minia to create longer contigs. We can also see from the difference in values between \emph{e.g.} minia and minia\_utg that further operations on the DBG to create contigs increase the contiguity at the cost of misassemblies. 
+
+
+
+
+main results
+\begin{itemize}
+	\item Optimal\_k's ability to predict best combination over the (k,a)- space is an advantage. We see that for high coverage datases such as plasm..
+	\item 
+\end{itemize}
+
+
+\begin{table}[h]
+{\flushleft \footnotesize
+\begin{tabular}{l l l l l }
+dataset & Insert & read length & coverage & reference length \\ \hline
+staph & 180 & 101 & 45x & 2,903,081 \\
+rhodo & 180 & 101 & 45x & 4,603,060 \\
+plasm & 590 & 76 & 171x & 23,328,019  \\
+hs14 & 155 & 101 & 42x & 107,349,540 (88,289,540) \\
+\end{tabular}
+\caption{Information about data sets in the evaluation.  }
+\label{tab:sim}
+}
+\end {table}
+
+
+
+
+% \begin{figure}[htbp]
+% 	\centering
+% 	\includegraphics[width=0.95\textwidth]{}
+% 	\caption{ }
+% 	\label{fig:region}
+% \end{figure}
+
+\begin{figure*}[h!]
+\label{fig:staph}
+\centering
+\subfloat[E-size estimation, estimations vs true]{%
+\includegraphics[scale=0.35]{figures/staph_plots/x_axis=k,y_axis=e_size} 
+\label{fig:staph_isize}}
+\subfloat[Number of nodes in DBG, estimations vs true]{%
+\includegraphics[scale=0.35]{figures/staph_plots/x_axis=k,y_axis=nr_nodes}
+\label{fig:staph_fit}}
+\caption{\footnotesize Estimations of E-size and number of nodes for staph.}
+\end{figure*}
+
+
+
+\begin{figure*}[h!]
+\label{fig:staph}
+\centering
+\subfloat[E-size estimation, estimations vs true]{%
+\includegraphics[scale=0.35]{figures/staph_plots/x_axis=k,y_axis=e_size} 
+\label{fig:staph_isize}}
+\subfloat[Number of nodes in DBG, estimations vs true]{%
+\includegraphics[scale=0.35]{figures/staph_plots/x_axis=k,y_axis=nr_nodes}
+\label{fig:staph_fit}}
+\caption{\footnotesize Estimations of E-size and number of nodes for rhodo.}
+\end{figure*}
+
+
+\begin{figure*}[h!]
+\label{fig:staph}
+\centering
+\subfloat[E-size estimation, estimations vs true]{%
+\includegraphics[scale=0.35]{figures/staph_plots/x_axis=k,y_axis=e_size} 
+\label{fig:staph_isize}}
+\subfloat[Number of nodes in DBG, estimations vs true]{%
+\includegraphics[scale=0.35]{figures/staph_plots/x_axis=k,y_axis=nr_nodes}
+\label{fig:staph_fit}}
+\caption{\footnotesize Estimations of E-size and number of nodes for hs14.}
+\end{figure*}
+
+
+\end{document}

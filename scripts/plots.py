@@ -5,6 +5,7 @@ import os
 import csv
 import pandas as pd
 import itertools
+import numpy as np
 
 try:
     import matplotlib
@@ -36,8 +37,19 @@ def scatterplot(x_axis,y_axis,methods,outfolder):
         #     print 'Skipping to plot x_axis:{0} to y_axis:{1} due to ValueError. \
         #     probably because csv column contains ".". This is expected for e.g. "estiamator". '.format(x_axis,y_axis)
         #     return
+        x = np.array( method.results[x_axis] )
+        y_temp = []
+        for y_point in method.results[y_axis]:
+            try:
+                float(y_point)
+                y_temp.append(y_point)
+            except:
+                y_temp.append(np.nan)
+        
+        y = np.array(  y_temp )
+
         try:
-            plt.plot(method.results[x_axis], method.results[y_axis], '-', label=method.name )
+            plt.plot(x, y, '-', label=method.name )
         except ValueError:
             print('Skipping to plot x_axis:{0} to y_axis:{1} due to ValueError. \
             probably because csv column contains ".". This is expected for e.g. "estiamator". '.format(x_axis,y_axis))
