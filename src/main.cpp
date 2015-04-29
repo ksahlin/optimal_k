@@ -351,7 +351,7 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &e_size,
 	vector<double> &e_size_error,
 	double relative_error,
-	const uint64_t &n_nodes_h,
+	const int64_t &n_nodes_h,
 	const bool &verbose
 	)
 {
@@ -406,7 +406,6 @@ void sample_nodes(const RLCSA* rlcsa,
 		relative_error_n_unitigs = LARGE_NUMBER;
 	}
 
-		
 	#pragma omp parallel for num_threads(N_THREADS)
 	for (uint64_t i = 0; i < 100 * n_sampled_reads; i++)
 	{
@@ -491,8 +490,9 @@ void sample_nodes(const RLCSA* rlcsa,
 
     			// heuristic criterion for abandoning this k and a
     			// only master thread gets to update sampled_enough_unitigs
-    			if ((omp_get_thread_num() == 0) and (n_nodes_h != 0))
+    			if ((omp_get_thread_num() == 0) and (n_nodes_h > 0))
     			{
+    				// cout << "n_nodes_h = " << n_nodes_h << endl;
     				for (uint32_t a = min_abundance; a <= max_abundance; a++)	
     				{
     					// if we have a good estimate of the number of nodes
@@ -721,7 +721,7 @@ int main(int argc, char** argv)
 
     uint64_t sum_n_nodes_h = 0;
     uint32_t values_n_nodes_h = 0;
-    uint64_t n_nodes_h = 0;
+    int64_t n_nodes_h = 0;
 
     // some initial sampling in order to determina the "BEST" number of nodes of the graph
     if (max_abundance >= _last_a)
@@ -779,6 +779,10 @@ int main(int argc, char** argv)
 	    	cout << "If for a pair (k,a) the estimated number of nodes is less than " << _n_nodes_proportion << " * " << n_nodes_h << " = " << _n_nodes_proportion * n_nodes_h << ", then that pair is abandoned" << endl;
 	    }
     }
+    else
+    {
+    	n_nodes_h = -1;
+    }
     ///////////////////////////////////////////////////////////////    
 
 
@@ -821,9 +825,12 @@ int main(int argc, char** argv)
  		// printing the results
  		for (uint32_t a = min_abundance; a <= max_abundance; a++)
  		{
- 			if (n_nodes[a] < _n_nodes_proportion * n_nodes_h)
+ 			if (n_nodes_h > 0)
  			{
- 				e_size_error[a] = LARGE_NUMBER;
+ 				if (n_nodes[a] < _n_nodes_proportion * n_nodes_h)
+ 				{
+ 					e_size_error[a] = LARGE_NUMBER;
+ 				}	
  			}
 
 	 		outputFile[a] << k << ",";
