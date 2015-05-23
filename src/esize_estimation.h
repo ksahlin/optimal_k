@@ -1,6 +1,12 @@
 
 #include "utils.h"
 
+struct assembled_string_t
+{
+    uint64_t length;
+    string last_node;
+};
+
 inline void get_in_out_degrees_and_unique_out_neighbors(const string& node, 
 	const RLCSA* rlcsa, 
 	const uint32_t &min_abundance,
@@ -314,7 +320,8 @@ inline void extend_unitig_from_node_SMART(const string& node,
 	const RLCSA* rlcsa, 
 	const uint32_t min_abundance,
 	const uint32_t max_abundance,
-	uint64_t u_length[]
+	uint64_t u_length[],
+	string u_last_node[]
 )
 {
 	uint32_t min_alive_abundance = min_abundance;
@@ -337,6 +344,10 @@ inline void extend_unitig_from_node_SMART(const string& node,
 			u_length[a]++;
 			if (out_degree[a] == 0)
 			{
+				for (uint16_t a2 = a; a2 <= max_alive_abundance; a2++)
+				{
+					u_last_node[a2] = current_node;	
+				} 
 				max_alive_abundance = a - 1;
 				break;
 			}
@@ -357,6 +368,7 @@ inline void extend_unitig_from_node_SMART(const string& node,
 			{
 				if ((out_degree[a] > 1) or (in_degree[a] > 1))
 				{
+					u_last_node[a] = current_node;
 					min_alive_abundance = a + 1;
 				}
 			}
@@ -420,19 +432,19 @@ inline void get_unitig_stats_SMART(const string& node,
 				{
 					u_length[a].push_back(1);
 				}	
-			}
-				
+			}	
 		}
-		
 	}
-
-	// checking that indeed the 
 
 	// if there is some abundance for which 
 	// node is the start node of some unitig
+
+	vector< vector<assembled_string_t> > assembled_strings(max_abundance_for_which_node_is_start + 1);
+
 	if (min_abundance_for_which_node_is_start <= max_abundance_for_which_node_is_start)
 	{
 		uint64_t extended_length[max_abundance_for_which_node_is_start + 1];
+		string u_last_node[max_abundance_for_which_node_is_start + 1];
 		uint32_t nbr_idx = 0;
 
 		// extend unitig towards each possible out-neighbor
@@ -445,7 +457,7 @@ inline void get_unitig_stats_SMART(const string& node,
 			{
 				extended_length[a] = 0;
 			}
-			extend_unitig_from_node_SMART(neighbor, rlcsa, min_abundance_for_which_node_is_start, for_limit, extended_length);
+			extend_unitig_from_node_SMART(neighbor, rlcsa, min_abundance_for_which_node_is_start, for_limit, extended_length, u_last_node);
 
 			for (auto a : abundances_for_which_node_is_start)
 			{
@@ -453,13 +465,71 @@ inline void get_unitig_stats_SMART(const string& node,
 				{
 					break;
 				}
-				// check whether we are in 'unitigs' mode
-				if ( flag_unitigs or (1 + extended_length[a] >= node.length()) )
+
+				if (flag_unitigs or (1 + extended_length[a] >= node.length()) )
 				{
-					u_length[a].push_back(1 + extended_length[a]);
+					assembled_string_t assembled_string;
+					assembled_string.length = 1 + extended_length[a];
+					assembled_string.last_node = u_last_node[a];
+					assembled_strings[a].push_back(assembled_string);
 				}
 			}
 			nbr_idx++;
 		}
+	}
+
+	for (uint32_t a = min_abundance_for_which_node_is_start; a <= max_abundance_for_which_node_is_start; a++)
+	{
+		// checking whether we have a bubble in the CONTIGS mode
+		if ((not flag_unitigs) and
+			(out_neighbors[a].size() == 2) and (assembled_strings[a].size() == 2)    and
+			(assembled_strings[a][0].length    == assembled_strings[a][1].length)    and
+			(assembled_strings[a][0].last_node == assembled_strings[a][1].last_node)
+			)
+		{
+			// getting the in/out-degrees of the last node
+			vector< vector<string> > in_neighbors_last_node(a + 1), out_neighbors_last_node(a + 1);
+			get_in_out_neighbors(assembled_strings[a][0].last_node, rlcsa, a, a, in_neighbors_last_node, out_neighbors_last_node);
+			if (in_neighbors_last_node[a].size() == 2)
+			{
+				// we have found a bubble
+				// cout << "-------- found a bubble of length " << assembled_strings[a][0].length << endl;
+
+				// checking whether the bubble is extendable
+				if ((in_neighbors[a].size() == 1) and (out_neighbors_last_node[a].size() == 1))
+				{
+					// the bubble is extendable
+					uint64_t extended_length_right[a + 1];
+					uint64_t extended_length_left[a + 1];
+					extended_length_right[a] = 0;
+					extended_length_left[a] = 0;
+					string u_last_node[a + 1];
+					
+					extend_unitig_from_node_SMART(assembled_strings[a][0].last_node, rlcsa, a, a, extended_length_right, u_last_node);
+					extend_unitig_from_node_SMART(reverse_complement(node), rlcsa, a, a, extended_length_left, u_last_node);
+					
+					uint64_t final_length = assembled_strings[a][0].length + extended_length_right[a] + extended_length_left[a];
+					// cout << "-------- the bubble is extendable to length " << final_length << endl;
+					u_length[a].push_back(final_length);
+				}
+				else
+				{
+					// the bubble is not extendable
+					// we can report only the first path (once)
+					u_length[a].push_back(assembled_strings[a][0].length);
+				}
+			}
+
+
+		}
+		else
+		{
+			// no bubble, we can report all assembled strings 
+			for (auto assembled_string : assembled_strings[a])
+			{
+				u_length[a].push_back(assembled_string.length);	
+			}	
+		}
+		
 	}
 }
