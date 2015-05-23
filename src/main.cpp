@@ -77,7 +77,8 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 	unordered_map<string, vector< vector<uint64_t> > > &stored_sampled_unitigs,
 	unordered_set<uint32_t> &e_size_alive_abundances,
 	unordered_set<uint32_t> &e_size_alive_abundances_thread,
-	bool &sampled_enough_unitigs
+	bool &sampled_enough_unitigs,
+	bool flag_unitigs
 	)
 {
 	uint32_t for_limit = MIN(max_abundance,sample_abundance);
@@ -85,7 +86,7 @@ inline void update_unitig_stats_from_sample(const RLCSA* rlcsa,
 	vector< vector<uint64_t> > u_length(max_abundance + 1);
 	if (stored_sampled_unitigs.count(sample) == 0)
 	{
-		get_unitig_stats_SMART(sample, sample_abundance, rlcsa, e_size_alive_abundances_thread, for_limit, u_length);	
+		get_unitig_stats_SMART(sample, sample_abundance, rlcsa, e_size_alive_abundances_thread, for_limit, u_length, flag_unitigs);	
 		std::pair<string, vector< vector<uint64_t> > > new_sample (sample,u_length);
 		#pragma omp critical
 		stored_sampled_unitigs.insert(new_sample);
@@ -352,7 +353,8 @@ void sample_nodes(const RLCSA* rlcsa,
 	vector<double> &e_size_error,
 	double relative_error,
 	const int64_t &n_nodes_h,
-	const bool &verbose
+	const bool &verbose,
+	const bool flag_unitigs
 	)
 {
 
@@ -486,7 +488,8 @@ void sample_nodes(const RLCSA* rlcsa,
     				stored_sampled_unitigs,
     				e_size_alive_abundances,
     				e_size_alive_abundances_thread,
-    				sampled_enough_unitigs);
+    				sampled_enough_unitigs,
+    				flag_unitigs);
 
     			// heuristic criterion for abandoning this k and a
     			// only master thread gets to update sampled_enough_unitigs
@@ -576,14 +579,14 @@ int main(int argc, char** argv)
     string buildindex, loadindex;
 	uint32_t min_abundance,max_abundance;
 	double relative_error; // maximum relative error
-	bool lowermemory, verbose;
+	bool lowermemory, verbose, flag_unitigs;
 
 	std::cout << std::fixed;
     std::cout << std::setprecision(2);
 
 	// command line argument parser
 	string usage = "\n  %prog OPTIONS";
-	const string version = "%prog 0.2\nCopyright (C) 2014-2015\n"
+	const string version = "%prog 0.3\nCopyright (C) 2014-2015\n"
 		"License GPLv3+: GNU GPL version 3 or later "
 		"<http://gnu.org/licenses/gpl.html>.\n"
 		"This is free software: you are free to change and redistribute it.\n"
@@ -611,6 +614,7 @@ int main(int argc, char** argv)
 	parser.add_option("-h", "--heuristic") .type("float") .dest("h") .action("store") .set_default(0.90) .help("abandon sampling unitigs for a pair (k,a) if the estimated number of nodes for (k,a) is less than <h> * the estimated number of nodes of the genome (default: %default)");
 	parser.add_option("-s", "--samples") .type("int") .dest("s") .action("store") .set_default(15000) .help("maximum number of unique k-mers that are sampled (default: %default)");
 	parser.add_option("-v", "--nonverbose") .dest("nonverbose") .action("store_true") .set_default(false) .help("print some stats to stdout (default %default)");
+	parser.add_option("-u", "--unitigs") .dest("flag_unitigs") .action("store_true") .set_default(false) .help("report avg length and e-size of unitigs (contigs by default)");
 
 	optparse::Values& options = parser.parse_args(argc, argv);
 
@@ -638,6 +642,7 @@ int main(int argc, char** argv)
 	}
 	relative_error = (double) options.get("e");
 	_n_nodes_proportion = (double) options.get("h");
+	flag_unitigs = (options.get("flag_unitigs") ? true : false);
 
 	if (readFileName == "")
 	{
@@ -676,6 +681,15 @@ int main(int argc, char** argv)
 	{
 		cerr << "*** Ignoring option --lowermemory because it works only when constructing the index" << endl;
 	}
+	if (flag_unitigs)
+	{
+		cout << "*** Running in UNITGS mode (change to CONTIGS mode by removing argument -u|--unitigs)" << endl;	
+	}
+	else
+	{
+		cout << "*** Running in CONTIGS mode (change to UNITGS mode by adding argument -u|--unitigs)" << endl;
+	}
+	
 	// we need to load the index
 	cout << "*** Loading the RLCSA index for the reads from files: (force the index to be re-built with option -b|--buildindex)" << endl;
 	cout << "***    " << loadindex + ".rlcsa.array" << endl;
@@ -762,7 +776,8 @@ int main(int argc, char** argv)
 	 			e_size_error,
 	 			relative_error,
 	 			n_nodes_h,
-	 			verbose);
+	 			verbose,
+	 			flag_unitigs);
 
 	 		for (uint32_t a = _first_a; a <= _last_a; a++)
 	 		{
@@ -816,7 +831,8 @@ int main(int argc, char** argv)
  			e_size_error,
  			relative_error,
  			n_nodes_h,
- 			verbose);
+ 			verbose,
+ 			flag_unitigs);
 
  		if (verbose)
  		{

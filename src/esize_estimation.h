@@ -369,7 +369,8 @@ inline void get_unitig_stats_SMART(const string& node,
 	const RLCSA* rlcsa, 
 	const unordered_set<uint32_t> &alive_abundances,
 	const uint32_t &max_abundance_where_node_is_present,
-	vector< vector<uint64_t> > &u_length
+	vector< vector<uint64_t> > &u_length,
+	bool flag_unitigs
 )
 {
 	if (alive_abundances.size() == 0)
@@ -412,10 +413,15 @@ inline void get_unitig_stats_SMART(const string& node,
 		} 
 		else // if isolated node
 		{
-			if ((out_neighbors[a].size() == 0) and (in_neighbors[a].size() == 0))
+			// adding an isolated node only if we are in 'unitigs' mode
+			if (flag_unitigs)
 			{
-				u_length[a].push_back(1);
-			}	
+				if ((out_neighbors[a].size() == 0) and (in_neighbors[a].size() == 0))
+				{
+					u_length[a].push_back(1);
+				}	
+			}
+				
 		}
 		
 	}
@@ -447,7 +453,11 @@ inline void get_unitig_stats_SMART(const string& node,
 				{
 					break;
 				}
-				u_length[a].push_back(1 + extended_length[a]);
+				// check whether we are in 'unitigs' mode
+				if ( flag_unitigs or (1 + extended_length[a] >= node.length()) )
+				{
+					u_length[a].push_back(1 + extended_length[a]);
+				}
 			}
 			nbr_idx++;
 		}
