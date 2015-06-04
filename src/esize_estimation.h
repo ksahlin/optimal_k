@@ -321,7 +321,8 @@ inline void extend_unitig_from_node_SMART(const string& node,
 	const uint32_t min_abundance,
 	const uint32_t max_abundance,
 	uint64_t u_length[],
-	string u_last_node[]
+	string u_last_node[],
+	bool check_unary = true
 )
 {
 	uint32_t min_alive_abundance = min_abundance;
@@ -352,7 +353,7 @@ inline void extend_unitig_from_node_SMART(const string& node,
 				break;
 			}
 			// if unary
-			if ((out_degree[a] == 1) and (in_degree[a] == 1))
+			if ((out_degree[a] == 1) and ((not check_unary) or (in_degree[a] == 1)))
 			{
 				if ((u_length[a] >= 3000) and (current_node == node))
 				{
@@ -373,6 +374,9 @@ inline void extend_unitig_from_node_SMART(const string& node,
 				}
 			}
 		}
+
+		// only for the first node we ignore that it may not have exactly one in-neighbor
+		check_unary = true;
 	}
 }
 
@@ -493,10 +497,10 @@ inline void get_unitig_stats_SMART(const string& node,
 			if (in_neighbors_last_node[a].size() == 2)
 			{
 				// we have found a bubble
-				// cout << "-------- found a bubble of length " << assembled_strings[a][0].length << endl;
+				//cout << "-------- found a bubble of length " << assembled_strings[a][0].length << endl;
 
 				// checking whether the bubble is extendable
-				if ((in_neighbors[a].size() == 1) and (out_neighbors_last_node[a].size() == 1))
+				if ((in_neighbors[a].size() == 1) or (out_neighbors_last_node[a].size() == 1))
 				{
 					// the bubble is extendable
 					uint64_t extended_length_right[a + 1];
@@ -505,11 +509,15 @@ inline void get_unitig_stats_SMART(const string& node,
 					extended_length_left[a] = 0;
 					string u_last_node[a + 1];
 					
-					extend_unitig_from_node_SMART(assembled_strings[a][0].last_node, rlcsa, a, a, extended_length_right, u_last_node);
-					extend_unitig_from_node_SMART(reverse_complement(node), rlcsa, a, a, extended_length_left, u_last_node);
+					// we don't check that assembled_strings[a][0].last_node has only 1 in-neighbor (i.e. false as last argument)
+					extend_unitig_from_node_SMART(assembled_strings[a][0].last_node, rlcsa, a, a, extended_length_right, u_last_node, false); 
+					// we don't check that reverse_complement(node) has only 1 in-neighbor (i.e. false as last argument)
+					extend_unitig_from_node_SMART(reverse_complement(node), rlcsa, a, a, extended_length_left, u_last_node, false);
 					
 					uint64_t final_length = assembled_strings[a][0].length + extended_length_right[a] + extended_length_left[a];
-					// cout << "-------- the bubble is extendable to length " << final_length << endl;
+					// //cout << "-------- the bubble is extendable to length " << final_length << endl;
+					// cout << "-------- the bubble is extendable right by " << extended_length_right[a] << " nodes" << endl;
+					// cout << "-------- the bubble is extendable left by " << extended_length_left[a] << " nodes" << endl;
 					u_length[a].push_back(final_length);
 				}
 				else
